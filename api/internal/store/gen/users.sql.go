@@ -12,7 +12,7 @@ import (
 const createUser = `-- name: CreateUser :one
 INSERT INTO "User" (id, email, "passwordHash", name, "createdAt", "updatedAt", "passwordChangedAt")
 VALUES ($1, $2, $3, $4, NOW(), NOW(), NOW())
-RETURNING id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale, "inboxToken"
+RETURNING id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale, "inboxToken", "reminderEmailFallback"
 `
 
 type CreateUserParams struct {
@@ -41,6 +41,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.AiOptIn,
 		&i.Locale,
 		&i.InboxToken,
+		&i.ReminderEmailFallback,
 	)
 	return i, err
 }
@@ -55,7 +56,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id string) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale, "inboxToken" FROM "User" WHERE email = $1 LIMIT 1
+SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale, "inboxToken", "reminderEmailFallback" FROM "User" WHERE email = $1 LIMIT 1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -72,12 +73,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.AiOptIn,
 		&i.Locale,
 		&i.InboxToken,
+		&i.ReminderEmailFallback,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale, "inboxToken" FROM "User" WHERE id = $1 LIMIT 1
+SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale, "inboxToken", "reminderEmailFallback" FROM "User" WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
@@ -94,6 +96,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.AiOptIn,
 		&i.Locale,
 		&i.InboxToken,
+		&i.ReminderEmailFallback,
 	)
 	return i, err
 }
@@ -120,6 +123,44 @@ func (q *Queries) GetUserIDByInboxToken(ctx context.Context, inboxtoken string) 
 	var id string
 	err := row.Scan(&id)
 	return id, err
+}
+
+const listReminderEmailFallbackUsers = `-- name: ListReminderEmailFallbackUsers :many
+SELECT id, email
+FROM "User"
+WHERE "reminderEmailFallback" = true
+`
+
+type ListReminderEmailFallbackUsersRow struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+}
+
+// Cron support (internal/cron/run.go, FEATURE_RESEARCH_2026-11 §5 #8). Reads every
+// account that explicitly opted into the email fallback, in ONE query per pass,
+// exactly like ListUserLocales. Only the routing fields are projected: the mail is
+// addressed to the account email, and the greeting does not need the stored name.
+//
+// The default is FALSE, so this query is empty on a deployment whose users have
+// not opted in — the fallback then costs one indexed scan and nothing else.
+func (q *Queries) ListReminderEmailFallbackUsers(ctx context.Context) ([]ListReminderEmailFallbackUsersRow, error) {
+	rows, err := q.db.Query(ctx, listReminderEmailFallbackUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListReminderEmailFallbackUsersRow
+	for rows.Next() {
+		var i ListReminderEmailFallbackUsersRow
+		if err := rows.Scan(&i.ID, &i.Email); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listUserLocales = `-- name: ListUserLocales :many
@@ -218,25 +259,33 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 
 const updateUserProfile = `-- name: UpdateUserProfile :one
 UPDATE "User"
-SET name = CASE WHEN $4::boolean THEN $2 ELSE name END,
-    locale = CASE WHEN $5::boolean THEN $3 ELSE locale END,
+SET name = CASE WHEN $5::boolean THEN $2 ELSE name END,
+    locale = CASE WHEN $6::boolean THEN $3 ELSE locale END,
+    "reminderEmailFallback" = CASE
+        WHEN $7::boolean THEN $4
+        ELSE "reminderEmailFallback"
+    END,
     "updatedAt" = NOW()
 WHERE id = $1
-RETURNING id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale, "inboxToken"
+RETURNING id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale, "inboxToken", "reminderEmailFallback"
 `
 
 type UpdateUserProfileParams struct {
-	ID            string  `json:"id"`
-	Name          *string `json:"name"`
-	Locale        *string `json:"locale"`
-	NamePresent   bool    `json:"namePresent"`
-	LocalePresent bool    `json:"localePresent"`
+	ID                    string  `json:"id"`
+	Name                  *string `json:"name"`
+	Locale                *string `json:"locale"`
+	ReminderEmailFallback bool    `json:"reminderEmailFallback"`
+	NamePresent           bool    `json:"namePresent"`
+	LocalePresent         bool    `json:"localePresent"`
+	FallbackPresent       bool    `json:"fallbackPresent"`
 }
 
-// PATCH /api/v1/auth/me — the narrow write path. Both fields are tri-state:
+// PATCH /api/v1/auth/me — the narrow write path. All three fields are tri-state:
 //
-//	name       — SQL NULL clears the name;   ($2, namePresent=false) leaves it ALONE
-//	locale     — SQL NULL clears the preference; ($3, localePresent=false) leaves it ALONE
+//	name                    — SQL NULL clears the name;   ($2, namePresent=false) leaves it ALONE
+//	locale                  — SQL NULL clears the preference; ($3, localePresent=false) leaves it ALONE
+//	reminderEmailFallback   — a boolean, so "absent" is the only unchanged state;
+//	                          ($4, fallbackPresent=false) leaves the stored choice ALONE
 //
 // The `present` booleans mirror what the handler already has to know: a JSON body
 // distinguishes an ABSENT key ("leave unchanged") from an explicit `null`
@@ -246,14 +295,20 @@ type UpdateUserProfileParams struct {
 // display-name edit. Same reasoning as `displayName`, which the handler has always
 // had to track explicitly.
 //
+// The email-fallback flag needs its own present flag for the same reason, and it
+// is NOT tri-state with a clear value: `false` is a real choice ("tắt"), so only
+// the ABSENT key can mean "leave it alone".
+//
 // Returns the updated row so the handler can answer with the full user DTO.
 func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
 	row := q.db.QueryRow(ctx, updateUserProfile,
 		arg.ID,
 		arg.Name,
 		arg.Locale,
+		arg.ReminderEmailFallback,
 		arg.NamePresent,
 		arg.LocalePresent,
+		arg.FallbackPresent,
 	)
 	var i User
 	err := row.Scan(
@@ -267,6 +322,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.AiOptIn,
 		&i.Locale,
 		&i.InboxToken,
+		&i.ReminderEmailFallback,
 	)
 	return i, err
 }

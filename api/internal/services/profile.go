@@ -1,26 +1,31 @@
 // Package services / profile.go — the PATCH /api/v1/auth/me write path.
 //
-// Scope note: this endpoint edits the *display name* and the *language
-// preference* only. Changing the account email has its own two-step verification
-// flow (POST /api/v1/auth/change-email → token emailed to the NEW address →
-// POST /api/v1/auth/confirm-email-change), implemented in handlers/auth.go on top
-// of the PasswordReset table (`pendingEmail`, migration 0009). This handler still
-// rejects an `email` / `newEmail` field — with a fieldError that now points at
-// those endpoints — so a client that tries the wrong surface gets a clear answer
-// instead of a silent no-op.
+// Scope note: this endpoint edits the *display name*, the *language preference*
+// and the *email-fallback opt-in* only. Changing the account email has its own
+// two-step verification flow (POST /api/v1/auth/change-email → token emailed to
+// the NEW address → POST /api/v1/auth/confirm-email-change), implemented in
+// handlers/auth.go on top of the PasswordReset table (`pendingEmail`, migration
+// 0009). This handler still rejects an `email` / `newEmail` field — with a
+// fieldError that now points at those endpoints — so a client that tries the
+// wrong surface gets a clear answer instead of a silent no-op.
 //
-// Both fields follow the SAME tri-state convention, which is the whole reason
-// `NormalizeDisplayName` and `NormalizeLocale` take a `present` flag rather than
-// just a pointer:
+// All three fields follow the SAME "absent = leave alone" convention, which is
+// the whole reason the normalize helpers take a `present` flag rather than just a
+// pointer:
 //
-//	key absent in the JSON body → leave the stored value ALONE
-//	"key": null                 → CLEAR it (SQL NULL)
+//	key absent in the JSON body → leave the stored value ALONE   (all three)
+//	"key": null                 → CLEAR it (SQL NULL)            (name/locale only)
 //	"key": ""                   → CLEAR it (matches how Register treats a blank name)
 //	"key": "<value>"            → set it
 //
+// `reminderEmailFallback` is the exception on the CLEAR half: `false` is a real
+// choice ("tắt"), so it has no "empty" value and the handler rejects `null`
+// rather than guessing.
+//
 // The absent case is not cosmetic. Every client in the field today sends only
 // `displayName`, so a naive `SET locale = $n` would reset the language preference
-// on every display-name edit.
+// on every display-name edit — and the email-fallback boolean is worse: its
+// zero value would silently switch a user's opt-in OFF on every unrelated edit.
 //
 // # i18n
 //
@@ -138,15 +143,26 @@ func SupportedLocales() string {
 // UpdateProfile writes the (already normalized) fields and returns the fresh User
 // row so the handler can answer with the same DTO shape as GET /auth/me.
 //
-// Either field may be "unchanged": pass changed=false and the column keeps its
-// current contents. Passing changed=true with a nil value CLEARS it.
-func UpdateProfile(ctx context.Context, db *pgxpool.Pool, userID string, name *string, nameChanged bool, locale *string, localeChanged bool) (store.User, error) {
+// A field may be "unchanged": pass changed=false and the column keeps its current
+// contents. For name/locale, changed=true with a nil value CLEARS it; for
+// emailFallback there is no clear value (false is a real choice), so only
+// emailFallbackChanged=false leaves the stored flag alone.
+func UpdateProfile(
+	ctx context.Context,
+	db *pgxpool.Pool,
+	userID string,
+	name *string, nameChanged bool,
+	locale *string, localeChanged bool,
+	emailFallback bool, emailFallbackChanged bool,
+) (store.User, error) {
 	u, err := store.New(db).UpdateUserProfile(ctx, store.UpdateUserProfileParams{
-		ID:            userID,
-		Name:          name,
-		Locale:        locale,
-		NamePresent:   nameChanged,
-		LocalePresent: localeChanged,
+		ID:                    userID,
+		Name:                  name,
+		Locale:                locale,
+		NamePresent:           nameChanged,
+		LocalePresent:         localeChanged,
+		ReminderEmailFallback: emailFallback,
+		FallbackPresent:       emailFallbackChanged,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

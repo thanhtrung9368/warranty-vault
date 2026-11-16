@@ -100,7 +100,7 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:4000/api/v
 # hoặc: curl "http://localhost:4000/api/v1/cron/warranty-check?secret=$CRON_SECRET"
 ```
 
-Response: `{ ok, checkedAt, stats: { warrantyNotices, wishlistTargetHits, wishlistCheckins, subscriptionRenewals, subscriptionExpired, sessionsPruned, pushesSent, pushesFailed, pushesGone } }`.
+Response: `{ ok, checkedAt, stats: { warrantyNotices, wishlistTargetHits, wishlistCheckins, subscriptionRenewals, subscriptionExpired, sessionsPruned, pushesSent, pushesFailed, pushesGone, emailFallbackSent } }`. `emailFallbackSent` chỉ > 0 khi có user bật `reminderEmailFallback` và push không tới được ai (migration 0033).
 
 ## Chạy bằng Docker
 

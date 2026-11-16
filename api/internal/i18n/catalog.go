@@ -175,9 +175,13 @@ var messages = map[string]message{
 		vi: "Trường không được hỗ trợ",
 		en: "Unsupported field",
 	},
-	"Chỉ hỗ trợ sửa tên hiển thị. Đổi email có luồng riêng (change-email + confirm-email-change).": {
-		vi: "Chỉ hỗ trợ sửa tên hiển thị. Đổi email có luồng riêng (change-email + confirm-email-change).",
-		en: "Only the display name can be edited here. Changing the email has its own flow (change-email + confirm-email-change).",
+	"Chỉ hỗ trợ sửa tên hiển thị, ngôn ngữ và nhắc hạn qua email. Đổi email có luồng riêng (change-email + confirm-email-change).": {
+		vi: "Chỉ hỗ trợ sửa tên hiển thị, ngôn ngữ và nhắc hạn qua email. Đổi email có luồng riêng (change-email + confirm-email-change).",
+		en: "Only the display name, language and email reminders can be edited here. Changing the email has its own flow (change-email + confirm-email-change).",
+	},
+	"Giá trị phải là true hoặc false": {
+		vi: "Giá trị phải là true hoặc false",
+		en: "The value must be true or false",
 	},
 	"Đã cập nhật hồ sơ": {vi: "Đã cập nhật hồ sơ", en: "Profile updated"},
 	"Ngôn ngữ không hợp lệ": {
@@ -1828,6 +1832,75 @@ var messages = map[string]message{
 	"Link có hiệu lực trong %d phút. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận. Nếu không phải bạn, bỏ qua email này — không có gì thay đổi.": {
 		vi: "Link có hiệu lực trong %d phút. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận. Nếu không phải bạn, bỏ qua email này — không có gì thay đổi.",
 		en: "This link is valid for %d minutes. The old address keeps working until you confirm. If this was not you, ignore this email — nothing has changed.",
+	},
+
+	// ── Reminder email fallback (migration 0033, internal/email/resend.go,
+	// internal/cron/run.go). FEATURE_RESEARCH_2026-11 §5 #8.
+	//
+	// Unlike the two mails above, this one is an ARTIFACT and the cron renders it
+	// in Vietnamese unconditionally (i18n.VI), even for an account whose interface
+	// language is English: it leaves the system, may be opened later on a device
+	// that never chose a language, and a deadline is a fact about the purchase
+	// rather than a UI string. The English column exists because every catalog
+	// entry carries both languages; nothing serves it today.
+	//
+	// The subjects name the subject (device / item / subscription) because a mail
+	// is read hours later and has to stand on its own; they are NOT the push title
+	// verbatim, and they never carry the lead-day count for the three date-based
+	// kinds — the deadline date is the useful fact.
+	"Nhắc hạn từ Warrly": {vi: "Nhắc hạn từ Warrly", en: "Reminder from Warrly"},
+	"Bạn nhận được email này vì đã bật nhắc hạn qua email trong Warrly, và ứng dụng chưa gửi được thông báo đẩy tới thiết bị của bạn.": {
+		vi: "Bạn nhận được email này vì đã bật nhắc hạn qua email trong Warrly, và ứng dụng chưa gửi được thông báo đẩy tới thiết bị của bạn.",
+		en: "You are receiving this email because you turned on email reminders in Warrly and the app could not deliver a push notification to your device.",
+	},
+	"Bạn có thể tắt nhắc hạn qua email trong Cài đặt của Warrly.": {
+		vi: "Bạn có thể tắt nhắc hạn qua email trong Cài đặt của Warrly.",
+		en: "You can turn off email reminders in Warrly's Settings.",
+	},
+	"Mở Warrly": {vi: "Mở Warrly", en: "Open Warrly"},
+	"Sắp hết hạn bảo hành: %s": {
+		vi: "Sắp hết hạn bảo hành: %s",
+		en: "Warranty expiring: %s",
+	},
+	"Bảo hành của \"%s\" hết hạn ngày %s.": {
+		vi: "Bảo hành của \"%s\" hết hạn ngày %s.",
+		en: "The warranty for \"%s\" expires on %s.",
+	},
+	"Sắp tới ngày mua: %s": {
+		vi: "Sắp tới ngày mua: %s",
+		en: "Purchase date approaching: %s",
+	},
+	"Món \"%s\" — ngày dự kiến mua %s.": {
+		vi: "Món \"%s\" — ngày dự kiến mua %s.",
+		en: "\"%s\" — planned purchase date %s.",
+	},
+	"Còn thèm \"%s\"?": {
+		vi: "Còn thèm \"%s\"?",
+		en: "Still want \"%s\"?",
+	},
+	"Giá hiện tại: %s": {
+		vi: "Giá hiện tại: %s",
+		en: "Current price: %s",
+	},
+	"Giá ban đầu: ~%s": {
+		vi: "Giá ban đầu: ~%s",
+		en: "Initial price: ~%s",
+	},
+	"Món \"%s\" đã %d ngày chưa cập nhật giá.": {
+		vi: "Món \"%s\" đã %d ngày chưa cập nhật giá.",
+		en: "\"%s\" has not had a price update for %d days.",
+	},
+	"Sắp tới hạn gói: %s": {
+		vi: "Sắp tới hạn gói: %s",
+		en: "Subscription deadline approaching: %s",
+	},
+	"Gói \"%s\" tới hạn ngày %s.": {
+		vi: "Gói \"%s\" tới hạn ngày %s.",
+		en: "The subscription \"%s\" is due on %s.",
+	},
+	"Một mốc nhắc hạn trong Warrly sắp tới.": {
+		vi: "Một mốc nhắc hạn trong Warrly sắp tới.",
+		en: "A reminder deadline in Warrly is coming up.",
 	},
 
 	// ── Provider-agnostic inbound email (migration 0020,

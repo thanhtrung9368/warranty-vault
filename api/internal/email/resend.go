@@ -167,6 +167,152 @@ func (c *Client) SendEmailChange(ctx context.Context, lang i18n.Tag, to, oldEmai
 	return c.send(ctx, to, subject, text, htmlBody)
 }
 
+// ── reminder email fallback ──────────────────────────────────────────────────
+//
+// The fallback mail of FEATURE_RESEARCH_2026-11 §5 #8. Push is the primary
+// channel; when it reaches nobody, a user who opted in gets ONE transactional
+// email per reminder lead day instead of silence. The cron owns the "should this
+// user get mail at all / is this the first send" decision (User.reminderEmailFallback
+// + ReminderEmailNotice, migration 0033); this file only renders and sends.
+//
+// It is an ARTIFACT, so it is written in Vietnamese whenever the caller passes
+// i18n.VI — which the cron does unconditionally, even for an account whose
+// interface language is English. That is the same rule as the public certificate
+// and the insurance PDF: the mail leaves the system, may be opened on another
+// device, and a deadline is a fact about the user's purchase, not a UI string.
+// The `lang` parameter is kept so the template machinery is identical to the two
+// mails above, and so a future explicit opt-in to translated reminder mail is a
+// call-site change rather than a rewrite.
+//
+// Every interpolated value (device/item/subscription name, formatted date) comes
+// from user data, so it is escaped HERE in the HTML body, exactly like `to` and
+// the links in the templates above. The subject and the plain-text body are not
+// markup and are sent as-is.
+
+// ReminderKind identifies which deadline a fallback mail is about. The string
+// values are the same tokens the cron stores in "ReminderEmailNotice".kind
+// (migration 0033), so a log line and a dedupe row can be read together.
+type ReminderKind string
+
+const (
+	ReminderWarranty            ReminderKind = "warranty"
+	ReminderWishlistTarget      ReminderKind = "wishlist_target"
+	ReminderWishlistCheckin     ReminderKind = "wishlist_checkin"
+	ReminderSubscriptionRenewal ReminderKind = "subscription_renewal"
+)
+
+// ReminderNotice is one already-selected fallback notice. Everything the cron
+// knows about the deadline is passed in; nothing here reads the database.
+//
+//   - Name     — device / wishlist item / subscription name, user-controlled.
+//   - Days     — the lead day that fired (0 = today). Used by the check-in copy,
+//     where the interval was the trigger, and not printed for the others (the
+//     deadline date is the useful fact there).
+//   - Deadline — the deadline rendered for a Vietnamese reader (dd/mm/yyyy).
+//   - Detail   — optional extra line the cron already localized (provider,
+//     price + brand, password-cancel hint). Kept opaque on purpose: the cron
+//     knows which fields exist for which kind, and the mail must not invent one.
+//   - URL      — the app path for the notice (e.g. "/devices/<id>"); the cron
+//     prefixes APP_URL before calling, because a mail needs an absolute link.
+type ReminderNotice struct {
+	Kind     ReminderKind
+	Name     string
+	Days     int
+	Deadline string
+	Detail   string
+	URL      string
+}
+
+// Configured reports whether a real Resend key is present. With no key the
+// client still runs in dev mode (send logs the message), but a cron pass must
+// NOT claim a fallback send it never made, so the caller checks this first and
+// skips the notice entirely. Kept as a method rather than an exported field so
+// the env read at construction stays the only source of truth.
+func (c *Client) Configured() bool {
+	return c != nil && c.apiKey != ""
+}
+
+// SendReminderFallback emails one deadline reminder, in `lang`.
+func (c *Client) SendReminderFallback(ctx context.Context, lang i18n.Tag, to string, n ReminderNotice) error {
+	subject, noticeLine := reminderCopy(lang, n)
+
+	greeting := i18n.Translate(lang, "Chào bạn,")
+	heading := i18n.Translate(lang, "Nhắc hạn từ Warrly")
+	intro := i18n.Translate(lang, "Bạn nhận được email này vì đã bật nhắc hạn qua email trong Warrly, và ứng dụng chưa gửi được thông báo đẩy tới thiết bị của bạn.")
+	footer := i18n.Translate(lang, "Bạn có thể tắt nhắc hạn qua email trong Cài đặt của Warrly.")
+	button := i18n.Translate(lang, "Mở Warrly")
+
+	// Plain text: the same sentences as the HTML, in the same order; the button
+	// becomes a bare URL.
+	text := greeting + "\n\n" + intro + "\n\n" + noticeLine
+	if n.Detail != "" {
+		text += "\n" + n.Detail
+	}
+	text += "\n\n" + button + ": " + n.URL + "\n\n" + footer
+
+	// The notice line and the detail carry user data (names) and are escaped as
+	// whole sentences; the catalog entries never contain markup. The detail is
+	// optional, so it is appended only when present rather than leaving an empty
+	// <p> in every warranty mail.
+	detail := ""
+	if n.Detail != "" {
+		detail = "<br>" + html.EscapeString(n.Detail)
+	}
+	htmlBody := fmt.Sprintf(`<div style="font-family: -apple-system, Segoe UI, sans-serif; max-width: 480px; margin: auto; padding: 24px;">
+  <h2 style="color:#1e40af;">%s</h2>
+  <p>%s</p>
+  <p><strong>%s</strong>%s</p>
+  <p style="margin: 24px 0;">
+    <a href="%s" style="display:inline-block;padding:10px 20px;background:#1e40af;color:#fff;text-decoration:none;border-radius:6px;">
+      %s
+    </a>
+  </p>
+  <p style="color:#666;font-size:13px;">%s</p>
+</div>`,
+		heading,
+		greeting,
+		html.EscapeString(noticeLine),
+		detail,
+		html.EscapeString(n.URL),
+		button,
+		footer,
+	)
+
+	return c.send(ctx, to, subject, text, htmlBody)
+}
+
+// reminderCopy renders the kind-specific subject and body sentence. The two
+// strings are returned together because they must agree on the same count and
+// the same date; splitting them across call sites is how one of them ends up
+// naming the wrong deadline.
+//
+// The subjects do NOT repeat the push title verbatim: a mail is read hours later
+// and must say what it is about on its own ("Sắp hết hạn bảo hành: <name>").
+func reminderCopy(lang i18n.Tag, n ReminderNotice) (subject, line string) {
+	switch n.Kind {
+	case ReminderWarranty:
+		subject = i18n.Translate(lang, "Sắp hết hạn bảo hành: %s", n.Name)
+		line = i18n.Translate(lang, "Bảo hành của \"%s\" hết hạn ngày %s.", n.Name, n.Deadline)
+	case ReminderWishlistTarget:
+		subject = i18n.Translate(lang, "Sắp tới ngày mua: %s", n.Name)
+		line = i18n.Translate(lang, "Món \"%s\" — ngày dự kiến mua %s.", n.Name, n.Deadline)
+	case ReminderWishlistCheckin:
+		subject = i18n.Translate(lang, "Còn thèm \"%s\"?", n.Name)
+		line = i18n.Translate(lang, "Món \"%s\" đã %d ngày chưa cập nhật giá.", n.Name, n.Days)
+	case ReminderSubscriptionRenewal:
+		// "Sắp tới hạn", not "Sắp gia hạn": a subscription with autoRenew=false
+		// does not renew at all — it EXPIRES that day. The deadline is the same,
+		// and the (already localized) Detail line says which of the two applies.
+		subject = i18n.Translate(lang, "Sắp tới hạn gói: %s", n.Name)
+		line = i18n.Translate(lang, "Gói \"%s\" tới hạn ngày %s.", n.Name, n.Deadline)
+	default:
+		// Defensive only: every cron call site passes one of the four kinds above.
+		subject = i18n.Translate(lang, "Nhắc hạn từ Warrly")
+		line = i18n.Translate(lang, "Một mốc nhắc hạn trong Warrly sắp tới.")
+	}
+	return subject, line
+}
+
 func (c *Client) send(ctx context.Context, to, subject, text, html string) error {
 	if c.apiKey == "" {
 		slog.Info("email dev-mode (no RESEND_API_KEY)",

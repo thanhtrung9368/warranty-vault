@@ -39,6 +39,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,6 +49,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/thanhtrung9368/warranty-vault/api/internal/email"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/push"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
@@ -75,6 +78,16 @@ type Stats struct {
 	PushesSent           int `json:"pushesSent"`
 	PushesFailed         int `json:"pushesFailed"`
 	PushesGone           int `json:"pushesGone"`
+	// EmailFallbackSent counts the reminder emails Resend accepted in this pass
+	// (FEATURE_RESEARCH_2026-11 §5 #8, migration 0033). Zero unless at least one
+	// user opted in (User.reminderEmailFallback) AND push reached nobody for a
+	// notice; also zero when RESEND_API_KEY is absent, because that pass logs one
+	// warning and sends nothing rather than pretending it emailed anyone.
+	//
+	// Incremented on the sequential outer loops, like the notice counters: the
+	// fallback runs AFTER dispatch() has waited for every push goroutine, so it
+	// shares no writes with statsMu's counters.
+	EmailFallbackSent int `json:"emailFallbackSent"`
 	// RepairExtensionShiftedNotices counts warranty pushes whose date came from
 	// an entitled end (`endDate + closed repair days`) rather than the paper
 	// endDate — i.e. how many notices WV_REPAIR_EXTENSION actually moved in this
@@ -98,6 +111,109 @@ type Dispatcher interface {
 // Result aliases push.Result so tests can build mocks without importing the
 // push package's transport-specific bits.
 type Result = push.Result
+
+// Mailer is the consumer-side contract the cron needs from internal/email for the
+// reminder email fallback (FEATURE_RESEARCH_2026-11 §5 #8). *email.Client
+// satisfies it; tests and a deployment without Resend pass nothing at all.
+//
+// Configured() is part of the contract, not an implementation detail: a Client
+// with no RESEND_API_KEY still "sends" in dev mode (it logs the message), and a
+// cron must NOT write a dedupe row or bump emailFallbackSent for a mail that
+// never left the box. The pass logs one warning and treats the fallback as off.
+type Mailer interface {
+	Configured() bool
+	SendReminderFallback(ctx context.Context, lang i18n.Tag, to string, notice email.ReminderNotice) error
+}
+
+// Option customises one Run pass. Optional dependencies are injected this way so
+// every existing caller (and every cron test) keeps the push-only behaviour
+// without passing a nil mailer.
+type Option func(*runOptions)
+
+type runOptions struct {
+	mailer Mailer
+}
+
+// WithMailer enables the reminder email fallback for a pass. A nil interface is
+// ignored; a typed-nil *email.Client is safe because Configured() has a nil
+// receiver check, and the pass then runs with the fallback disabled.
+func WithMailer(m Mailer) Option {
+	return func(o *runOptions) {
+		if m != nil {
+			o.mailer = m
+		}
+	}
+}
+
+// delivery summarises ONE dispatch() fan-out: how many pushes actually landed.
+// It is what lets the caller decide "push reached nobody" without inspecting the
+// stats counters (those are global to the pass, and a previous notice's success
+// must not mask this one's silence). The per-send failures/gone counts stay in
+// Stats and in the logs; only "did anything arrive" is needed here.
+type delivery struct {
+	sent int
+}
+
+// reachedNobody is the fallback trigger: no active PushSubscription, or every
+// send failed (including every row being deleted as gone). At least one success
+// means the user was reached and no email is warranted — even if another device
+// failed.
+func (d delivery) reachedNobody() bool { return d.sent == 0 }
+
+// failureNote caps what is written to "PushSubscription"."lastError". Upstream
+// error bodies are normally a sentence, but a misbehaving gateway can return
+// megabytes; the column is for investigation, not for storing a response dump.
+func failureNote(msg string) string {
+	const maxRunes = 500
+	if r := []rune(msg); len(r) > maxRunes {
+		return string(r[:maxRunes]) + "…"
+	}
+	return msg
+}
+
+// fallbackEntityID builds the entity half of the send-once key.
+//
+// The prescribed unique key is (userId, kind, entityId, leadDay), which is exactly
+// right for a deadline that never moves. It is NOT enough for two cases that do
+// occur:
+//
+//   - a subscription RENEWS: the same (subscription, 3-day) notice fires again
+//     next month. A raw entity id would make the first cycle's email suppress
+//     every later one, and the fallback would silently stop working after the
+//     first month — the exact failure this feature exists to prevent.
+//   - a user moves a wishlist target date or a warranty end date. The new
+//     deadline is a new notice and deserves its own email.
+//
+// So the key carries the deadline day: "<entityID>@<YYYY-MM-DD>". This mirrors
+// "PremiumNotice", whose primary key is (userId, periodEnd, kind) for the same
+// reason — the period is part of what makes a notice one notice. `leadDay` keeps
+// its meaning (0/3/7/30); the entity half identifies WHICH deadline.
+//
+// The day is formatted in UTC because every date-only column is stored at UTC
+// midnight (internal/wire.Day), so two runs of the same notice format the same
+// string regardless of the process zone.
+func fallbackEntityID(entityID string, deadline time.Time) string {
+	if deadline.IsZero() {
+		return entityID
+	}
+	return entityID + "@" + deadline.UTC().Format("2006-01-02")
+}
+
+// loadEmailFallbackUsers reads every account that opted into the email fallback,
+// in ONE query per pass (same shape as loadLocales). A failure is not fatal: the
+// map is empty, the pass sends no fallback mail, and every push still goes out.
+func loadEmailFallbackUsers(ctx context.Context, q *store.Queries) map[string]string {
+	out := map[string]string{}
+	rows, err := q.ListReminderEmailFallbackUsers(ctx)
+	if err != nil {
+		slog.Error("cron: list reminder-email-fallback users failed; email fallback disabled for this pass", "err", err)
+		return out
+	}
+	for _, r := range rows {
+		out[r.ID] = r.Email
+	}
+	return out
+}
 
 // warrantyTypeLabels maps a Warranty.type code to its catalog key. The key is the
 // Vietnamese label (the catalog is keyed on source text), so the push body for a
@@ -236,12 +352,28 @@ func formatVi(t time.Time) string {
 // Run executes one full warranty-check pass. Safe to call concurrently with
 // the rest of the API (it never holds a transaction longer than one
 // auto-bill).
-func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, error) {
+func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher, opts ...Option) (Stats, error) {
 	if db == nil {
 		return Stats{}, errors.New("cron: nil db pool")
 	}
 	if dispatcher == nil {
 		return Stats{}, errors.New("cron: nil dispatcher")
+	}
+
+	cfg := runOptions{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&cfg)
+		}
+	}
+	mailer := cfg.mailer
+	// No RESEND_API_KEY means no fallback. The email Client would happily log the
+	// message in dev mode, but this pass must not claim a send it never made, so
+	// the fallback is switched off here — once, with one warning, rather than a
+	// warning per notice. A failing mail provider never fails the cron.
+	if mailer != nil && !mailer.Configured() {
+		slog.Warn("cron: reminder email fallback disabled — RESEND_API_KEY is not set")
+		mailer = nil
 	}
 
 	// Use the process's local time for CALENDAR-DAY windows. dayWindow rolls
@@ -274,6 +406,22 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	locales := loadLocales(ctx, q)
 	langOf := func(userID string) i18n.Tag {
 		return i18n.FromStored(locales[userID])
+	}
+
+	// Email-fallback recipients, read ONCE per pass like the locales above, and
+	// only when a mailer is actually configured (an empty map is the "everyone is
+	// opted out" case, which is the default for every account).
+	fallbackEmails := map[string]string{}
+	appURL := ""
+	if mailer != nil {
+		fallbackEmails = loadEmailFallbackUsers(ctx, q)
+		// Absolute links are the one thing an email needs that a push payload does
+		// not: the cron's URLs are app paths. Same APP_URL rule as the reset and
+		// email-change mail (handlers/auth.go), same localhost fallback.
+		appURL = strings.TrimRight(os.Getenv("APP_URL"), "/")
+		if appURL == "" {
+			appURL = "http://localhost:3000"
+		}
 	}
 
 	// Cache PushSubscription lists per user to avoid hammering the DB during
@@ -309,8 +457,9 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	// (bounded by pushFanoutLimit) since each Send() is a blocking network
 	// call; the stats counters are guarded by statsMu because they are now
 	// written from multiple goroutines.
-	dispatch := func(userID string, payload push.Payload, kind string, extra ...any) {
+	dispatch := func(userID string, payload push.Payload, kind string, extra ...any) delivery {
 		subs := pushFor(userID)
+		out := delivery{}
 		g, gctx := errgroup.WithContext(ctx)
 		g.SetLimit(pushFanoutLimit)
 		for _, s := range subs {
@@ -327,11 +476,14 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 				if res.Ok {
 					statsMu.Lock()
 					stats.PushesSent++
+					out.sent++
 					statsMu.Unlock()
 					slog.Info("push", args...)
 					return nil
 				}
 				if res.Gone {
+					// 404/410: the row is dead, delete it as before. Health on a
+					// deleted row would be meaningless, so it is NOT recorded.
 					statsMu.Lock()
 					stats.PushesGone++
 					statsMu.Unlock()
@@ -341,16 +493,101 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 					slog.Info("push", append(args, "gone", true, "err", res.Error)...)
 					return nil
 				}
+				// Any other failure — permanent 401/403, transient 5xx/timeout, or
+				// a transport that is not configured — is recorded on the
+				// subscription itself, so "this target silently stopped working" is
+				// queryable instead of a line in a log that rotates away.
 				statsMu.Lock()
 				stats.PushesFailed++
 				statsMu.Unlock()
+				if err := q.RecordPushSubscriptionFailure(gctx, store.RecordPushSubscriptionFailureParams{
+					ID:            s.ID,
+					LastFailureAt: wire.At(time.Now().UTC()),
+					LastError:     failureNote(res.Error),
+				}); err != nil {
+					slog.Error("cron: record push failure", "sub", s.ID, "err", err)
+				}
 				slog.Warn("push", append(args, "err", res.Error)...)
 				return nil
 			})
 		}
 		// The goroutines never return an error (per-row failures are folded
-		// into the counters), so Wait only serves as a barrier here.
+		// into the counters), so Wait only serves as a barrier here. The read of
+		// `out` after Wait is ordered by the Wait itself; every write above is
+		// under statsMu, so the race detector agrees.
 		_ = g.Wait()
+		return out
+	}
+
+	// maybeEmailFallback sends the ONE fallback email for a notice whose push
+	// fan-out reached nobody — no active subscription, or every send failed.
+	// It is called AFTER dispatch returns (never inside the goroutines), in the
+	// same sequential loop the notice counters use.
+	//
+	// Order matters and is deliberate: CLAIM the (userId, kind, entityId, leadDay)
+	// row, then send, then DELETE the claim if Resend refuses. Claim-first gives
+	// at-most-once even if two cron passes overlap. Deleting on failure keeps the
+	// key free and avoids recording a send that never happened; it does NOT
+	// promise a retry, because each sweep stamps its own push marker right after
+	// this call and a normal later pass will not select the same notice. A claim
+	// that already exists means this exact notice was emailed before — skip
+	// without logging, because a second pass that selects the same row is the
+	// expected overlap, not an anomaly.
+	//
+	// `kind`, `entityID` and `leadDay` are the dedupe key and the same values the
+	// log line carries, so a "why didn't I get mail?" question can be answered
+	// from either side. `entityID` arrives from fallbackEntityID, which appends
+	// the deadline day for the date-based kinds so a renewed subscription (or a
+	// moved target date) is a NEW notice rather than a suppressed one. `notice.URL`
+	// is a relative app path; APP_URL is prepended here (an email link must be
+	// absolute).
+	//
+	// Every row that reaches this point has ALREADY been filtered by the cron
+	// queries: dismissed reminders, SOLD/deleted devices and inactive
+	// subscriptions never get here, which is why the fallback cannot resurrect a
+	// notice the user hid.
+	maybeEmailFallback := func(userID, kind, entityID string, leadDay int, notice email.ReminderNotice) {
+		if mailer == nil {
+			return
+		}
+		to, optedIn := fallbackEmails[userID]
+		if !optedIn {
+			return
+		}
+		notice.URL = appURL + notice.URL
+
+		claimID := uuid.NewString()
+		_, err := q.ClaimReminderEmailNotice(ctx, store.ClaimReminderEmailNoticeParams{
+			ID:       claimID,
+			UserId:   userID,
+			Kind:     kind,
+			EntityId: entityID,
+			LeadDay:  int32(leadDay),
+		})
+		if err != nil {
+			if !errors.Is(err, pgx.ErrNoRows) {
+				slog.Error("cron: claim reminder email notice failed; skipping fallback",
+					"user", userID, "kind", kind, "entity", entityID, "err", err)
+			}
+			return
+		}
+
+		// The fallback mail is an ARTIFACT: Vietnamese regardless of the account's
+		// interface language (CLAUDE.md "Artifacts are Vietnamese; requests are
+		// English"). The push that failed was in the user's language; this is an
+		// independent notice, not a translation of it.
+		if err := mailer.SendReminderFallback(ctx, i18n.VI, to, notice); err != nil {
+			slog.Error("cron: reminder email fallback failed",
+				"user", userID, "kind", kind, "entity", entityID, "err", err)
+			if derr := q.DeleteReminderEmailNotice(ctx, claimID); derr != nil {
+				slog.Error("cron: release reminder email claim failed",
+					"notice", claimID, "err", derr)
+			}
+			return
+		}
+		stats.EmailFallbackSent++
+		slog.Info("email fallback sent",
+			"user", userID, "kind", kind, "entity", entityID, "lead_day", leadDay)
 	}
 
 	// ─── 1. Warranty expiry notices (one per device lead day) ──────────────
@@ -454,8 +691,34 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 				URL:  fmt.Sprintf("/devices/%s", w.DeviceId),
 				Tag:  fmt.Sprintf("wv-%d-%s", days, w.ID),
 			}
-			dispatch(w.UserID, payload, "warranty",
-				"warranty", w.ID, "device", w.DeviceId, "days", days)
+			if d := dispatch(w.UserID, payload, "warranty",
+				"warranty", w.ID, "device", w.DeviceId, "days", days); d.reachedNobody() {
+				// Push reached nobody: the opted-in user gets ONE email for this
+				// (warranty, lead day). The date is the one this notice counted
+				// down to — the ENTITLED end when the repair clock moved it — so
+				// the email cannot disagree with the push that failed.
+				deadlineDay := w.EndDate.Time
+				if !entitledEnd.IsZero() {
+					deadlineDay = entitledEnd
+				}
+				deadline := ""
+				if w.EndDate.Valid || !deadlineDay.IsZero() {
+					deadline = i18n.FormatDate(i18n.VI, deadlineDay)
+				}
+				detail := render(i18n.VI, typeKey)
+				if w.Provider != nil && *w.Provider != "" {
+					detail = render(i18n.VI, "%s • %s", detail, *w.Provider)
+				}
+				maybeEmailFallback(w.UserID, "warranty",
+					fallbackEntityID(w.ID, deadlineDay), days, email.ReminderNotice{
+						Kind:     email.ReminderWarranty,
+						Name:     w.DeviceName,
+						Days:     days,
+						Deadline: deadline,
+						Detail:   detail,
+						URL:      fmt.Sprintf("/devices/%s", w.DeviceId),
+					})
+			}
 
 			// Stamp the per-lead-day idempotency marker. If no Reminder row
 			// exists for this warranty yet, the query inserts one with
@@ -609,8 +872,29 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 				URL:   fmt.Sprintf("/wishlist/%s", it.ID),
 				Tag:   fmt.Sprintf("%s-%s", tagPrefix, it.ID),
 			}
-			dispatch(it.UserId, payload, "wishlist_target",
-				"item", it.ID, "days", days)
+			if d := dispatch(it.UserId, payload, "wishlist_target",
+				"item", it.ID, "days", days); d.reachedNobody() {
+				deadline := ""
+				if it.TargetDate.Valid {
+					deadline = i18n.FormatDate(i18n.VI, it.TargetDate.Time)
+				}
+				detail := ""
+				switch {
+				case it.CurrentPrice != nil:
+					detail = render(i18n.VI, "Giá hiện tại: %s", i18n.FormatMoney(i18n.VI, *it.CurrentPrice))
+				case it.InitialPrice != nil:
+					detail = render(i18n.VI, "Giá ban đầu: ~%s", i18n.FormatMoney(i18n.VI, *it.InitialPrice))
+				}
+				maybeEmailFallback(it.UserId, "wishlist_target",
+					fallbackEntityID(it.ID, it.TargetDate.Time), days, email.ReminderNotice{
+						Kind:     email.ReminderWishlistTarget,
+						Name:     it.Name,
+						Days:     days,
+						Deadline: deadline,
+						Detail:   detail,
+						URL:      fmt.Sprintf("/wishlist/%s", it.ID),
+					})
+			}
 
 			if err := q.StampWishlistNotified(ctx, it.ID); err != nil {
 				slog.Error("cron: stamp wishlist notified", "item", it.ID, "err", err)
@@ -619,6 +903,15 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	}
 
 	// ─── 5. Wishlist periodic check-in pings ───────────────────────────────
+	//
+	// The e-mail fallback needs a dedupe key for this bucket too, but a check-in
+	// has no lead day: it fires every "reminderIntervalDays", so the same
+	// (userId, item) is due again next cycle. The key therefore uses the LOCAL
+	// calendar day as a day number (days since 1970-01-01), which is stable for
+	// repeated passes on one day and distinct on the next. The day is pinned to
+	// UTC after its Y/M/D is read from `now`, so a DST shift in the process zone
+	// cannot collapse two local days onto one number.
+	checkinDay := int(time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).Unix() / 86400)
 	checkinRows, err := q.ListWishlistDueForCheckin(ctx)
 	if err != nil {
 		return stats, fmt.Errorf("list wishlist due for checkin: %w", err)
@@ -656,8 +949,23 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 			URL:  fmt.Sprintf("/wishlist/%s", it.ID),
 			Tag:  fmt.Sprintf("wl-int-%s", it.ID),
 		}
-		dispatch(it.UserId, payload, "wishlist_checkin",
-			"item", it.ID, "interval_days", interval)
+		if d := dispatch(it.UserId, payload, "wishlist_checkin",
+			"item", it.ID, "interval_days", interval); d.reachedNobody() {
+			detail := ""
+			if it.CurrentPrice != nil {
+				detail = render(i18n.VI, "Giá hiện tại: %s", i18n.FormatMoney(i18n.VI, *it.CurrentPrice))
+			}
+			// checkinDay (computed above the loop) makes this one email per
+			// check-in cycle. The cron's own "lastNotifiedAt" stamp already bounds
+			// the push to one check-in per interval.
+			maybeEmailFallback(it.UserId, "wishlist_checkin", it.ID, checkinDay, email.ReminderNotice{
+				Kind:   email.ReminderWishlistCheckin,
+				Name:   it.Name,
+				Days:   int(interval),
+				Detail: detail,
+				URL:    fmt.Sprintf("/wishlist/%s", it.ID),
+			})
+		}
 
 		if err := q.StampWishlistNotified(ctx, it.ID); err != nil {
 			slog.Error("cron: stamp wishlist notified (checkin)", "item", it.ID, "err", err)
@@ -746,8 +1054,32 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 				URL:   fmt.Sprintf("/subscriptions/%s", s.ID),
 				Tag:   fmt.Sprintf("sub-d%d-%s", days, s.ID),
 			}
-			dispatch(s.UserId, payload, "subscription_renewal",
-				"sub", s.ID, "days", days)
+			if d := dispatch(s.UserId, payload, "subscription_renewal",
+				"sub", s.ID, "days", days); d.reachedNobody() {
+				deadline := ""
+				if s.RenewalDate.Valid {
+					deadline = i18n.FormatDate(i18n.VI, s.RenewalDate.Time)
+				}
+				detail := i18n.FormatMoney(i18n.VI, s.Price)
+				if brand != "" {
+					detail += " • " + brand
+				}
+				if !s.AutoRenew {
+					// Same distinction the push makes: a subscription that will
+					// EXPIRE is not one that will renew, even though the deadline
+					// (and therefore this notice) is the same day.
+					detail += " • " + render(i18n.VI, "sẽ hết hạn")
+				}
+				maybeEmailFallback(s.UserId, "subscription_renewal",
+					fallbackEntityID(s.ID, s.RenewalDate.Time), days, email.ReminderNotice{
+						Kind:     email.ReminderSubscriptionRenewal,
+						Name:     s.Name,
+						Days:     days,
+						Deadline: deadline,
+						Detail:   detail,
+						URL:      fmt.Sprintf("/subscriptions/%s", s.ID),
+					})
+			}
 
 			// Stamp the per-lead-day idempotency marker (migration 0015). The
 			// old key was per-subscription-per-day, which would have let the
