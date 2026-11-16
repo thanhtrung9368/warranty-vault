@@ -49,6 +49,11 @@ import * as statsApi from './stats';
 import * as backupApi from './backup';
 import * as aiApi from './ai';
 // AGENT_C_IMPORTS_END
+// AGENT_HANDOFF_IMPORTS_BEGIN
+// Resale handoff (Warrly 2.0): the owner-side create/read/cancel and the public
+// preview/claim. The token is a 6-character code returned only by create.
+import * as handoffApi from './handoff';
+// AGENT_HANDOFF_IMPORTS_END
 // AGENT_BRAND_WARRANTY_IMPORTS_BEGIN
 // One brand's service-info row, including the (nullable) warranty lookup URL.
 import * as brandsApi from './brands';
@@ -80,6 +85,9 @@ export const api = {
   subscriptions: subscriptionsApi,
   wishlist: wishlistApi,
   catalog: catalogApi,
+  // AGENT_HANDOFF_NAMESPACES_BEGIN
+  handoff: handoffApi,
+  // AGENT_HANDOFF_NAMESPACES_END
   // AGENT_BRAND_WARRANTY_NAMESPACES_BEGIN
   brands: brandsApi,
   // AGENT_BRAND_WARRANTY_NAMESPACES_END
