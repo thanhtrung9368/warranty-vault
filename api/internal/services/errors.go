@@ -71,6 +71,12 @@ func (e *Error) HTTPStatus() int {
 		return http.StatusBadRequest
 	case "CONFLICT":
 		return http.StatusConflict
+	// GONE is deliberately distinct from NOT_FOUND: it says "this existed and is
+	// no longer usable", which is the actionable half of an expired handoff code
+	// (ask the seller for a new one). Only the CLAIM path uses it; the public
+	// preview folds every dead state into one 404 so it cannot be enumerated.
+	case "GONE":
+		return http.StatusGone
 	default:
 		return http.StatusBadRequest
 	}
@@ -93,6 +99,17 @@ func ErrNotFound(message string) *Error {
 // ErrForbidden builds a FORBIDDEN domain error.
 func ErrForbidden(message string) *Error {
 	return &Error{Code: "FORBIDDEN", Message: message}
+}
+
+// ErrNotFoundKeyed is ErrNotFound for a message that must be rendered in the
+// REQUEST's language. The plain ErrNotFound keeps its historic shape (a finished
+// Vietnamese sentence, no catalog key) because most of its call sites already
+// pass `i18n.Text(ctx, ...)` and a key there would be redundant. The handoff's
+// public dead-code sentence cannot: it is built by a context-free constructor so
+// that every failing case produces the same bytes, and the handler is the one
+// place that knows which language those bytes should be in.
+func ErrNotFoundKeyed(messageKey string) *Error {
+	return &Error{Code: "NOT_FOUND", Message: messageKey, MessageKey: messageKey}
 }
 
 // ErrLimit builds a LIMIT_REACHED domain error matching the TS pattern of
@@ -210,4 +227,23 @@ func ErrCategoryInvalid() *Error {
 		MessageKey:  ErrCategoryInvalidMessage,
 		FieldErrors: FieldErrors{"category": {ErrCategoryInvalidMessage}},
 	}
+}
+
+// ErrConflict builds a CONFLICT (409) domain error: the request was well formed
+// but the resource's current state forbids it — a device that is already SOLD, a
+// handoff code somebody else already claimed, a terminal handoff someone is trying
+// to cancel. The message IS the catalog key, like ErrLimit, so the envelope can be
+// rendered in the request's language even though the error is built deep in a
+// service with no request in scope.
+func ErrConflict(message string) *Error {
+	return &Error{Code: "CONFLICT", Message: message, MessageKey: message}
+}
+
+// ErrGone builds a GONE (410) domain error: the thing existed and is no longer
+// usable, which is deliberately distinct from NOT_FOUND for an expired handoff
+// code. A 410 is only ever returned to a signed-in caller on the CLAIM path — the
+// public preview collapses every dead state into one 404 so it cannot be used to
+// enumerate codes.
+func ErrGone(message string) *Error {
+	return &Error{Code: "GONE", Message: message, MessageKey: message}
 }

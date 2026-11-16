@@ -1074,7 +1074,7 @@ func (q *Queries) BackupListClaimsForUser(ctx context.Context, userid string) ([
 const backupListDevices = `-- name: BackupListDevices :many
 
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId", "handoffSentAt", "handoffReceivedAt", "handoffSellerName"
 FROM "Device"
 WHERE "userId" = $1
 ORDER BY "createdAt" ASC
@@ -1136,6 +1136,9 @@ func (q *Queries) BackupListDevices(ctx context.Context, userid string) ([]Devic
 			&i.BrandCheckedAt,
 			&i.BrandLookupUrl,
 			&i.RetailerId,
+			&i.HandoffSentAt,
+			&i.HandoffReceivedAt,
+			&i.HandoffSellerName,
 		); err != nil {
 			return nil, err
 		}

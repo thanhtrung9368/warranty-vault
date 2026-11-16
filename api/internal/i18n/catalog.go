@@ -1418,6 +1418,84 @@ var messages = map[string]message{
 	// translation, two endpoints that refuse an unknown key the same way.
 	"Body quá lớn": {vi: "Body quá lớn", en: "Request body is too large"},
 
+	// ── Resale handoff (internal/services/handoff.go, handlers/handoff.go).
+	//
+	// Warrly 2.0: the seller hands the device record to a buyer through a
+	// 6-character code. The sentences below are the whole user-facing contract of
+	// the feature, so each one says what happened AND what the person can do next;
+	// a bare "conflict" would leave a seller who has to wait 30 days with no clue
+	// why.
+	//
+	// The four dead-code cases are ONE sentence, used by the public preview
+	// (services.ErrHandoffCodeNotFound) so that route cannot be used to discover
+	// which codes once existed. The CLAIM path is allowed to distinguish them —
+	// 410 vs 409 — because a signed-in buyer holding a real code needs to know
+	// whether to ask the seller for a new one; those sentences live here too.
+	"Không tìm thấy phiếu bàn giao": {
+		vi: "Không tìm thấy phiếu bàn giao",
+		en: "Handoff not found",
+	},
+	"Thiết bị đã bán hoặc đã mất, không thể tạo phiếu bàn giao": {
+		vi: "Thiết bị đã bán hoặc đã mất, không thể tạo phiếu bàn giao",
+		en: "This device is sold or lost, so a handoff cannot be created for it",
+	},
+	"Thiết bị đang có một phiếu bàn giao chưa dùng. Huỷ phiếu cũ rồi thử lại.": {
+		vi: "Thiết bị đang có một phiếu bàn giao chưa dùng. Huỷ phiếu cũ rồi thử lại.",
+		en: "This device already has an unused handoff. Cancel it and try again.",
+	},
+	"Thiết bị này đã tạo phiếu bàn giao trong 30 ngày qua. Có thể tạo lại từ %s.": {
+		vi: "Thiết bị này đã tạo phiếu bàn giao trong 30 ngày qua. Có thể tạo lại từ %s.",
+		en: "A handoff was already created for this device in the last 30 days. You can create a new one from %s.",
+	},
+	"Tệp đính kèm không thuộc thiết bị này": {
+		vi: "Tệp đính kèm không thuộc thiết bị này",
+		en: "That attachment does not belong to this device",
+	},
+	"Chỉ được chọn tối đa %d tệp đính kèm": {
+		vi: "Chỉ được chọn tối đa %d tệp đính kèm",
+		en: "You can select at most %d attachments",
+	},
+	"Mã bàn giao không tồn tại, đã hết hạn hoặc đã được sử dụng": {
+		vi: "Mã bàn giao không tồn tại, đã hết hạn hoặc đã được sử dụng",
+		en: "This handoff code does not exist, has expired, or has already been used",
+	},
+	"Bạn không thể nhận lại thiết bị của chính mình": {
+		vi: "Bạn không thể nhận lại thiết bị của chính mình",
+		en: "You cannot claim your own device",
+	},
+	"Mã bàn giao đã được người khác sử dụng": {
+		vi: "Mã bàn giao đã được người khác sử dụng",
+		en: "This handoff code has already been used by someone else",
+	},
+	"Mã bàn giao đã hết hạn hoặc đã bị huỷ": {
+		vi: "Mã bàn giao đã hết hạn hoặc đã bị huỷ",
+		en: "This handoff code has expired or was cancelled",
+	},
+	"Thiết bị không còn ở trạng thái có thể bàn giao": {
+		vi: "Thiết bị không còn ở trạng thái có thể bàn giao",
+		en: "The device is no longer in a state that can be handed off",
+	},
+	"Phiếu bàn giao đã được người mua nhận, không thể huỷ": {
+		vi: "Phiếu bàn giao đã được người mua nhận, không thể huỷ",
+		en: "The buyer has already accepted this handoff, so it cannot be cancelled",
+	},
+	"Phiếu bàn giao đã hết hạn, không thể huỷ": {
+		vi: "Phiếu bàn giao đã hết hạn, không thể huỷ",
+		en: "This handoff has expired and cannot be cancelled",
+	},
+	"Không thể huỷ phiếu bàn giao ở trạng thái này": {
+		vi: "Không thể huỷ phiếu bàn giao ở trạng thái này",
+		en: "A handoff in this state cannot be cancelled",
+	},
+	// The public artifact's honesty sentence (services.HandoffDisclaimer). It is
+	// the ONLY copy standing between a buyer and the assumption that a Warrly
+	// handoff is a title document, so it is translated in full and never trimmed:
+	// "the app only moves data, it is not a legal document".
+	"App chỉ chuyển dữ liệu, không phải giấy tờ pháp lý. Phiếu bàn giao không thay thế hoá đơn, hợp đồng hay giấy tờ sở hữu; hãy kiểm tra số máy và tình trạng thiết bị trước khi nhận.": {
+		vi: "App chỉ chuyển dữ liệu, không phải giấy tờ pháp lý. Phiếu bàn giao không thay thế hoá đơn, hợp đồng hay giấy tờ sở hữu; hãy kiểm tra số máy và tình trạng thiết bị trước khi nhận.",
+		en: "The app only moves data; it is not a legal document. A handoff does not replace an invoice, a contract or proof of ownership — check the serial number and the device's condition before accepting it.",
+	},
+
 	// ── Search (internal/services/search.go, handlers/search.go).
 	"Từ khoá tìm kiếm quá dài (tối đa %d ký tự)": {
 		vi: "Từ khoá tìm kiếm quá dài (tối đa %d ký tự)",

@@ -115,6 +115,24 @@ type Device struct {
 	BrandCheckedAt               wire.Instant `json:"brandCheckedAt"`
 	BrandLookupUrl               *string      `json:"brandLookupUrl"`
 	RetailerId                   *string      `json:"retailerId"`
+	HandoffSentAt                wire.Instant `json:"handoffSentAt"`
+	HandoffReceivedAt            wire.Instant `json:"handoffReceivedAt"`
+	HandoffSellerName            *string      `json:"handoffSellerName"`
+}
+
+type DeviceHandoff struct {
+	ID              string       `json:"id"`
+	DeviceId        string       `json:"deviceId"`
+	FromUserId      string       `json:"fromUserId"`
+	CodeHash        string       `json:"codeHash"`
+	SharedFields    []byte       `json:"sharedFields"`
+	ExpiresAt       wire.Instant `json:"expiresAt"`
+	Status          string       `json:"status"`
+	ClaimedByUserId *string      `json:"claimedByUserId"`
+	ClaimedDeviceId *string      `json:"claimedDeviceId"`
+	ClaimedAt       wire.Instant `json:"claimedAt"`
+	RequestIpHash   *string      `json:"requestIpHash"`
+	CreatedAt       wire.Instant `json:"createdAt"`
 }
 
 type DeviceShare struct {

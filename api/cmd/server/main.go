@@ -103,6 +103,7 @@ func main() {
 	handlers.RegisterAttachments(mux, deps)
 	handlers.RegisterDirectory(mux, deps)
 	handlers.RegisterShares(mux, deps)
+	handlers.RegisterHandoff(mux, deps)
 	handlers.RegisterSubscriptions(mux, deps)
 	handlers.RegisterWishlist(mux, deps)
 	handlers.RegisterStaples(mux, deps)

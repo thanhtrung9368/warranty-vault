@@ -68,6 +68,7 @@ var responseModels = []any{
 	store.Claim{},
 	store.DecisionSnooze{},
 	store.Device{},
+	store.DeviceHandoff{},
 	store.DeviceShare{},
 	store.InstallmentPlan{},
 	store.PasswordReset{},

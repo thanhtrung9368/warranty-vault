@@ -143,7 +143,7 @@ INSERT INTO "Device" (
     NOW(),
     NOW()
 )
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId", "handoffSentAt", "handoffReceivedAt", "handoffSellerName"
 `
 
 type CreateDeviceParams struct {
@@ -256,6 +256,9 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		&i.BrandCheckedAt,
 		&i.BrandLookupUrl,
 		&i.RetailerId,
+		&i.HandoffSentAt,
+		&i.HandoffReceivedAt,
+		&i.HandoffSellerName,
 	)
 	return i, err
 }
@@ -281,7 +284,7 @@ func (q *Queries) DeleteDevice(ctx context.Context, arg DeleteDeviceParams) (int
 }
 
 const getDeviceByID = `-- name: GetDeviceByID :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId", "handoffSentAt", "handoffReceivedAt", "handoffSellerName"
 FROM "Device"
 WHERE id = $1 AND "userId" = $2
 LIMIT 1
@@ -330,12 +333,15 @@ func (q *Queries) GetDeviceByID(ctx context.Context, arg GetDeviceByIDParams) (D
 		&i.BrandCheckedAt,
 		&i.BrandLookupUrl,
 		&i.RetailerId,
+		&i.HandoffSentAt,
+		&i.HandoffReceivedAt,
+		&i.HandoffSellerName,
 	)
 	return i, err
 }
 
 const getDeviceByIDAnyUser = `-- name: GetDeviceByIDAnyUser :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId", "handoffSentAt", "handoffReceivedAt", "handoffSellerName"
 FROM "Device"
 WHERE id = $1
 LIMIT 1
@@ -381,6 +387,9 @@ func (q *Queries) GetDeviceByIDAnyUser(ctx context.Context, id string) (Device, 
 		&i.BrandCheckedAt,
 		&i.BrandLookupUrl,
 		&i.RetailerId,
+		&i.HandoffSentAt,
+		&i.HandoffReceivedAt,
+		&i.HandoffSellerName,
 	)
 	return i, err
 }
@@ -475,7 +484,7 @@ func (q *Queries) ListDevicesAwaitingActivation(ctx context.Context) ([]ListDevi
 
 const listDevicesByUser = `-- name: ListDevicesByUser :many
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId", "handoffSentAt", "handoffReceivedAt", "handoffSellerName"
 FROM "Device"
 WHERE "userId" = $1
   AND (NULLIF($2::text, '') IS NULL OR category = $2)
@@ -580,6 +589,9 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 			&i.BrandCheckedAt,
 			&i.BrandLookupUrl,
 			&i.RetailerId,
+			&i.HandoffSentAt,
+			&i.HandoffReceivedAt,
+			&i.HandoffSellerName,
 		); err != nil {
 			return nil, err
 		}
@@ -592,7 +604,7 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 }
 
 const listDevicesByUserSimple = `-- name: ListDevicesByUserSimple :many
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId", "handoffSentAt", "handoffReceivedAt", "handoffSellerName"
 FROM "Device"
 WHERE "userId" = $1
 ORDER BY "createdAt" DESC
@@ -643,6 +655,9 @@ func (q *Queries) ListDevicesByUserSimple(ctx context.Context, userid string) ([
 			&i.BrandCheckedAt,
 			&i.BrandLookupUrl,
 			&i.RetailerId,
+			&i.HandoffSentAt,
+			&i.HandoffReceivedAt,
+			&i.HandoffSellerName,
 		); err != nil {
 			return nil, err
 		}
@@ -804,7 +819,7 @@ UPDATE "Device" SET
     "retailerId" = $28::text,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId", "handoffSentAt", "handoffReceivedAt", "handoffSellerName"
 `
 
 type UpdateDeviceParams struct {
@@ -908,6 +923,9 @@ func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Dev
 		&i.BrandCheckedAt,
 		&i.BrandLookupUrl,
 		&i.RetailerId,
+		&i.HandoffSentAt,
+		&i.HandoffReceivedAt,
+		&i.HandoffSellerName,
 	)
 	return i, err
 }

@@ -164,6 +164,41 @@ func CheckInboundEmail(ctx context.Context, limiter Limiter, ip string) (Result,
 	return limiter.Check(ctx, "inbound:email:ip:"+ip, 60, authWindowMs)
 }
 
+// CheckHandoffPreview rate-limits GET /api/v1/public/handoff/{code} by IP.
+//
+// This is the bucket that makes a 6-character code defensible. ~30 bits is
+// guessable at machine speed, so the public read allows 60 requests / 15 minutes
+// per IP — the same budget as the public share certificate (a code forwarded into
+// a family chat is read a handful of times from one NAT). Its OWN key, so
+// hammering the handoff route cannot exhaust the login/forgot budget that
+// CheckAuth manages.
+func CheckHandoffPreview(ctx context.Context, limiter Limiter, ip string) (Result, error) {
+	return limiter.Check(ctx, "handoff:preview:ip:"+ip, 60, authWindowMs)
+}
+
+// CheckHandoffCreate rate-limits POST /api/v1/devices/{id}/handoff per user:
+// 10 / 60 s, in its own bucket.
+//
+// The real ceiling on creation is 1 per device per 30 days, enforced from the
+// handoff rows themselves. This bucket exists for the other axis: an account with
+// 50 devices could otherwise mint 50 codes in one burst, and each code is a live
+// capability. Ten is enough to retry a failed request, low enough that a stolen
+// token cannot carpet an account with codes in a minute.
+func CheckHandoffCreate(ctx context.Context, limiter Limiter, userID string) (Result, error) {
+	return limiter.Check(ctx, "handoff:create:user:"+userID, 10, writeWindow)
+}
+
+// CheckHandoffClaim rate-limits POST /api/v1/handoff/{code}/claim per user:
+// 10 / 60 s.
+//
+// A claim requires a bearer token, so IP rotation alone does not multiply it; the
+// per-user bucket is the one that bounds a signed-in guesser. Ten attempts a minute
+// leaves a real buyer (one typo, one retry) untouched and makes walking 2^30 codes
+// hopeless even before the 14-day TTL is considered.
+func CheckHandoffClaim(ctx context.Context, limiter Limiter, userID string) (Result, error) {
+	return limiter.Check(ctx, "handoff:claim:user:"+userID, 10, writeWindow)
+}
+
 // FormatRetry mirrors website/src/lib/rate-limit.ts::formatRetry, and renders it
 // in `tag`: >=60s -> "X phút" / "X minutes" (ceil); else "X giây" / "X seconds".
 //
