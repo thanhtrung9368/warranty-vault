@@ -2,15 +2,10 @@ import SwiftUI
 import WarrlyKit
 
 // ============================================================
-// LoginView — Direction 1, "Tờ giấy" (The Ledger).
+// LoginView — one vertically centred column over a soft coral wash.
 //
-// A page of the app, not a poster: flat `bg`, the mark at 28 pt centred on its
-// own line, one 34 pt left-aligned title at the 16 pt gutter, labels above the
-// fields, one coral 52 pt action, and the register link next to it — no
-// gradient, no hero, no card around the fields. Started from
-// docs/handoff/WARRLY-login-redesign.md §6 with three research-driven changes
-// (centred pictogram, footer under the CTA, a title that does not repeat the
-// button label).
+// Mark, title, form card and register link are stacked in a single centred
+// column; a soft brand wash fades from the top of the screen.
 // ============================================================
 
 struct LoginView: View {
@@ -36,96 +31,38 @@ struct LoginView: View {
         NavigationStack {
             GeometryReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        WarrlyMark(width: 28)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.top, WVSpacing.xxl)
+                    // One column, centred as a whole: the scroll content is at
+                    // least as tall as the screen and the two outer Spacers
+                    // share whatever is left over.
+                    VStack(spacing: 0) {
+                        Spacer(minLength: WVSpacing.xl)
 
-                        Spacer().frame(height: WVSpacing.xxl)
-
-                        Text(L.t("Đăng nhập Warrly"))
-                            .wvFont(.display)
-                            .tracking(-0.4)
-                            .foregroundStyle(WVColor.label)
-                            .multilineTextAlignment(.leading)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        hero
 
                         Spacer().frame(height: WVSpacing.xl)
 
-                        AuthTextField(
-                            label: "Email",
-                            placeholder: "you@example.com",
-                            text: $email,
-                            keyboardType: .emailAddress,
-                            contentType: .username,
-                            isSecure: false,
-                            presentation: .page,
-                            submitLabel: .next,
-                            focus: $emailFocused,
-                            onSubmit: { passwordFocused = true },
-                            error: fieldErrors["email"]?.first
-                        )
+                        formCard
 
-                        Spacer().frame(height: WVSpacing.md)
-
-                        AuthTextField(
-                            label: L.t("Mật khẩu"),
-                            placeholder: "•••••",
-                            text: $password,
-                            keyboardType: .default,
-                            contentType: .password,
-                            isSecure: true,
-                            presentation: .page,
-                            submitLabel: .go,
-                            focus: $passwordFocused,
-                            onSubmit: {
-                                guard canSubmit else { return }
-                                Task { await submit() }
-                            },
-                            error: fieldErrors["password"]?.first,
-                            labelAccessory: AnyView(forgotButton)
-                        )
-
-                        if let topError {
-                            HStack(spacing: 6) {
-                                WVIcon("alert", size: 13)
-                                Text(topError)
-                                    .wvFont(.footnote)
-                            }
-                            .foregroundStyle(WVColor.red)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, WVSpacing.sm)
-                        }
-
-                        Spacer().frame(height: topError == nil ? WVSpacing.xl : WVSpacing.sm)
-
-                        WVButton(
-                            isSubmitting ? L.t("Đang đăng nhập…") : L.t("Đăng nhập"),
-                            kind: .primary,
-                            minHeight: 52
-                        ) {
-                            Task { await submit() }
-                        }
-                        .disabled(isSubmitting || !canSubmit)
-
-                        // Directly under the action, the way every sample app
-                        // with a register link places it. Pinning it to the
-                        // bottom edge put a 327 pt void between the two things
-                        // a person actually uses.
                         Spacer().frame(height: WVSpacing.xl)
 
                         footer
 
-                        Spacer(minLength: 0)
+                        Spacer(minLength: WVSpacing.xl)
                     }
                     .padding(.horizontal, WVSpacing.gutter)
-                    .frame(maxWidth: 480, alignment: .leading)
-                    .frame(minHeight: proxy.size.height, alignment: .top)
+                    .frame(maxWidth: 480)
+                    .frame(minHeight: proxy.size.height)
                     .frame(maxWidth: .infinity)
                 }
                 .scrollDismissesKeyboard(.interactively)
             }
-            .background(WVColor.bg.ignoresSafeArea())
+            .background(
+                LinearGradient(
+                    colors: [WVColor.brandSoft.opacity(0.6), WVColor.bg],
+                    startPoint: .top, endPoint: .center
+                )
+                .ignoresSafeArea()
+            )
             .navigationBarHidden(true)
         }
         .sheet(isPresented: $showForgot) {
@@ -135,6 +72,82 @@ struct LoginView: View {
             RegisterView()
                 .environmentObject(auth)
         }
+    }
+
+    // MARK: - Pieces
+
+    private var hero: some View {
+        VStack(spacing: WVSpacing.lg) {
+            WarrlyMark(width: 56)
+            Text(L.t("Đăng nhập Warrly"))
+                .wvFont(.display)
+                .tracking(-0.4)
+                .foregroundStyle(WVColor.label)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var formCard: some View {
+        VStack(alignment: .leading, spacing: WVSpacing.md) {
+            AuthTextField(
+                label: "Email",
+                placeholder: "you@example.com",
+                text: $email,
+                keyboardType: .emailAddress,
+                contentType: .username,
+                isSecure: false,
+                presentation: .page,
+                submitLabel: .next,
+                focus: $emailFocused,
+                onSubmit: { passwordFocused = true },
+                error: fieldErrors["email"]?.first
+            )
+
+            AuthTextField(
+                label: L.t("Mật khẩu"),
+                placeholder: "•••••",
+                text: $password,
+                keyboardType: .default,
+                contentType: .password,
+                isSecure: true,
+                presentation: .page,
+                submitLabel: .go,
+                focus: $passwordFocused,
+                onSubmit: {
+                    guard canSubmit else { return }
+                    Task { await submit() }
+                },
+                error: fieldErrors["password"]?.first,
+                labelAccessory: AnyView(forgotButton)
+            )
+
+            if let topError {
+                HStack(spacing: 6) {
+                    WVIcon("alert", size: 13)
+                    Text(topError)
+                        .wvFont(.footnote)
+                }
+                .foregroundStyle(WVColor.red)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            WVButton(
+                isSubmitting ? L.t("Đang đăng nhập…") : L.t("Đăng nhập"),
+                kind: .primary,
+                minHeight: 52
+            ) {
+                Task { await submit() }
+            }
+            .disabled(isSubmitting || !canSubmit)
+            .padding(.top, WVSpacing.sm)
+        }
+        .padding(WVSpacing.lg)
+        // bg3, not bgElev: the page-style fields are bg2 (white in light), so
+        // a white card would swallow their boxes.
+        .background(WVColor.bg3)
+        .clipShape(RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous))
+        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
     }
 
     // MARK: - Inline actions
@@ -166,10 +179,10 @@ struct LoginView: View {
                     .fontWeight(.semibold)
             )
             .wvFont(.subheadline)
-            .multilineTextAlignment(.leading)
+            .multilineTextAlignment(.center)
         }
         .buttonStyle(.plain)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
     // MARK: - Logic

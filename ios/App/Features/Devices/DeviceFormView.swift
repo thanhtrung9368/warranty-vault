@@ -1058,10 +1058,13 @@ struct DeviceFormView: View {
                     Spacer().frame(height: 12)
                 }
 
-                // OCR receipt scan — create flow only, gated on AI opt-in.
+                // OCR receipt scan — create flow only, gated on AI opt-in and
+                // on the same `AIOptInSurface` flag as the Settings switch: the
+                // button's own copy says to enable scanning in Settings, so it
+                // must disappear together with the row it points at (1.0.0).
                 // The endpoint accepts JPEG/PNG/WEBP **and PDF**, so the menu
                 // offers both the photo library and a PDF file.
-                if !isEditing && aiEnabled {
+                if !isEditing && aiEnabled && AIOptInSurface.isVisible {
                     Menu {
                         Button {
                             showPhotoPicker = true
@@ -1822,6 +1825,9 @@ struct DeviceFormView: View {
         // the user has already answered.
         .task { await applyCarriedValuesIfNeeded() }
         .task {
+            // No point asking for the opt-in when 1.0.0 hides the surface the
+            // answer would enable — and the Settings row that would change it.
+            guard AIOptInSurface.isVisible else { return }
             if !isEditing, let v = try? await client.getAIOptIn() { aiEnabled = v }
         }
 #if DEBUG

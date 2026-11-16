@@ -25,6 +25,16 @@ extension APIClient {
         return w.user
     }
 
+    // MARK: - Warrly Premium
+
+    /// Verifies one StoreKit 2 transaction with the backend. Call for every
+    /// current entitlement on launch/foreground and for the transaction the
+    /// user just bought/restored; the endpoint is idempotent by transaction id.
+    public func verifyPremium(jws: String) async throws -> PremiumVerifyResult {
+        try await request("POST", "/api/v1/billing/verify",
+                          body: PremiumVerifyInput(jws: jws))
+    }
+
     /// Updates the profile — display name and/or language.
     ///
     /// Only the fields whose `Field` is not `.unchanged` are sent, which is the
@@ -773,6 +783,34 @@ extension APIClient {
         let _: EmptyResponse = try await request(
             "POST", "/api/v1/wishlist/\(id)/prices", body: input
         )
+    }
+
+    // MARK: - Essentials / staples
+
+    public func listStaples(state: StapleState? = nil) async throws -> [Staple] {
+        var query: [URLQueryItem] = []
+        if let state {
+            query.append(URLQueryItem(name: "state", value: state.rawValue))
+        }
+        struct Wrapper: Decodable { let items: [Staple] }
+        let w: Wrapper = try await request("GET", "/api/v1/staples", query: query)
+        return w.items
+    }
+
+    public func createStaple(_ input: StapleInput) async throws -> Staple {
+        struct Wrapper: Decodable { let item: Staple }
+        let w: Wrapper = try await request("POST", "/api/v1/staples", body: input)
+        return w.item
+    }
+
+    public func updateStaple(id: String, _ input: StapleInput) async throws -> Staple {
+        struct Wrapper: Decodable { let item: Staple }
+        let w: Wrapper = try await request("PATCH", "/api/v1/staples/\(id)", body: input)
+        return w.item
+    }
+
+    public func deleteStaple(id: String) async throws {
+        let _: EmptyResponse = try await request("DELETE", "/api/v1/staples/\(id)")
     }
 
     // MARK: - Action queue ("Việc cần xử lý")

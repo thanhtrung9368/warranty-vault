@@ -55,12 +55,14 @@ import kotlinx.coroutines.launch
  * the other is the bug this sheet exists to prevent: an account receiving
  * Vietnamese push notifications inside an English app, or the reverse.
  *
- * So the order is: PATCH first, and only on success write the local value. A
- * failure keeps the sheet open with the server's own message (translated, since
+ * So the order is: PATCH first; [AuthStore.updateLocale] writes the local value
+ * (and the device-mode mirror marker) only after the server answers. A failure
+ * keeps the sheet open with the server's own message (translated, since
  * `Accept-Language` travels on this very request), which is honest — the user
- * knows the choice did not stick anywhere. Writing locally first and letting the
- * PATCH fail quietly would look like it worked while the push notifications kept
- * arriving in the other language.
+ * knows the choice did not stick anywhere, and the UI keeps the language the
+ * account actually holds. Writing locally first and letting the PATCH fail
+ * quietly would look like it worked while the push notifications kept arriving
+ * in the other language.
  *
  * Writing the local value flips the `StateFlow` in [LanguageStore];
  * `MainActivity` observes it and recreates itself, which is what re-runs
@@ -70,14 +72,14 @@ import kotlinx.coroutines.launch
  * ## Three rows, not two
  *
  * The contract's `locale` is **tri-state** (`openapi.yaml`, `UpdateProfileInput`):
- * absent means "follow the device", `null` clears a stored choice, a value sets
- * it. iOS exposes all three (`SettingsView.languageSection` + `LanguageChoice`);
- * Android used to expose two, so once a language had been picked the account
- * could never be unpinned. The third row sends `{"locale": null}` — see
- * [com.warrly.network.UpdateLocaleInput] for why that needs a custom serializer.
- * The tick is derived from the STORED choice ([LanguageStore.stored]), so
- * "Theo thiết bị" shows as selected even when the device language happens to be
- * Vietnamese.
+ * absent means "leave the stored value alone", `null` clears it, a value sets
+ * it. The sheet exposes all three STATES, but only two VALUES ever reach the
+ * wire: "Theo thiết bị" does not send the clearing `null`, because an account
+ * with a NULL `locale` leaves the push/email path in the Vietnamese artifact
+ * fallback. It sends the language the phone resolves to instead, and
+ * [LanguageStore] remembers that value as a mirror. The tick is derived from
+ * the STORED choice ([LanguageStore.stored]), so "Theo thiết bị" shows as
+ * selected even when the device language happens to be Vietnamese.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,15 +102,13 @@ fun LanguageSheet(
         error = null
         scope.launch {
             try {
-                // `null` PATCHes an explicit `{"locale": null}` — the tri-state
-                // "follow the device" branch, not an omission.
+                // PATCH first. `null` is "Theo thiết bị": AuthStore resolves it
+                // to the phone's language and stores that — never
+                // `{"locale": null}`, which would leave push and email in the
+                // Vietnamese artifact fallback. The local state (and the mirror
+                // marker) moves inside the same call, only after the server
+                // answers.
                 auth.updateLocale(choice.language)
-                when (val language = choice.language) {
-                    // Triggers MainActivity.recreate() through the StateFlow when
-                    // the resolved language actually moves.
-                    null -> languageStore.clear()
-                    else -> languageStore.set(language)
-                }
             } catch (e: Exception) {
                 error = e.toUserMessage(ApiClient.json, context)
             } finally {
@@ -174,10 +174,11 @@ fun LanguageSheet(
 }
 
 /**
- * The three states the contract has, not two.
+ * The three rows the sheet shows, not two.
  *
- * `Device` is the absent `locale` — the server decides per request — and maps to
- * an explicit `PATCH {"locale": null}`. Mirror of iOS `LanguageChoice`
+ * `Device` is "no explicit choice": the app keeps following the phone's own
+ * language, and the account stores the language the phone resolved to as a
+ * mirror so push and email have an answer. Mirror of iOS `LanguageChoice`
  * (`ios/App/State/LocalizationStore.swift`).
  */
 private enum class LanguageChoice(

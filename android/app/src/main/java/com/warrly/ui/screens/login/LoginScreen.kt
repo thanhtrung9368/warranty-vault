@@ -61,7 +61,7 @@ fun LoginScreen(auth: AuthStore) {
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        cs.primaryContainer.copy(alpha = 0.45f),
+                        cs.primaryContainer,
                         cs.background,
                         cs.background,
                     )
@@ -77,24 +77,24 @@ fun LoginScreen(auth: AuthStore) {
         ) {
             Spacer(Modifier.height(48.dp))
 
-            // Hero icon — circular tinted background
+            // Hero mark — solid brand tile, the card below overlaps it
             Box(
                 Modifier
-                    .size(96.dp)
-                    .clip(CircleShape)
-                    .background(cs.primary.copy(alpha = 0.14f)),
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(cs.primary),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.Filled.VerifiedUser, null,
-                    tint = cs.primary,
-                    modifier = Modifier.size(48.dp),
+                    tint = cs.onPrimary,
+                    modifier = Modifier.size(38.dp),
                 )
             }
             Spacer(Modifier.height(20.dp))
             Text(
                 if (mode == 0) stringResource(R.string.login_welcome_back) else stringResource(R.string.login_create_a_new_account),
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = cs.onBackground,
                 textAlign = TextAlign.Center,
@@ -115,7 +115,7 @@ fun LoginScreen(auth: AuthStore) {
                 selectedTabIndex = mode,
                 modifier = Modifier
                     .widthIn(max = 480.dp)
-                    .clip(RoundedCornerShape(12.dp)),
+                    .clip(CircleShape),
                 containerColor = cs.surfaceContainerHighest,
                 contentColor = cs.primary,
             ) {
@@ -138,10 +138,10 @@ fun LoginScreen(auth: AuthStore) {
             Card(
                 modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = cs.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                shape = RoundedCornerShape(20.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                shape = RoundedCornerShape(28.dp),
             ) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     if (mode == 1) {
                         OutlinedTextField(
                             value = name, onValueChange = { name = it },
@@ -149,7 +149,7 @@ fun LoginScreen(auth: AuthStore) {
                             placeholder = { Text(stringResource(R.string.login_jane_doe)) },
                             isError = fieldErrors.containsKey("name"),
                             supportingText = { fieldErrors["name"]?.firstOrNull()?.let { Text(it, color = cs.error) } },
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -161,7 +161,7 @@ fun LoginScreen(auth: AuthStore) {
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         isError = fieldErrors.containsKey("email"),
                         supportingText = { fieldErrors["email"]?.firstOrNull()?.let { Text(it, color = cs.error) } },
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth(),
                     )
 
@@ -173,7 +173,7 @@ fun LoginScreen(auth: AuthStore) {
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         isError = fieldErrors.containsKey("password"),
                         supportingText = { fieldErrors["password"]?.firstOrNull()?.let { Text(it, color = cs.error) } },
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth(),
                     )
 

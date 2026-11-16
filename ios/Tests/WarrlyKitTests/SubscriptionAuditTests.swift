@@ -178,10 +178,14 @@ final class SubscriptionAuditTests: KitTestCase {
                            duplicateNormalized: false)
         )
 
-        XCTAssertEqual(lines.count, 3, "duplicateNormalized = false ⇒ the name-matching line is left out")
+        XCTAssertEqual(lines.count, 2, "duplicateNormalized = false ⇒ the name-matching line is left out")
         XCTAssertTrue(lines[0].contains("≥ 4 khoản") && lines[0].contains("≥ 9 tháng"))
         XCTAssertTrue(lines[1].contains("7%"))
-        XCTAssertTrue(lines[2].contains("21 ngày"))
+        // The payload still echoes `upcomingRenewalDays`, but no audit kind applies
+        // it: printing a "renews within N days" rule would promise a filter the
+        // feature does not run. The line is gone, not merely relabelled.
+        XCTAssertFalse(lines.contains { $0.contains("ngày") || $0.contains("21") },
+                       "no rule consumes upcomingRenewalDays ⇒ no renewal-window line")
 
         let normalized = SubscriptionAuditRules.thresholdLines(try thresholds())
         XCTAssertTrue(normalized.contains { $0.contains("bỏ dấu") })
@@ -292,6 +296,13 @@ final class SubscriptionAuditTests: KitTestCase {
                        ["QUIET_AUTO_RENEW", "PRICE_INCREASED", "DUPLICATE"])
         XCTAssertEqual(SubscriptionAuditRules.findingCount(audit), 3)
         XCTAssertEqual(SubscriptionAuditRules.findingCount(nil), 0)
+
+        // Grouping by kind is what makes thirty findings readable: each block
+        // carries its own count, and the blocks run in rule order.
+        let sections = SubscriptionAuditRules.sections(audit.findings)
+        XCTAssertEqual(sections.map(\.kind), [.quietAutoRenew, .priceIncreased, .duplicate])
+        XCTAssertEqual(sections.map(\.count), [1, 1, 1])
+        XCTAssertTrue(sections.allSatisfy { !SubscriptionAuditRules.hasHiddenFindings($0) })
         XCTAssertEqual(SubscriptionAuditRules.subtitle(audit.counts), "3 phát hiện cần xem lại")
         XCTAssertEqual(SubscriptionAuditRules.subtitle(ActionCounts(total: 0, high: 0, medium: 0, low: 0)),
                        "Không có gì đáng lưu ý")

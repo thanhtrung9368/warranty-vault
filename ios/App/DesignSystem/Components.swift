@@ -88,6 +88,11 @@ struct WVIcon: View {
 struct WVLeadingIcon: View {
     let icon: String
     var color: Color = WVColor.gray
+    /// Opt-in. Off, the tile is the neutral grey one and `color` is ignored —
+    /// which is what every screen that already passes a colour relies on. On,
+    /// `color` tints the tile and the glyph so a row's meaning reads before its
+    /// title (Settings).
+    var tinted: Bool = false
     var size: CGFloat = 28
 
     /// 20 pt for the standard 28 pt tile; clamped so a smaller ad-hoc tile can
@@ -97,11 +102,11 @@ struct WVLeadingIcon: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: WVRadius.sm, style: .continuous)
-            .fill(WVColor.fill3)
+            .fill(tinted ? color.opacity(0.16) : WVColor.fill3)
             .frame(width: size, height: size)
             .overlay {
                 WVIcon(icon, size: glyphSize)
-                    .foregroundStyle(WVColor.label2)
+                    .foregroundStyle(tinted ? color : WVColor.label2)
             }
     }
 }
@@ -276,6 +281,8 @@ enum WVRowRole { case normal, destructive, tint, centered }
 struct WVRow: View {
     var icon: String?
     var iconColor: Color = WVColor.gray
+    /// Opt-in coloured icon tile; see `WVLeadingIcon.tinted`.
+    var tintedIcon: Bool = false
     var iconLarge: Bool = false
     var title: String
     var subtitle: String?
@@ -330,7 +337,7 @@ struct WVRow: View {
         HStack(spacing: 12) {
             if role == .centered { Spacer(minLength: 0) }
             if let icon {
-                WVLeadingIcon(icon: icon, color: iconColor, size: iconLarge ? 36 : 28)
+                WVLeadingIcon(icon: icon, color: iconColor, tinted: tintedIcon, size: iconLarge ? 36 : 28)
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
@@ -375,7 +382,7 @@ struct WVRow: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top, spacing: 12) {
                 if let icon {
-                    WVLeadingIcon(icon: icon, color: iconColor, size: iconLarge ? 36 : 28)
+                    WVLeadingIcon(icon: icon, color: iconColor, tinted: tintedIcon, size: iconLarge ? 36 : 28)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)

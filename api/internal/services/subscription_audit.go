@@ -79,9 +79,14 @@ const (
 	// "this has been running for half a year", which is the same bar for every
 	// billing cycle.
 	AuditQuietMinMonths = 6
-	// AuditUpcomingRenewalDays is how close the next charge must be for a finding
-	// to be worth acting on. 14 days gives a full monthly cycle of slack, so the
-	// user can still cancel before the money leaves.
+	// AuditUpcomingRenewalDays is the window a finding would have to fall inside to
+	// be actionable before the money leaves: 14 days, one monthly cycle of slack.
+	//
+	// NO RULE READS IT. It is echoed into the response's `thresholds` and nothing
+	// filters by it, which is why the iOS audit screen used to print a "14 days"
+	// line that described nothing. The value stays because removing it is an API
+	// change; the honest options are to implement a renewal-window finding kind or
+	// to drop the field. Until one of those happens, do not describe it as a rule.
 	AuditUpcomingRenewalDays = 14
 	// AuditPriceRiseMinPercent is the materiality bar for a price rise. There is
 	// deliberately NO bar on whether a rise is reported at all — an increase is a

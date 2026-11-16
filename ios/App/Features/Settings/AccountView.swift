@@ -11,7 +11,6 @@ struct AccountView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var appLock: AppLockStore
     @State private var showChangePassword = false
-    @State private var showChangeEmail = false
     @State private var showDisplayName = false
     @State private var showDeleteAlert = false
     @State private var isDeleting = false
@@ -27,7 +26,8 @@ struct AccountView: View {
 
                 // Info section. The display name is editable (PATCH /auth/me);
                 // the email stays read-only here because changing it is a
-                // separate password-gated two-step flow — see "Đổi email" below.
+                // separate password-gated two-step flow, which 1.0.0 does not
+                // offer (see the note above the Bảo mật group).
                 WVSectionHeader(L.t("Thông tin"))
                 WVGroup {
                     // Display name
@@ -73,13 +73,15 @@ struct AccountView: View {
                     WVSectionFooter(L.t("Chuyển tiếp email hoá đơn (PDF hoặc ảnh đính kèm) tới địa chỉ này — tệp sẽ nằm trong Hộp thư đến để gán vào thiết bị."))
                 }
 
-                // Password + email + app lock.
+                // Password + app lock.
                 //
-                // Email change lives here rather than in "Thông tin" because it
-                // is password-gated and revokes every session: it needs the
-                // current password (a stolen bearer token must not be able to
-                // move the account) and the old address keeps working until the
-                // mailed token is confirmed.
+                // Account email changes are deliberately not offered in 1.0.0.
+                // The flow works end to end and `EmailChangeSheet` stays in the
+                // codebase (unreachable), because hiding it is a product
+                // decision for the first release, not a broken feature: it is
+                // password-gated, revokes every session, and keeps the old
+                // address live until the mailed token is confirmed. Restoring
+                // the row is the whole change.
                 WVSectionHeader(L.t("Bảo mật"))
                 WVGroup {
                     WVRow(icon: "key",
@@ -87,15 +89,8 @@ struct AccountView: View {
                         showChangePassword = true
                     }
                     WVDivider()
-                    WVRow(icon: "mail",
-                          title: L.t("Đổi email"),
-                          subtitle: userEmail, chevron: true) {
-                        showChangeEmail = true
-                    }
-                    WVDivider()
                     appLockRow
                 }
-                WVSectionFooter(L.t("Đổi email cần mật khẩu hiện tại và một mã xác nhận gửi tới địa chỉ MỚI. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận; sau đó mọi thiết bị phải đăng nhập lại."))
                 WVSectionFooter(L.t("Khi bật, ứng dụng sẽ yêu cầu Face ID/Touch ID — hoặc mã mở khoá của thiết bị — mỗi lần quay lại ứng dụng. Nếu thiết bị không còn mã mở khoá, khoá sẽ tự tắt để bạn không bị khoá cứng."))
 
                 // Linked accounts section
@@ -106,13 +101,20 @@ struct AccountView: View {
                     // identity-token verification and changes to the Go auth
                     // flow. The row stays honest instead of offering a login
                     // that cannot work.
-                    WVRow(icon: "mail",
-                          title: "Apple ID", detail: L.t("Chưa khả dụng"))
+                    LinkedAccountRow(
+                        title: "Apple ID",
+                        icon: .sfSymbol("apple.logo")
+                    )
                     WVDivider()
-                    WVRow(icon: "users",
-                          title: "Google", detail: L.t("Chưa khả dụng"))
+                    LinkedAccountRow(
+                        title: "Google",
+                        icon: .letter("G")
+                    )
                 }
-                WVSectionFooter(L.t("Đăng nhập bằng Apple ID/Google chưa được hỗ trợ. Tài khoản Warrly dùng email và mật khẩu — đổi mật khẩu hoặc email ở mục Bảo mật."))
+                // The footer used to add "or email" here. The email-change row
+                // is hidden in 1.0.0, so that half of the sentence pointed at a
+                // control this screen no longer has.
+                WVSectionFooter(L.t("Đăng nhập bằng Apple ID/Google chưa được hỗ trợ. Tài khoản Warrly dùng email và mật khẩu — đổi mật khẩu ở mục Bảo mật."))
 
                 // Delete account
                 Spacer().frame(height: WVSpacing.gutter)
@@ -130,9 +132,6 @@ struct AccountView: View {
         .wvScreen()
         .sheet(isPresented: $showChangePassword) {
             ChangePasswordSheet(client: client)
-        }
-        .sheet(isPresented: $showChangeEmail) {
-            EmailChangeSheet(client: client)
         }
         .sheet(isPresented: $showDisplayName) {
             DisplayNameSheet(auth: auth, currentName: displayName ?? "")
@@ -301,5 +300,90 @@ struct AccountView: View {
         let chars = parts.prefix(2).compactMap { $0.first }
         let s = String(chars).uppercased()
         return s.isEmpty ? "?" : s
+    }
+}
+
+// MARK: - Linked-account rows
+
+/// A leading tile for the linked-account rows.
+///
+/// `WVLeadingIcon` looks its glyph up in `WVIconMap`, which only knows the
+/// prototype's icon names. The two providers need glyphs that map cannot
+/// express: the Apple logo is an SF Symbol (`apple.logo`) and Google's mark is
+/// the letter G, for which no SF Symbol exists. So the tile is drawn here at
+/// the same metrics as `WVLeadingIcon` (28 pt tile, 20 pt glyph, `fill3` tile,
+/// `label2` glyph) instead of falling back to `questionmark`.
+private struct LinkedAccountLeadingIcon: View {
+    enum Glyph {
+        case sfSymbol(String)
+        case letter(String)
+    }
+
+    let glyph: Glyph
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: WVRadius.sm, style: .continuous)
+            .fill(WVColor.fill3)
+            .frame(width: 28, height: 28)
+            .overlay {
+                switch glyph {
+                case .sfSymbol(let name):
+                    Image(systemName: name)
+                        // `.title3` is the 20 pt role — the same optical size
+                        // as the `WVIcon` glyph every other row's tile draws.
+                        .wvFont(.title3, weight: .semibold)
+                case .letter(let text):
+                    Text(text)
+                        .wvFont(.title3, weight: .semibold)
+                        .minimumScaleFactor(0.8)
+                }
+            }
+            .foregroundStyle(WVColor.label2)
+    }
+}
+
+/// A static (non-tappable) label-value row for a provider that is not wired up.
+///
+/// It mirrors `WVRow`'s geometry and typography — the shared row only accepts a
+/// `WVIconMap` name for its leading glyph, and these two rows need the custom
+/// tile above. Detail moves under the title at Accessibility sizes, exactly as
+/// `WVRow` does, so the value is never squeezed off the row.
+private struct LinkedAccountRow: View {
+    let title: String
+    let icon: LinkedAccountLeadingIcon.Glyph
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        WVRowContainer(action: nil) {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 12) {
+                        LinkedAccountLeadingIcon(glyph: icon)
+                        Text(title)
+                            .wvFont(.body)
+                            .foregroundStyle(WVColor.label)
+                    }
+                    Text(L.t("Chưa khả dụng"))
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label3)
+                }
+            } else {
+                HStack(spacing: 12) {
+                    LinkedAccountLeadingIcon(glyph: icon)
+                    Text(title)
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text(L.t("Chưa khả dụng"))
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label3)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .layoutPriority(2)
+                }
+            }
+        }
     }
 }

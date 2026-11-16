@@ -157,58 +157,24 @@ data class MeResponse(val user: User)
 data class UpdateProfileInput(val displayName: String)
 
 /**
- * Body of `PATCH /api/v1/auth/me` when only the language changes — the
- * tri-state `locale` the contract describes (`openapi.yaml`, UpdateProfileInput):
- * absent = leave the stored value alone, `null` = CLEAR it ("theo thiết bị"),
- * `"vi"` / `"en"` = set it.
+ * Body of `PATCH /api/v1/auth/me` when only the language changes.
  *
- * `locale` is nullable, and unlike every other optional field in this file a
- * `null` must reach the wire **as an explicit null key**. `ApiClient.json` sets
- * `explicitNulls = false`, so a plain `@Serializable` property would be dropped
- * and `{}` would be answered with 400 ("a body with neither key"). That is why
- * this one type carries a hand-written serializer: it always emits the key.
+ * The contract's `locale` is tri-state (`openapi.yaml`, `UpdateProfileInput`):
+ * absent = leave the stored value alone, `null` (or `""`) = clear it, `"vi"` /
+ * `"en"` = set it. This type can only express the THIRD state, and that is
+ * deliberate: it is the only one Android sends. A cleared `User.locale` leaves
+ * the cron push fan-out and the transactional emails with no language to render
+ * in, which is how an English interface ended up with Vietnamese notifications.
+ * "Theo thiết bị" now persists the language the phone resolves to and remembers
+ * it as a mirror instead — see `com.warrly.i18n.LanguageStore.adoptFromServer`.
  *
- * The "clear" case is the "Theo thiết bị" row in the language sheet — before
- * this existed the account was pinned forever once a language had been picked.
+ * Non-nullable on purpose. The old shape was a nullable field with a
+ * hand-written serializer that emitted an explicit `{"locale": null}` for the
+ * "Theo thiết bị" row; a type that cannot hold `null` means that body cannot
+ * come back by accident.
  */
-@Serializable(with = UpdateLocaleInputSerializer::class)
-data class UpdateLocaleInput(val locale: String?)
-
-/**
- * Writes `{"locale": …}` **including an explicit `null`**.
- *
- * The tests pinning this are
- * `ModelsSerializationTest.updateLocaleInput_alwaysSendsTheKeyAndCanClearWithAnExplicitNull`
- * and `AuthI18nNetworkTest.updateLocaleCanClearTheStoredLanguageWithAnExplicitNull`;
- * without it the "Theo thiết bị" row would silently send `{}` and the server
- * would reject the request.
- */
-object UpdateLocaleInputSerializer : KSerializer<UpdateLocaleInput> {
-    override val descriptor: SerialDescriptor =
-        buildClassSerialDescriptor("com.warrly.network.UpdateLocaleInput") {
-            element<String?>("locale")
-        }
-
-    override fun serialize(encoder: Encoder, value: UpdateLocaleInput) {
-        val jsonEncoder = encoder as? JsonEncoder
-            ?: throw SerializationException("UpdateLocaleInput is only serialized as JSON")
-        jsonEncoder.encodeJsonElement(
-            buildJsonObject {
-                val tag = value.locale
-                put("locale", if (tag == null) JsonNull else JsonPrimitive(tag))
-            },
-        )
-    }
-
-    override fun deserialize(decoder: Decoder): UpdateLocaleInput {
-        val jsonDecoder = decoder as? JsonDecoder
-            ?: throw SerializationException("UpdateLocaleInput is only deserialized from JSON")
-        val element = jsonDecoder.decodeJsonElement().jsonObject["locale"]
-        return UpdateLocaleInput(
-            element?.takeIf { it !is JsonNull }?.jsonPrimitive?.content,
-        )
-    }
-}
+@Serializable
+data class UpdateLocaleInput(val locale: String)
 
 /** Response of `PATCH /api/v1/auth/me` — the fresh user plus a translated note. */
 @Serializable
@@ -1806,8 +1772,9 @@ data class AttachmentDescriptionInput(val description: String)
  *
  * `ApiClient.json` sets `explicitNulls = false`, so a plain nullable property
  * would DROP `deviceId` for the unfile case and send `{}`; the server would then
- * have no target. The hand-written serializer below always writes the key, the
- * same device [UpdateLocaleInputSerializer] uses for its tri-state `locale`.
+ * have no target. The hand-written serializer below always writes the key. (The
+ * language body needs no such serializer any more: [UpdateLocaleInput] is
+ * non-nullable, so its key is always present.)
  *
  * The upload path is the mirror image: `POST /api/v1/attachments` **omits** the
  * optional `deviceId` part to create an inbox item (see

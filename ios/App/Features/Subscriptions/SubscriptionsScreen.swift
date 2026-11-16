@@ -42,10 +42,16 @@ struct SubscriptionsScreen: View {
     @State private var sort       = SubSort.renewalAsc
     @State private var showSort   = false
     @State private var pushCreate = false
+    /// Screenshot QA only: `WV_QA_SUBSCRIPTION_AUDIT=1` opens the audit report on
+    /// launch, once. The screen is two taps in (tab → card); the simulator has no
+    /// tap, and the audit's thirty-subscription layout is exactly what has to be
+    /// photographed.
+    @State private var pushAudit = false
 #if DEBUG
     /// Screenshot QA only: `WV_QA_NEW_SUBSCRIPTION=1` opens the create form on
     /// launch, once — the simulator cannot be tapped headlessly from CI.
     @State private var qaDidOpenCreateForm = false
+    @State private var qaDidOpenAudit = false
 #endif
     /// The id a push asked for. Its own destination binding rather than a value
     /// pushed from the list: the detail screen loads by id, so it can open even
@@ -145,7 +151,7 @@ struct SubscriptionsScreen: View {
             .padding(.bottom, WVSpacing.xl)
         }
         .wvScreen()
-        .navigationTitle(L.t("Đăng ký"))
+        .navigationTitle(L.t("Gói dịch vụ"))
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $query, prompt: L.t("Tìm gói..."))
         .toolbar { toolbarContent }
@@ -156,6 +162,11 @@ struct SubscriptionsScreen: View {
                !qaDidOpenCreateForm {
                 qaDidOpenCreateForm = true
                 pushCreate = true
+            }
+            if ProcessInfo.processInfo.environment["WV_QA_SUBSCRIPTION_AUDIT"] == "1",
+               !qaDidOpenAudit {
+                qaDidOpenAudit = true
+                pushAudit = true
             }
 #endif
             await store.load()
@@ -174,6 +185,9 @@ struct SubscriptionsScreen: View {
         }
         .navigationDestination(isPresented: $pushCreate) {
             SubscriptionFormView(client: client, store: store)
+        }
+        .navigationDestination(isPresented: $pushAudit) {
+            SubscriptionAuditScreen(client: client, subsStore: store)
         }
     }
 

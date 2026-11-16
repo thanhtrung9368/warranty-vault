@@ -44,7 +44,14 @@ struct RootView: View {
                 // Capabilities can change while we're away (Face ID removed,
                 // passcode deleted). Cheap, never prompts.
                 if isAuthenticated {
-                    Task { await appLock.handleForeground() }
+                    // Deliberately NOT an auto-prompt. `handleForeground` used to
+                    // call `unlock()` here, which fires on every `.active` — and a
+                    // cancelled Face ID sheet returns the app to `.active`, so
+                    // cancelling re-opened the prompt immediately and the only way
+                    // out was the password path. The cover still re-locks on
+                    // backgrounding; it is now unlocked by a tap or by the `.task`
+                    // that runs when the cover first appears.
+                    appLock.handleForegroundWithoutPrompt()
                 } else {
                     appLock.refreshAvailability()
                 }
@@ -100,90 +107,259 @@ struct RootView: View {
 
 /// Full-screen cover shown while the app lock is engaged.
 ///
-/// Unlocking evaluates `.deviceOwnerAuthentication`, i.e. Face ID/Touch ID with
-/// the device passcode as fallback, so a failed or unavailable sensor degrades
-/// to the passcode instead of locking the user out. "Đăng xuất" is the escape
-/// hatch of last resort: it clears the Keychain session, and the account can
+/// The first action is the sensor: `.deviceOwnerAuthentication`, i.e. Face
+/// ID/Touch ID with the device passcode as fallback, so a failed or unavailable
+/// sensor degrades to the passcode. `Dùng mật khẩu` is the second action: it
+/// reveals the **account** password field inline, and the answer comes from the
+/// API — the app holds no hash and compares nothing locally. `Đăng xuất` is the
+/// last resort below both: it clears the Keychain session, and the account can
 /// always be reached again with email + password.
 struct AppLockScreen: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var appLock: AppLockStore
     @Environment(\.scenePhase) private var scenePhase
 
+    /// The password fallback stays closed until the user asks for it, so the
+    /// screen still leads with the one-tap path.
+    @State private var showsPasswordEntry = false
+    /// Held in view state only. Never written to the Keychain, `UserDefaults` or
+    /// a log; cleared on success, when the user goes back to the sensor, and
+    /// when the app is suspended.
+    @State private var password = ""
+    @FocusState private var passwordFocused: Bool
+
     var body: some View {
         ZStack {
             WVColor.bg.ignoresSafeArea()
 
-            VStack(spacing: 12) {
-                Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 52))
-                    .foregroundStyle(WVColor.tint)
-                    .padding(.bottom, 4)
+            GeometryReader { proxy in
+                ScrollView {
+                    VStack(spacing: WVSpacing.md) {
+                        Image(systemName: "lock.shield.fill")
+                            .font(.system(size: 52))
+                            .foregroundStyle(WVColor.tint)
+                            .padding(.bottom, WVSpacing.xs)
 
-                Text(L.t("Warrly đang khoá"))
-                    .wvFont(.title2Emphasis)
-                    .foregroundStyle(WVColor.label)
+                        Text(L.t("Warrly đang khoá"))
+                            .wvFont(.title2Emphasis)
+                            .foregroundStyle(WVColor.label)
 
-                Text(L.t("Mở khoá bằng %@ hoặc mã mở khoá của thiết bị để xem dữ liệu bảo hành.",
-                         appLock.availability.biometry.label))
-                    .wvFont(.subheadline)
-                    .foregroundStyle(WVColor.label3)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, WVSpacing.gutter)
+                        Text(L.t("Mở khoá bằng %@, mã mở khoá thiết bị, hoặc mật khẩu tài khoản để xem dữ liệu bảo hành.",
+                                 appLock.availability.biometry.label))
+                            .wvFont(.subheadline)
+                            .foregroundStyle(WVColor.label3)
+                            .multilineTextAlignment(.center)
 
-                if appLock.isAuthenticating {
-                    ProgressView()
-                        .padding(.top, 10)
-                } else {
-                    WVButton(L.t("Mở khoá"), icon: "faceid", fullWidth: false) {
-                        Task { await appLock.unlock() }
+                        unlockSection
+
+                        signOut
                     }
-                    .padding(.top, 10)
-                }
-
-                if let error = appLock.lastError {
-                    Text(error)
-                        .wvFont(.subheadline)
-                        .foregroundStyle(WVColor.red)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, WVSpacing.gutter)
-                }
-
-                Button {
-                    Task {
-                        await auth.logout()
-                        appLock.clearLock()
-                    }
-                } label: {
-                    Text(L.t("Đăng xuất"))
-                        .wvFont(.calloutEmphasis)
-                        .foregroundStyle(WVColor.tint)
-                }
-                .padding(.top, 6)
-
-                Text(L.t("Nếu không mở khoá được, hãy đăng xuất rồi đăng nhập lại bằng email và mật khẩu."))
-                    .wvFont(.footnote)
-                    .foregroundStyle(WVColor.label4)
-                    .multilineTextAlignment(.center)
                     .padding(.horizontal, WVSpacing.gutter)
-            }
-            .padding(.vertical, 24)
-        }
-        .task {
-            // Cold launch with the lock on: prompt as soon as the cover is up —
-            // but only while the scene is interactive, never from the
-            // background (where the system sheet has nowhere to appear).
-            if scenePhase == .active {
-                await appLock.unlock()
+                    .padding(.vertical, WVSpacing.xl)
+                    .frame(maxWidth: 480)
+                    .frame(minHeight: proxy.size.height)
+                    .frame(maxWidth: .infinity)
+                }
+                .scrollDismissesKeyboard(.interactively)
             }
         }
+        .task { await promptOnAppear() }
         .onChange(of: scenePhase) { _, phase in
-            // Coming back to the foreground while still locked re-prompts.
-            // `unlock()` ignores calls while a prompt is already on screen.
-            if phase == .active {
-                Task { await appLock.unlock() }
+            if phase == .background {
+                // A typed secret must not sit in memory while the app is
+                // suspended; the field comes back empty.
+                password = ""
+            }
+            // No auto-prompt on `.active` — see the note in RootView. A cancelled
+            // sheet returns here, and re-opening it made the cover impossible to
+            // dismiss except through the password path. `[Mở khoá]` is one tap.
+        }
+    }
+
+    // MARK: Pieces
+
+    @ViewBuilder
+    private var unlockSection: some View {
+        if showsPasswordEntry {
+            passwordForm
+        } else {
+            sensorAction
+        }
+    }
+
+    /// The one-tap path, plus the quieter way to the password field.
+    private var sensorAction: some View {
+        VStack(spacing: WVSpacing.md) {
+            if appLock.isAuthenticating {
+                ProgressView()
+                    .padding(.vertical, WVSpacing.md)
+            } else {
+                WVButton(L.t("Mở khoá"), icon: "unlock", fullWidth: false) {
+                    Task { await appLock.unlock() }
+                }
+            }
+
+            if let error = appLock.lastError {
+                Text(error)
+                    .wvFont(.subheadline)
+                    .foregroundStyle(WVColor.red)
+                    .multilineTextAlignment(.center)
+            }
+
+            WVButton(L.t("Dùng mật khẩu"), kind: .secondary, fullWidth: false) {
+                revealPasswordEntry()
             }
         }
+        .padding(.top, WVSpacing.xs)
+    }
+
+    /// The inline password entry. Submitting hands the typed value to the auth
+    /// store, which checks it against `POST /api/v1/auth/login`; nothing here
+    /// decides on its own whether the password is right.
+    private var passwordForm: some View {
+        VStack(alignment: .leading, spacing: WVSpacing.md) {
+            VStack(alignment: .leading, spacing: WVSpacing.sm) {
+                Text(L.t("Mật khẩu tài khoản"))
+                    .wvFont(.footnote)
+                    .foregroundStyle(WVColor.label3)
+
+                WVPasswordField(
+                    placeholder: L.t("Mật khẩu"),
+                    text: $password,
+                    submitLabel: .go,
+                    focus: $passwordFocused,
+                    onSubmit: { Task { await submitPassword() } }
+                )
+                .wvFont(.body)
+                .foregroundStyle(WVColor.label)
+                .padding(.leading, WVSpacing.gutter)
+                .padding(.vertical, WVSpacing.xs)
+                .frame(minHeight: 52)
+                .background(WVColor.bg2)
+                .clipShape(RoundedRectangle(cornerRadius: WVRadius.list, style: .continuous))
+            }
+
+            if let error = appLock.passwordError {
+                HStack(alignment: .top, spacing: WVSpacing.sm) {
+                    WVIcon("alert", size: 13)
+                    Text(error)
+                        .wvFont(.footnote)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .foregroundStyle(WVColor.red)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            WVButton(appLock.isVerifyingPassword ? L.t("Đang kiểm tra…") : L.t("Mở khoá"),
+                     kind: .primary, minHeight: 52) {
+                Task { await submitPassword() }
+            }
+            .disabled(appLock.isVerifyingPassword || password.isEmpty)
+
+            WVButton(useSensorTitle, kind: .secondary, fullWidth: false) {
+                goBackToSensor()
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .padding(.top, WVSpacing.xs)
+    }
+
+    /// The escape hatch of last resort, and deliberately the quietest thing on
+    /// the screen: plain `label3` text, no tint, below both unlock paths.
+    private var signOut: some View {
+        Button {
+            Task {
+                await auth.logout()
+                appLock.clearLock()
+            }
+        } label: {
+            Text(L.t("Đăng xuất"))
+                .wvFont(.callout)
+                .foregroundStyle(WVColor.label3)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.top, WVSpacing.xs)
+    }
+
+    /// The way back to the sensor. When the sensor is gone entirely (removed
+    /// after the lock was enabled) the same prompt is the device passcode, and
+    /// that is what the label names.
+    private var useSensorTitle: String {
+        let kind = appLock.availability.biometry
+        return kind == .none ? L.t("Dùng mã mở khoá") : L.t("Dùng %@", kind.label)
+    }
+
+    // MARK: Actions
+
+    private func revealPasswordEntry(focus: Bool = true) {
+        password = ""
+        showsPasswordEntry = true
+        guard focus else { return }
+        // The field is inserted in this update; put the caret in it on the next
+        // run-loop (the same reason `WVPasswordField` re-focuses after its
+        // reveal).
+        DispatchQueue.main.async { passwordFocused = true }
+    }
+
+    private func goBackToSensor() {
+        password = ""
+        passwordFocused = false
+        showsPasswordEntry = false
+        Task { await appLock.unlock() }
+    }
+
+    private func submitPassword() async {
+        guard !password.isEmpty, !appLock.isVerifyingPassword else { return }
+        await appLock.unlock(password: password) { candidate in
+            try await auth.verifyAccountPassword(candidate)
+        }
+        if !appLock.isLocked {
+            password = ""
+        } else {
+            // A failed check is read with the keyboard down: the message and the
+            // two ways out must all be on screen, and the keyboard would sit on
+            // top of `Đăng xuất`. Tapping the field brings it back for a retry.
+            passwordFocused = false
+        }
+    }
+
+    /// Cold launch with the lock on: prompt as soon as the cover is up — but
+    /// only while the scene is interactive, never from the background (where the
+    /// system sheet has nowhere to appear).
+    private func promptOnAppear() async {
+        #if DEBUG
+        // Screenshot QA only: a headless simulator cannot tap, so the second
+        // action is opened from the environment instead. `1` leaves the cover in
+        // its default state, `password` opens the field, and `submit` presses the
+        // CTA with `WV_QA_APP_LOCK_PASSWORD` — a deliberately wrong one when the
+        // variable is absent — so the failure copy in a shot is the server's real
+        // answer rather than a mock.
+        if let qa = Self.qaScreenshot {
+            guard qa == "password" || qa == "submit" else { return }
+            revealPasswordEntry(focus: qa == "password")
+            if qa == "submit" {
+                let supplied = ProcessInfo.processInfo.environment["WV_QA_APP_LOCK_PASSWORD"] ?? ""
+                password = supplied.isEmpty ? "warrly-qa-not-the-password" : supplied
+                await submitPassword()
+            }
+            return
+        }
+        #endif
+        if scenePhase == .active {
+            await appLock.unlock()
+        }
+    }
+
+    /// Screenshot QA only — see `AppLockStore`. `nil` unless a DEBUG build was
+    /// launched with `WV_QA_APP_LOCK`; a Release build compiles the lookup out.
+    private static var qaScreenshot: String? {
+        #if DEBUG
+        return ProcessInfo.processInfo.environment["WV_QA_APP_LOCK"]
+        #else
+        return nil
+        #endif
     }
 }
 
@@ -241,19 +417,23 @@ struct MainTabView: View {
             NavigationStack {
                 SubscriptionsScreen(client: client)
             }
-            .tabItem { Label(L.t("Đăng ký"), systemImage: "arrow.triangle.2.circlepath") }
+            .tabItem { Label(L.t("Gói dịch vụ"), systemImage: "arrow.triangle.2.circlepath") }
             .tag(2)
 
             NavigationStack {
                 WishlistScreen(client: client)
             }
-            .tabItem { Label("Wishlist", systemImage: "heart.fill") }
+            .tabItem { Label(L.t("Muốn mua"), systemImage: "heart.fill") }
             .tag(3)
 
             NavigationStack {
                 MoreScreen(client: client)
             }
-            .tabItem { Label(L.t("Thêm"), systemImage: "ellipsis") }
+            // The destination is `MoreScreen` — settings, the server inbox and the
+            // account — so the tab said "Add" and opened something that adds
+            // nothing. The `+` that actually creates a device lives in each list's
+            // toolbar; this tab is the one place the account lives.
+            .tabItem { Label(L.t("Tôi"), systemImage: "person.crop.circle.fill") }
             // Server inbox plus files still in the Share Extension queue: a
             // shared receipt that has not uploaded yet is still waiting for the
             // user, and a failed drain must not make the badge claim "0".

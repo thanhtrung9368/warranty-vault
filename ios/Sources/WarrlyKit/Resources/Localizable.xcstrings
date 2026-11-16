@@ -644,6 +644,41 @@
         }
       }
     },
+    "%d phát hiện" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%d finding"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%d findings"
+                }
+              }
+            }
+          }
+        },
+        "vi" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%d phát hiện"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%d phát hiện cần xem lại" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1810,6 +1845,23 @@
         }
       }
     },
+    "Bạn có thể thêm nhiều gói khác trong chi tiết thiết bị." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can add more warranties from the device's detail screen."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn có thể thêm nhiều gói khác trong chi tiết thiết bị."
+          }
+        }
+      }
+    },
     "Bạn có thể tắt lại bất cứ lúc nào trong Cài đặt → Trợ lý AI." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1891,6 +1943,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bạn thao tác quá nhanh. Chờ một lát rồi thử lại."
+          }
+        }
+      }
+    },
+    "Bạn đã thử quá nhiều lần. Đợi một lát rồi thử lại." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You've tried too many times. Wait a moment and try again."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn đã thử quá nhiều lần. Đợi một lát rồi thử lại."
           }
         }
       }
@@ -3683,23 +3752,6 @@
         }
       }
     },
-    "Chế độ" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Theme"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chế độ"
-          }
-        }
-      }
-    },
     "Chỉ chấp nhận ảnh JPG/PNG/HEIC hoặc PDF." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4313,41 +4365,6 @@
         }
       }
     },
-    "Còn kịp xử lý trước khi bị trừ tiền: %d ngày." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Time to act before the charge: 1 day."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Time to act before the charge: %d days."
-                }
-              }
-            }
-          }
-        },
-        "vi" : {
-          "variations" : {
-            "plural" : {
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Còn kịp xử lý trước khi bị trừ tiền: %d ngày."
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "Còn ~%dth" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4497,6 +4514,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Có ngày gia hạn"
+          }
+        }
+      }
+    },
+    "Có thể trùng nhau" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Possible duplicates"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Có thể trùng nhau"
           }
         }
       }
@@ -4824,6 +4858,23 @@
         }
       }
     },
+    "Dùng %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use %@"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dùng %@"
+          }
+        }
+      }
+    },
     "Dùng mã mở khoá" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4837,6 +4888,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dùng mã mở khoá"
+          }
+        }
+      }
+    },
+    "Dùng mật khẩu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use password"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dùng mật khẩu"
           }
         }
       }
@@ -4922,6 +4990,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dữ liệu"
+          }
+        }
+      }
+    },
+    "Dữ liệu của bạn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your data"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dữ liệu của bạn"
           }
         }
       }
@@ -5806,6 +5891,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Giá thấp nhất"
+          }
+        }
+      }
+    },
+    "Giá đã tăng" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Price increased"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giá đã tăng"
           }
         }
       }
@@ -10817,23 +10919,6 @@
         }
       }
     },
-    "Bạn có thể thêm nhiều gói khác trong chi tiết thiết bị." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can add more warranties from the device's detail screen."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bạn có thể thêm nhiều gói khác trong chi tiết thiết bị."
-          }
-        }
-      }
-    },
     "Máy chơi game" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -11259,6 +11344,23 @@
         }
       }
     },
+    "Mật khẩu không đúng. Thử lại." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That password isn't correct. Try again."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mật khẩu không đúng. Thử lại."
+          }
+        }
+      }
+    },
     "Mật khẩu không đúng hoặc lỗi máy chủ." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -11306,6 +11408,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mật khẩu mới (≥8 ký tự)"
+          }
+        }
+      }
+    },
+    "Mật khẩu tài khoản" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account password"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mật khẩu tài khoản"
           }
         }
       }
@@ -11872,19 +11991,19 @@
         }
       }
     },
-    "Mở khoá bằng %@ hoặc mã mở khoá của thiết bị để xem dữ liệu bảo hành." : {
+    "Mở khoá bằng %@, mã mở khoá thiết bị, hoặc mật khẩu tài khoản để xem dữ liệu bảo hành." : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Unlock with %@ or your device passcode to see your warranty data."
+            "value" : "Unlock with %@, your device passcode, or your account password to see your warranty data."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mở khoá bằng %@ hoặc mã mở khoá của thiết bị để xem dữ liệu bảo hành."
+            "value" : "Mở khoá bằng %@, mã mở khoá thiết bị, hoặc mật khẩu tài khoản để xem dữ liệu bảo hành."
           }
         }
       }
@@ -12552,6 +12671,23 @@
         }
       }
     },
+    "Đổi ngôn ngữ áp dụng ngay — không cần khởi động lại ứng dụng." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A language change takes effect immediately — no restart needed."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đổi ngôn ngữ áp dụng ngay — không cần khởi động lại ứng dụng."
+          }
+        }
+      }
+    },
     "Người nhận đọc được gì" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -13046,23 +13182,6 @@
         }
       }
     },
-    "Nếu không mở khoá được, hãy đăng xuất rồi đăng nhập lại bằng email và mật khẩu." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "If you cannot unlock, sign out and sign back in with your email and password."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nếu không mở khoá được, hãy đăng xuất rồi đăng nhập lại bằng email và mật khẩu."
-          }
-        }
-      }
-    },
     "Nội dung OCR" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -13301,23 +13420,6 @@
         }
       }
     },
-    "Phát hiện" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Findings"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Phát hiện"
-          }
-        }
-      }
-    },
     "Phân bổ theo loại" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -13518,23 +13620,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Quyết mua"
-          }
-        }
-      }
-    },
-    "Quyền riêng tư" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Privacy"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quyền riêng tư"
           }
         }
       }
@@ -14985,23 +15070,6 @@
         }
       }
     },
-    "Thiết bị nhận thông báo" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Notification devices"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Thiết bị nhận thông báo"
-          }
-        }
-      }
-    },
     "Thiết bị này" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15189,23 +15257,6 @@
         }
       }
     },
-    "Thiết bị đăng nhập" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Signed-in devices"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Thiết bị đăng nhập"
-          }
-        }
-      }
-    },
     "Thiết bị, gói đăng ký, wishlist, hoá đơn..." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15304,23 +15355,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Thu hồi link này?"
-          }
-        }
-      }
-    },
-    "Thu hồi một phiên sẽ đăng xuất thiết bị đó ngay lập tức — lần mở app kế tiếp trên máy đó phải đăng nhập lại. Danh sách này khác “Thiết bị nhận thông báo”: xoá một đích nhận thông báo chỉ ngừng gửi push, không thu hồi quyền truy cập dữ liệu." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Revoking a session signs that device out immediately — the next time the app opens there it has to sign in again. This list is not “Notification devices”: removing a push target only stops notifications, it does not revoke access to your data."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Thu hồi một phiên sẽ đăng xuất thiết bị đó ngay lập tức — lần mở app kế tiếp trên máy đó phải đăng nhập lại. Danh sách này khác “Thiết bị nhận thông báo”: xoá một đích nhận thông báo chỉ ngừng gửi push, không thu hồi quyền truy cập dữ liệu."
           }
         }
       }
@@ -17895,6 +17929,23 @@
         }
       }
     },
+    "Tự trừ lâu, không ghi nhận" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto-charged, no record"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tự trừ lâu, không ghi nhận"
+          }
+        }
+      }
+    },
     "Tỷ giá" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -18333,6 +18384,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Xem lần đang mở"
+          }
+        }
+      }
+    },
+    "Xem tất cả %d phát hiện" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Show the %d finding"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Show all %d findings"
+                }
+              }
+            }
+          }
+        },
+        "vi" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Xem tất cả %d phát hiện"
+                }
+              }
+            }
           }
         }
       }
@@ -19236,6 +19322,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Đang kiểm tra cài đặt AI…"
+          }
+        }
+      }
+    },
+    "Đang kiểm tra…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking…"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang kiểm tra…"
           }
         }
       }
@@ -21403,19 +21506,19 @@
         }
       }
     },
-    "Đăng nhập bằng Apple ID/Google chưa được hỗ trợ. Tài khoản Warrly dùng email và mật khẩu — đổi mật khẩu hoặc email ở mục Bảo mật." : {
+    "Đăng nhập bằng Apple ID/Google chưa được hỗ trợ. Tài khoản Warrly dùng email và mật khẩu — đổi mật khẩu ở mục Bảo mật." : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Signing in with Apple ID or Google is not supported. A Warrly account uses email and password — change either one under Security."
+            "value" : "Signing in with Apple ID or Google is not supported. A Warrly account uses email and password — change your password under Security."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Đăng nhập bằng Apple ID/Google chưa được hỗ trợ. Tài khoản Warrly dùng email và mật khẩu — đổi mật khẩu hoặc email ở mục Bảo mật."
+            "value" : "Đăng nhập bằng Apple ID/Google chưa được hỗ trợ. Tài khoản Warrly dùng email và mật khẩu — đổi mật khẩu ở mục Bảo mật."
           }
         }
       }
@@ -22033,23 +22136,6 @@
         }
       }
     },
-    "Đổi email cần mật khẩu hiện tại và một mã xác nhận gửi tới địa chỉ MỚI. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận; sau đó mọi thiết bị phải đăng nhập lại." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Changing your email needs your current password and a code sent to the NEW address. The old address keeps working until you confirm; after that every device has to sign in again."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đổi email cần mật khẩu hiện tại và một mã xác nhận gửi tới địa chỉ MỚI. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận; sau đó mọi thiết bị phải đăng nhập lại."
-          }
-        }
-      }
-    },
     "Đổi mật khẩu" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -22306,6 +22392,23 @@
         }
       }
     },
+    "Ứng dụng chưa kiểm tra được mật khẩu lúc này. Kiểm tra kết nối mạng rồi thử lại." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app can't check your password right now. Check your connection and try again."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ứng dụng chưa kiểm tra được mật khẩu lúc này. Kiểm tra kết nối mạng rồi thử lại."
+          }
+        }
+      }
+    },
     "Ứng dụng không mở được link trong email (đó là trang web), nên hãy dán mã — hoặc dán cả link — vào ô trên. Mã dùng một lần và hết hạn sau %d phút." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -22353,23 +22456,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "“Gộp” thêm dữ liệu từ file vào dữ liệu hiện có. “Thay thế” XOÁ TOÀN BỘ dữ liệu hiện tại trước khi nạp — không thể hoàn tác."
-          }
-        }
-      }
-    },
-    "“Thiết bị đăng nhập” là các phiên còn quyền truy cập dữ liệu của bạn. Khác với “Thiết bị nhận thông báo” ở trên — xoá một đích push chỉ ngừng gửi thông báo, không thu hồi quyền truy cập." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“Signed-in devices” are the sessions that can still reach your data. They are not the same as “Notification devices” above — deleting a push target only stops notifications, it does not revoke access."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“Thiết bị đăng nhập” là các phiên còn quyền truy cập dữ liệu của bạn. Khác với “Thiết bị nhận thông báo” ở trên — xoá một đích push chỉ ngừng gửi thông báo, không thu hồi quyền truy cập."
           }
         }
       }
@@ -22440,6 +22526,1400 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "Gói dịch vụ" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscriptions"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gói dịch vụ"
+          }
+        }
+      }
+    },
+    "Muốn mua" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wishlist"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muốn mua"
+          }
+        }
+      }
+    },
+    "Tôi" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Me"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tôi"
+          }
+        }
+      }
+    },
+    "Phiên đăng nhập" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed-in sessions"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Phiên đăng nhập"
+          }
+        }
+      }
+    },
+    "Nơi nhận thông báo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notification destinations"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nơi nhận thông báo"
+          }
+        }
+      }
+    },
+    "Giao diện" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appearance"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giao diện"
+          }
+        }
+      }
+    },
+    "Bảo mật & dữ liệu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Security & data"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bảo mật & dữ liệu"
+          }
+        }
+      }
+    },
+    "Về Warrly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About Warrly"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Về Warrly"
+          }
+        }
+      }
+    },
+    "“Phiên đăng nhập” là các thiết bị còn quyền truy cập dữ liệu của bạn. Khác với “Nơi nhận thông báo” ở trên — xoá một nơi nhận chỉ ngừng gửi thông báo, không thu hồi quyền truy cập." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“Signed-in sessions” are the devices that can still reach your data. They are not the same as “Notification destinations” above — removing a destination only stops notifications, it does not revoke access."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“Phiên đăng nhập” là các thiết bị còn quyền truy cập dữ liệu của bạn. Khác với “Nơi nhận thông báo” ở trên — xoá một nơi nhận chỉ ngừng gửi thông báo, không thu hồi quyền truy cập."
+          }
+        }
+      }
+    },
+    "Thu hồi một phiên sẽ đăng xuất thiết bị đó ngay lập tức — lần mở app kế tiếp trên máy đó phải đăng nhập lại. Danh sách này khác “Nơi nhận thông báo”: xoá một nơi nhận chỉ ngừng gửi push, không thu hồi quyền truy cập dữ liệu." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revoking a session signs that device out immediately — the next time the app opens there it has to sign in again. This list is not “Notification destinations”: removing one only stops push, it does not revoke access to your data."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thu hồi một phiên sẽ đăng xuất thiết bị đó ngay lập tức — lần mở app kế tiếp trên máy đó phải đăng nhập lại. Danh sách này khác “Nơi nhận thông báo”: xoá một nơi nhận chỉ ngừng gửi push, không thu hồi quyền truy cập dữ liệu."
+          }
+        }
+      }
+    },
+    "Xem máy nào đang nhận thông báo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See which devices get notifications"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xem máy nào đang nhận thông báo"
+          }
+        }
+      }
+    },
+    "Tải toàn bộ dữ liệu về file JSON" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download all your data as a JSON file"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tải toàn bộ dữ liệu về file JSON"
+          }
+        }
+      }
+    },
+    "Nạp lại dữ liệu từ file sao lưu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load your data back from a backup file"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nạp lại dữ liệu từ file sao lưu"
+          }
+        }
+      }
+    },
+    "Đang bật — ảnh hoá đơn được gửi tới dịch vụ AI" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On — receipt photos are sent to an AI service"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang bật — ảnh hoá đơn được gửi tới dịch vụ AI"
+          }
+        }
+      }
+    },
+    "Đang tắt — không gửi gì ra ngoài" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off — nothing is sent out"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang tắt — không gửi gì ra ngoài"
+          }
+        }
+      }
+    },
+    "Warrly Premium" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warrly Premium"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warrly Premium"
+          }
+        }
+      }
+    },
+    "Bỏ quảng cáo và mở rộng giới hạn — một lần nâng cấp cho cả tài khoản." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove ads and raise the limits — one upgrade for the whole account."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bỏ quảng cáo và mở rộng giới hạn — một lần nâng cấp cho cả tài khoản."
+          }
+        }
+      }
+    },
+    "Premium đang hoạt động" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium is active"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium đang hoạt động"
+          }
+        }
+      }
+    },
+    "Bạn không còn thấy quảng cáo và đang dùng giới hạn cao hơn." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You no longer see ads and are using the higher limits."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn không còn thấy quảng cáo và đang dùng giới hạn cao hơn."
+          }
+        }
+      }
+    },
+    "Quản lý đăng ký trong App Store" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage subscription in the App Store"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quản lý đăng ký trong App Store"
+          }
+        }
+      }
+    },
+    "Không còn quảng cáo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No ads"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không còn quảng cáo"
+          }
+        }
+      }
+    },
+    "Tới 200 thiết bị đang theo dõi" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Up to 200 active devices"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tới 200 thiết bị đang theo dõi"
+          }
+        }
+      }
+    },
+    "500 gói đăng ký và 1.000 mục wishlist" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "500 subscriptions and 1,000 wishlist items"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "500 gói đăng ký và 1.000 mục wishlist"
+          }
+        }
+      }
+    },
+    "Áp dụng trên mọi thiết bị đăng nhập cùng tài khoản" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Works on every device signed in to the same account"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Áp dụng trên mọi thiết bị đăng nhập cùng tài khoản"
+          }
+        }
+      }
+    },
+    "Đang tải gói…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading plans…"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang tải gói…"
+          }
+        }
+      }
+    },
+    "Chưa tải được gói Premium." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not load Premium plans."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa tải được gói Premium."
+          }
+        }
+      }
+    },
+    "Kiểm tra kết nối mạng rồi thử lại. Nếu vẫn lỗi, gói có thể chưa sẵn sàng trong App Store." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your connection and try again. If it keeps failing, the plans may not be available in the App Store yet."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra kết nối mạng rồi thử lại. Nếu vẫn lỗi, gói có thể chưa sẵn sàng trong App Store."
+          }
+        }
+      }
+    },
+    "mỗi năm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "per year"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mỗi năm"
+          }
+        }
+      }
+    },
+    "mỗi tháng" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "per month"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mỗi tháng"
+          }
+        }
+      }
+    },
+    "mỗi tuần" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "per week"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mỗi tuần"
+          }
+        }
+      }
+    },
+    "mỗi ngày" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "per day"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mỗi ngày"
+          }
+        }
+      }
+    },
+    "Dùng thử 7 ngày" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start 7-day free trial"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dùng thử 7 ngày"
+          }
+        }
+      }
+    },
+    "7 ngày miễn phí, sau đó tự động gia hạn. Huỷ bất cứ lúc nào trong phần quản lý đăng ký của Apple." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "7 days free, then automatically renews. Cancel anytime in your Apple subscription settings."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "7 ngày miễn phí, sau đó tự động gia hạn. Huỷ bất cứ lúc nào trong phần quản lý đăng ký của Apple."
+          }
+        }
+      }
+    },
+    "Khôi phục mua hàng" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore purchases"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Khôi phục mua hàng"
+          }
+        }
+      }
+    },
+    "Gói tự động gia hạn cho tới khi bạn huỷ. Giá hiển thị do App Store cung cấp; thời hạn và ưu đãi dùng thử áp dụng theo gói bạn chọn." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The plan renews automatically until you cancel. The price is supplied by the App Store; the term and trial offer depend on the plan you choose."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gói tự động gia hạn cho tới khi bạn huỷ. Giá hiển thị do App Store cung cấp; thời hạn và ưu đãi dùng thử áp dụng theo gói bạn chọn."
+          }
+        }
+      }
+    },
+    "Điều khoản" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terms"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Điều khoản"
+          }
+        }
+      }
+    },
+    "Quyền riêng tư" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quyền riêng tư"
+          }
+        }
+      }
+    },
+    "Nâng cấp Warrly Premium" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade to Warrly Premium"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nâng cấp Warrly Premium"
+          }
+        }
+      }
+    },
+    "Không quảng cáo · giới hạn cao hơn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ad-free · higher limits"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không quảng cáo · giới hạn cao hơn"
+          }
+        }
+      }
+    },
+    "Bỏ quảng cáo · tới 200 thiết bị" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ad-free · up to 200 devices"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bỏ quảng cáo · tới 200 thiết bị"
+          }
+        }
+      }
+    },
+    "Premium bỏ quảng cáo và nâng giới hạn cho toàn bộ tài khoản. Gói tự động gia hạn; quản lý hoặc huỷ trong phần đăng ký của Apple." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium removes ads and raises the limits for the whole account. The plan renews automatically; manage or cancel it in your Apple subscription settings."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium bỏ quảng cáo và nâng giới hạn cho toàn bộ tài khoản. Gói tự động gia hạn; quản lý hoặc huỷ trong phần đăng ký của Apple."
+          }
+        }
+      }
+    },
+    "Chưa tải được gói Premium. Kiểm tra kết nối rồi thử lại." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not load Premium plans. Check your connection and try again."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa tải được gói Premium. Kiểm tra kết nối rồi thử lại."
+          }
+        }
+      }
+    },
+    "Không tải được gói Premium: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not load Premium plans: %@"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không tải được gói Premium: %@"
+          }
+        }
+      }
+    },
+    "Giao dịch đã được xác minh nhưng chưa kích hoạt Premium. Thử Khôi phục mua hàng." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The transaction was verified but did not activate Premium. Try Restore purchases."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giao dịch đã được xác minh nhưng chưa kích hoạt Premium. Thử Khôi phục mua hàng."
+          }
+        }
+      }
+    },
+    "Không xác minh được giao dịch App Store." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The App Store transaction could not be verified."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không xác minh được giao dịch App Store."
+          }
+        }
+      }
+    },
+    "Giao dịch đang chờ xử lý. Premium sẽ bật khi Apple xác nhận." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The transaction is pending. Premium activates after Apple confirms it."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giao dịch đang chờ xử lý. Premium sẽ bật khi Apple xác nhận."
+          }
+        }
+      }
+    },
+    "Không kích hoạt được Premium." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not activate Premium."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không kích hoạt được Premium."
+          }
+        }
+      }
+    },
+    "Không kích hoạt được Premium: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not activate Premium: %@"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không kích hoạt được Premium: %@"
+          }
+        }
+      }
+    },
+    "Không tìm thấy giao dịch Premium nào để khôi phục." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Premium transaction was found to restore."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không tìm thấy giao dịch Premium nào để khôi phục."
+          }
+        }
+      }
+    },
+    "Khôi phục mua hàng thất bại: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore purchases failed: %@"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Khôi phục mua hàng thất bại: %@"
+          }
+        }
+      }
+    },
+    "Đồ dùng thiết yếu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Essentials"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đồ dùng thiết yếu"
+          }
+        }
+      }
+    },
+    "Sắp hết, nhắc mua lại" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Running low, restock reminders"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sắp hết, nhắc mua lại"
+          }
+        }
+      }
+    },
+    "Cần mua" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To buy"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cần mua"
+          }
+        }
+      }
+    },
+    "Đủ dùng" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In stock"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đủ dùng"
+          }
+        }
+      }
+    },
+    "Sắp hết" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Running low"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sắp hết"
+          }
+        }
+      }
+    },
+    "Đồ dùng" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Essentials"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đồ dùng"
+          }
+        }
+      }
+    },
+    "Thêm đồ dùng" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add essential"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thêm đồ dùng"
+          }
+        }
+      }
+    },
+    "Sửa đồ dùng" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit essential"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sửa đồ dùng"
+          }
+        }
+      }
+    },
+    "Chưa có đồ dùng nào" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No essentials yet"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa có đồ dùng nào"
+          }
+        }
+      }
+    },
+    "Thêm món đầu tiên để nhắc mua lại khi sắp hết." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add your first item to get a restock reminder when it runs low."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thêm món đầu tiên để nhắc mua lại khi sắp hết."
+          }
+        }
+      }
+    },
+    "Nhắc mua lại dùng thông báo của ứng dụng. Bật trong Cài đặt nếu chưa bật." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restock reminders use app notifications. Turn them on in Settings if they are off."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhắc mua lại dùng thông báo của ứng dụng. Bật trong Cài đặt nếu chưa bật."
+          }
+        }
+      }
+    },
+    "Xoá đồ dùng?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete essential?"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xoá đồ dùng?"
+          }
+        }
+      }
+    },
+    "Không lưu được" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not save"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không lưu được"
+          }
+        }
+      }
+    },
+    "Không lưu được." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not save."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không lưu được."
+          }
+        }
+      }
+    },
+    "Đã mua lại" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bought again"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã mua lại"
+          }
+        }
+      }
+    },
+    "Nhóm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhóm"
+          }
+        }
+      }
+    },
+    "Đơn vị" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unit"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đơn vị"
+          }
+        }
+      }
+    },
+    "Dầu gội, kem đánh răng..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shampoo, toothpaste..."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dầu gội, kem đánh răng..."
+          }
+        }
+      }
+    },
+    "Đồ dùng cá nhân..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personal care..."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đồ dùng cá nhân..."
+          }
+        }
+      }
+    },
+    "chai, tuýp, gói..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "bottle, tube, pack..."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "chai, tuýp, gói..."
+          }
+        }
+      }
+    },
+    "“Đủ dùng” là mặc định; “Sắp hết” đưa món vào Cần mua." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“In stock” is the default; “Running low” puts the item in To buy."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“Đủ dùng” là mặc định; “Sắp hết” đưa món vào Cần mua."
+          }
+        }
+      }
+    },
+    "Nhắc mua lại" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restock reminder"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhắc mua lại"
+          }
+        }
+      }
+    },
+    "Nhắc theo tần suất" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repeat reminder"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhắc theo tần suất"
+          }
+        }
+      }
+    },
+    "Kiểm tra định kỳ, không phải dự đoán hết hàng." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A periodic check-in, not a prediction that you are out."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra định kỳ, không phải dự đoán hết hàng."
+          }
+        }
+      }
+    },
+    "Mỗi" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mỗi"
+          }
+        }
+      }
+    },
+    "ngày" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "days"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ngày"
+          }
+        }
+      }
+    },
+    "Lần mua gần nhất" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last bought"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lần mua gần nhất"
+          }
+        }
+      }
+    },
+    "Ứng dụng nhắc một lần vào ngày đến hạn; bật thông báo trong Cài đặt để nhận." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app sends one check-in on the due day; enable notifications in Settings to receive it."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ứng dụng nhắc một lần vào ngày đến hạn; bật thông báo trong Cài đặt để nhận."
+          }
+        }
+      }
+    },
+    "Số ngày phải từ 1 đến 3650" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Days must be between 1 and 3,650"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Số ngày phải từ 1 đến 3650"
+          }
+        }
+      }
+    },
+    "Đến lúc kiểm tra" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time to check"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đến lúc kiểm tra"
+          }
+        }
+      }
+    },
+    "%@ sắp đến lúc kiểm tra — còn đủ không?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is due for a check — still enough?"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ sắp đến lúc kiểm tra — còn đủ không?"
+          }
+        }
+      }
+    },
+    "Không tải được đồ dùng" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not load essentials"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không tải được đồ dùng"
           }
         }
       }

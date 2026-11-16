@@ -8,6 +8,18 @@ import WarrlyKit
 // Port of SettingsScreen in screens-3.jsx.
 // ============================================================
 
+/// 1.0.0 product decision: the AI receipt-scan opt-in is not offered.
+///
+/// The switch is the only control that lets decrypted receipt images leave the
+/// device for a third-party model, and 1.0.0 ships without it. This is ONE
+/// constant, read by both this screen's row and the "Quét hoá đơn" entry point
+/// in `DeviceFormView`, so the two surfaces cannot disagree: a scan button that
+/// offers to "enable it in Settings" must never outlive the row it points at.
+/// Turning the feature back on is this line, and nothing else.
+enum AIOptInSurface {
+    static let isVisible = false
+}
+
 /// Single-file wrapper for `.fileExporter`: the one export mechanism in the
 /// app. Used by the JSON backup ("Sao lưu (xuất JSON)") and by the device CSV
 /// export in Thêm ("Xuất dữ liệu CSV").
@@ -161,6 +173,8 @@ struct SettingsView: View {
     /// Owns the UMP privacy options form and the requirement that decides
     /// whether its Settings row exists at all.
     @EnvironmentObject private var ads: AdsController
+    /// The server-verified Premium entitlement and the StoreKit products.
+    @EnvironmentObject private var premium: PremiumStore
 
     /// Used to re-read the notification answer when the user comes back from
     /// iOS Settings: the change happens outside the app, so nothing else would
@@ -170,6 +184,7 @@ struct SettingsView: View {
     @State private var showChangePassword = false
     @State private var showPushDevices = false
     @State private var showSessions = false
+    @State private var showPremium = false
 
     // AI receipt-scan opt-in.
     @State private var aiOptIn = false
@@ -195,62 +210,67 @@ struct SettingsView: View {
             VStack(spacing: 0) {
                 Spacer().frame(height: WVSpacing.sm)
 
-                // Chế độ — the only appearance control.
-                //
-                // The old first group held a single dark-mode toggle row with
-                // no switch glyph, directly above this three-way picker: two
-                // controls for one value, one of them reading as a dead row
-                // (§8.7, §1.12). The group and its header are gone with the
-                // row; their two catalog keys are now unreferenced and belong
-                // in the shared catalog cleanup (reported, not edited here —
-                // `Localizable.xcstrings` is outside this screen's ownership).
-                WVSectionHeader(L.t("Chế độ"))
-                themeSection
+                // Four groups, by what the person came here to do. The old
+                // eight headers each needed a footer to say how they differed
+                // from their neighbour.
 
-                // Language. Stored on the ACCOUNT, not just on this device:
-                // the server renders push notifications and email long after the
-                // app is gone, so it has to know which language to use.
-                WVSectionHeader(L.t("Ngôn ngữ"))
+                // Giao diện — theme and language. Language is stored on the
+                // ACCOUNT, not just on this device: the server renders push
+                // notifications and email long after the app is gone.
+                WVSectionHeader(L.t("Giao diện"))
+                themeSection
+                Spacer().frame(height: WVSpacing.md)
                 languageSection
                 WVSectionFooter(L.t("Ngôn ngữ áp dụng cho cả ứng dụng, thông báo đẩy và email."))
+                // The switch rebuilds the view tree (`.id(localization.language)`
+                // in `WarrlyApp`), so every visible label is re-rendered on the
+                // spot. There is no restart step, and a footer claiming one
+                // would send users looking for a problem that does not exist.
+                WVSectionFooter(L.t("Đổi ngôn ngữ áp dụng ngay — không cần khởi động lại ứng dụng."))
 
-                // Notifications. The explanation sits below the rows it
-                // explains (§8.7): one rule for every group on this screen.
-                WVSectionHeader(L.t("Nhắc nhở"))
+                // Warrly Premium. The row is the entry point the App Review
+                // reviewer and a returning buyer both need; the paywall owns
+                // price/trial/restore/legal. Ad gating and the server quota
+                // read the same store.
+                WVSectionHeader(L.t("Warrly Premium"))
+                premiumSection
+                WVSectionFooter(L.t("Premium bỏ quảng cáo và nâng giới hạn cho toàn bộ tài khoản. Gói tự động gia hạn; quản lý hoặc huỷ trong phần đăng ký của Apple."))
+
+                // Thông báo. The explanation sits below the rows it explains
+                // (§8.7): one rule for every group on this screen.
+                WVSectionHeader(L.t("Thông báo"))
                 notificationsSection
                 WVSectionFooter(L.t("Mốc nhắc được đặt riêng cho từng thiết bị và gói đăng ký — mở chi tiết để chỉnh. Mặc định là 30 và 7 ngày."))
 
-                // Sign-in sessions (who can reach the data)
-                WVSectionHeader(L.t("Bảo mật"))
+                // Bảo mật & dữ liệu — who can reach the data, what leaves the
+                // box, and the backup.
+                WVSectionHeader(L.t("Bảo mật & dữ liệu"))
                 sessionsSection
-                WVSectionFooter(L.t("“Thiết bị đăng nhập” là các phiên còn quyền truy cập dữ liệu của bạn. Khác với “Thiết bị nhận thông báo” ở trên — xoá một đích push chỉ ngừng gửi thông báo, không thu hồi quyền truy cập."))
+                WVSectionFooter(L.t("“Phiên đăng nhập” là các thiết bị còn quyền truy cập dữ liệu của bạn. Khác với “Nơi nhận thông báo” ở trên — xoá một nơi nhận chỉ ngừng gửi thông báo, không thu hồi quyền truy cập."))
 
-                // Shared AI opt-in. There is deliberately ONE switch (and one
-                // `PUT /api/v1/ai/opt-in`) for both receipt scanning and claim
-                // assessment: the flag is a privacy decision about sending data
-                // to a third-party model, and a second toggle would let the two
-                // features disagree about it. The assessment sheet points here.
-                WVSectionHeader(L.t("Trợ lý AI"))
-                aiSection
-                WVSectionFooter(L.t("Khi bật, ảnh hoá đơn (đã giải mã) và thông tin lần sửa chữa sẽ được gửi tới dịch vụ AI bên thứ ba để tự điền thông tin hoặc đánh giá bảo hành. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt."))
+                // Shared AI opt-in. Deliberately hidden in 1.0.0 — see
+                // `AIOptInSurface`. The switch and its explanation are gated
+                // together so the footer cannot outlive the row it explains.
+                // Session revocation above and the backup warning below stay.
+                if AIOptInSurface.isVisible {
+                    aiSection
+                    WVSectionFooter(L.t("Khi bật, ảnh hoá đơn (đã giải mã) và thông tin lần sửa chữa sẽ được gửi tới dịch vụ AI bên thứ ba để tự điền thông tin hoặc đánh giá bảo hành. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt."))
+                }
 
-                // Data
-                WVSectionHeader(L.t("Dữ liệu"))
                 dataSection
                 WVSectionFooter(L.t("File backup chứa dữ liệu nhạy cảm (số seri, giá mua, trung tâm BH). Lưu ở nơi an toàn."))
 
-                // Privacy options. Deliberately conditional INCLUDING the
-                // header: when UMP does not require a privacy options form
-                // there must be nothing here at all — not a disabled row and
-                // not an error. The pure rule (pinned by swift test) is
+                // Privacy options. Deliberately conditional: when UMP does not
+                // require a privacy options form there must be nothing here at
+                // all. The pure rule (pinned by swift test) is
                 // `AdsConsentOrdering.showsPrivacyOptionsEntry`.
                 if AdsConsentOrdering.showsPrivacyOptionsEntry(ads.privacyOptionsRequirement) {
-                    WVSectionHeader(L.t("Quyền riêng tư"))
+                    Spacer().frame(height: WVSpacing.md)
                     privacySection
                 }
 
-                // Info
-                WVSectionHeader(L.t("Thông tin"))
+                // Về Warrly
+                WVSectionHeader(L.t("Về Warrly"))
                 infoSection
 
                 Spacer().frame(height: WVSpacing.xl)
@@ -260,21 +280,25 @@ struct SettingsView: View {
         .sheet(isPresented: $showChangePassword) {
             ChangePasswordSheet(client: client)
         }
+        .sheet(isPresented: $showPremium) {
+            PremiumPaywallView()
+        }
         .sheet(isPresented: $showInsurancePack) {
             InsurancePackSheet(client: client)
         }
         .navigationDestination(isPresented: $showPushDevices) {
             PushDevicesView(client: client)
-                .navigationTitle(L.t("Thiết bị nhận thông báo"))
+                .navigationTitle(L.t("Nơi nhận thông báo"))
                 .navigationBarTitleDisplayMode(.inline)
         }
         .navigationDestination(isPresented: $showSessions) {
             SessionsView(client: client)
-                .navigationTitle(L.t("Thiết bị đăng nhập"))
+                .navigationTitle(L.t("Phiên đăng nhập"))
                 .navigationBarTitleDisplayMode(.inline)
         }
         .task {
-            if let v = try? await client.getAIOptIn() { aiOptIn = v }
+            if AIOptInSurface.isVisible,
+               let v = try? await client.getAIOptIn() { aiOptIn = v }
             // UMP's requirement can change after launch (the privacy options
             // form itself, a region/console change). Re-read it on entry so
             // the row is never left stale in either direction.
@@ -331,6 +355,30 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Premium section
+
+    /// One row: upgrade on a free account, status + management on a paid one.
+    /// The banner is already hidden by `WarrlyApp`'s `onChange`; this row is
+    /// the human-readable state, not the source of truth.
+    private var premiumSection: some View {
+        WVGroup {
+            WVRow(
+                icon: "sparkles",
+                iconColor: WVColor.orange,
+                tintedIcon: true,
+                title: premium.isPremium
+                    ? L.t("Premium đang hoạt động")
+                    : L.t("Nâng cấp Warrly Premium"),
+                subtitle: premium.isPremium
+                    ? L.t("Không quảng cáo · giới hạn cao hơn")
+                    : L.t("Bỏ quảng cáo · tới 200 thiết bị"),
+                chevron: true
+            ) {
+                showPremium = true
+            }
+        }
+    }
+
     // MARK: - Language section
 
     /// The three states the contract has, not two: `.device` is the absent
@@ -344,7 +392,7 @@ struct SettingsView: View {
                     Task { await localization.select(option.language) }
                 } label: {
                     HStack(spacing: WVSpacing.md) {
-                        WVLeadingIcon(icon: "globe")
+                        WVLeadingIcon(icon: "globe", color: WVColor.blue, tinted: true)
                         Text(option.label)
                             .wvFont(.body)
                             .foregroundStyle(WVColor.label)
@@ -401,10 +449,17 @@ struct SettingsView: View {
     private var aiSection: some View {
         WVGroup {
             HStack(spacing: WVSpacing.md) {
-                WVLeadingIcon(icon: "sparkles")
-                Text(L.t("Quét hoá đơn & đánh giá bảo hành"))
-                    .wvFont(.body)
-                    .foregroundStyle(WVColor.label)
+                WVLeadingIcon(icon: "sparkles", color: WVColor.purple, tinted: true)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(L.t("Quét hoá đơn & đánh giá bảo hành"))
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label)
+                    Text(aiOptIn
+                         ? L.t("Đang bật — ảnh hoá đơn được gửi tới dịch vụ AI")
+                         : L.t("Đang tắt — không gửi gì ra ngoài"))
+                        .wvFont(.footnote)
+                        .foregroundStyle(WVColor.label3)
+                }
                 Spacer(minLength: WVSpacing.sm)
                 if aiBusy {
                     ProgressView()
@@ -452,7 +507,9 @@ struct SettingsView: View {
     private var sessionsSection: some View {
         WVGroup {
             WVRow(icon: "shieldCheck",
-                  title: L.t("Thiết bị đăng nhập"),
+                  iconColor: WVColor.green,
+                  tintedIcon: true,
+                  title: L.t("Phiên đăng nhập"),
                   subtitle: L.t("Xem và thu hồi các phiên đang hoạt động"),
                   chevron: true) {
                 showSessions = true
@@ -471,7 +528,9 @@ struct SettingsView: View {
                 } label: {
                     HStack(spacing: WVSpacing.md) {
                         WVLeadingIcon(
-                            icon: option == .dark ? "moon" : option == .light ? "sun" : "settings"
+                            icon: option == .dark ? "moon" : option == .light ? "sun" : "settings",
+                            color: option == .dark ? WVColor.indigo : option == .light ? WVColor.orange : WVColor.gray,
+                            tinted: true
                         )
                         Text(option.label)
                             .wvFont(.body)
@@ -505,7 +564,7 @@ struct SettingsView: View {
             // looked the same and only one of them did anything. A row with a
             // verb is a row that acts; this one does not.
             HStack(spacing: WVSpacing.md) {
-                WVLeadingIcon(icon: "bell")
+                WVLeadingIcon(icon: "bell", color: WVColor.red, tinted: true)
                 Text(L.t("Thông báo"))
                     .wvFont(.body)
                     .foregroundStyle(WVColor.label)
@@ -527,6 +586,8 @@ struct SettingsView: View {
             // every state and call `requestAndRegister`, which returns
             // immediately when denied: the one advertised way back did nothing.
             WVRow(icon: pushRowIcon,
+                  iconColor: push.permission == .denied ? WVColor.orange : WVColor.red,
+                  tintedIcon: true,
                   title: pushRowTitle,
                   subtitle: pushRowSubtitle,
                   subtitleLineLimit: 4,
@@ -544,7 +605,11 @@ struct SettingsView: View {
 
             // Devices list
             WVRow(icon: "smartphone",
-                  title: L.t("Thiết bị nhận thông báo"), chevron: true) {
+                  iconColor: WVColor.teal,
+                  tintedIcon: true,
+                  title: L.t("Nơi nhận thông báo"),
+                  subtitle: L.t("Xem máy nào đang nhận thông báo"),
+                  chevron: true) {
                 showPushDevices = true
             }
 
@@ -560,6 +625,8 @@ struct SettingsView: View {
             // schedule; it stays non-interactive (no chevron, no action)
             // because there is no global value to change here.
             WVRow(icon: "clock",
+                  iconColor: WVColor.orange,
+                  tintedIcon: true,
                   title: L.t("Nhắc trước"),
                   subtitle: L.t("Theo từng thiết bị / gói"),
                   detail: L.t("Tuỳ chỉnh"))
@@ -571,14 +638,21 @@ struct SettingsView: View {
     private var dataSection: some View {
         WVGroup {
             WVRow(icon: "download",
+                  iconColor: WVColor.blue,
+                  tintedIcon: true,
                   title: backupBusy ? L.t("Đang xử lý…") : L.t("Sao lưu (xuất JSON)"),
+                  subtitle: L.t("Tải toàn bộ dữ liệu về file JSON"),
                   chevron: true) {
                 guard !backupBusy else { return }
                 exportBackup()
             }
             WVDivider()
             WVRow(icon: "upload",
-                  title: L.t("Khôi phục từ sao lưu"), chevron: true) {
+                  iconColor: WVColor.blue,
+                  tintedIcon: true,
+                  title: L.t("Khôi phục từ sao lưu"),
+                  subtitle: L.t("Nạp lại dữ liệu từ file sao lưu"),
+                  chevron: true) {
                 guard !backupBusy else { return }
                 showImporter = true
             }
@@ -614,6 +688,8 @@ struct SettingsView: View {
     private var privacySection: some View {
         WVGroup {
             WVRow(icon: "lock",
+                  iconColor: WVColor.indigo,
+                  tintedIcon: true,
                   title: L.t("Tuỳ chọn quyền riêng tư"),
                   subtitle: L.t("Đổi cách quảng cáo được cá nhân hoá hoặc rút lại sự đồng ý."),
                   subtitleLineLimit: 4,
@@ -644,14 +720,20 @@ struct SettingsView: View {
     private var infoSection: some View {
         WVGroup {
             WVRow(icon: "info",
+                  iconColor: WVColor.gray,
+                  tintedIcon: true,
                   title: L.t("Phiên bản"), detail: appVersion)
             WVDivider()
             WVRow(icon: "shield",
+                  iconColor: WVColor.green,
+                  tintedIcon: true,
                   title: L.t("Chính sách bảo mật"), chevron: true) {
                 open(.privacy)
             }
             WVDivider()
             WVRow(icon: "receipt",
+                  iconColor: WVColor.gray,
+                  tintedIcon: true,
                   title: L.t("Điều khoản sử dụng"), chevron: true) {
                 open(.terms)
             }
@@ -782,7 +864,7 @@ private struct InsurancePackRow: View {
     var body: some View {
         WVRowContainer(action: action) {
             HStack(spacing: WVSpacing.md) {
-                WVLeadingIcon(icon: "shieldCheck")
+                WVLeadingIcon(icon: "shieldCheck", color: WVColor.teal, tinted: true)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(L.t("Bảng kê cho bảo hiểm (tiếng Việt)"))
                         .wvFont(.body)

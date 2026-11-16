@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 /**
  * App-scoped auth state. The MainActivity hands the same instance to every
@@ -121,14 +122,29 @@ class AuthStore(
      * failure would leave the account receiving Vietnamese push while the app
      * renders English.
      *
-     * [language] is `null` for "Theo thiết bị": the tri-state `locale` is cleared
-     * with an explicit `"locale": null` (see [UpdateLocaleInput] and its
-     * serializer — the app's JSON config drops nulls otherwise), which sends the
-     * server back to deciding per request.
+     * [choice] is `null` for "Theo thiết bị". It deliberately no longer sends
+     * `{"locale": null}`: that CLEARS `User.locale`, which leaves the cron with
+     * no language to render a push or an email in, so an English interface got
+     * Vietnamese artifacts. The language the phone resolves to is stored
+     * instead, and remembered as a mirror so the Settings row keeps ticking
+     * "Theo thiết bị" (the local [LanguageStore.stored] stays `null`). iOS
+     * `LocalizationStore.select(nil)` does the same.
+     *
+     * Local state moves only after the PATCH answers: a failure must leave the
+     * UI on the language the account actually holds.
      */
-    suspend fun updateLocale(language: AppLanguage?): UpdateProfileResponse {
-        val res = api.updateLocale(UpdateLocaleInput(language?.tag))
+    suspend fun updateLocale(choice: AppLanguage?): UpdateProfileResponse {
+        val resolved = choice
+            ?: languageStore?.deviceLanguage
+            ?: AppLanguage.forSystemLanguage(Locale.getDefault().language)
+        val res = api.updateLocale(UpdateLocaleInput(resolved.tag))
         _status.value = Status.Authenticated(res.user)
+        when (choice) {
+            // The account now holds the resolved language as a mirror, not a
+            // choice: the row must stay on "Theo thiết bị".
+            null -> languageStore?.followDevice(resolved, res.user.id)
+            else -> languageStore?.set(choice)
+        }
         return res
     }
 
@@ -193,16 +209,18 @@ class AuthStore(
      * Publishes [user] as the authenticated status AND reconciles the UI
      * language with the account's stored `locale`.
      *
-     * Adoption is one-way here (server → device) and never echoed back with a
-     * PATCH, because nothing changed server-side. A `null` `locale` — the account
-     * has never chosen one — leaves the local choice alone on purpose: a fresh
-     * install on a Vietnamese phone is Vietnamese from the system locale, and
-     * resetting that to the product default would be a downgrade
-     * (`docs/I18N_PLAN.md` §2.4).
+     * An explicit `locale` is adopted one-way here (server → device): a choice
+     * made on the web or another phone follows the user.
+     *
+     * A `null` `locale` — the account has never stored one — does not reset the
+     * device-derived language, and it is also the state that leaves push and
+     * email in the artifact fallback forever. [LanguageStore.adoptFromServer]
+     * therefore mirrors the resolved language back to the account, once, and
+     * remembers which value it wrote so the row keeps showing "Theo thiết bị".
      */
     private fun applyUser(user: User) {
         _status.value = Status.Authenticated(user)
-        languageStore?.adoptFromServer(user.locale)
+        languageStore?.adoptFromServer(user.locale, user.id)
     }
 
     private fun deviceLabel(): String {

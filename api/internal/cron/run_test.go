@@ -911,10 +911,12 @@ func TestWarrantyPushTitleIsLocalised(t *testing.T) {
 	}
 }
 
-// loadLocales over a real database: a stored preference is returned, NULL is
-// absent (and therefore falls back to the default), and an unsupported value
-// cannot leak through — the column's CHECK allows any two-letter code, so the
-// application layer is what narrows it to the shipped languages.
+// loadLocales over a real database: a stored preference comes back raw, and the
+// artifact rule (i18n.FromStored, applied by langOf) turns an explicit value
+// into that language and NULL into the source language. The column's CHECK
+// allows any two-letter code, so the narrowing to the shipped languages happens
+// at resolve time — FromStored is what refuses "fr" (see
+// handlers/wave5_i18n_test.go), not this loader.
 func TestLoadLocalesReadsStoredPreferences(t *testing.T) {
 	ctx := context.Background()
 	pool := cronScratchDB(t)
@@ -933,14 +935,20 @@ func TestLoadLocalesReadsStoredPreferences(t *testing.T) {
 
 	locales := loadLocales(ctx, store.New(pool))
 
-	if got := locales["loc_en"]; got != i18n.EN {
-		t.Errorf("locales[loc_en] = %q, want %q", got, i18n.EN)
+	if got := i18n.FromStored(locales["loc_en"]); got != i18n.EN {
+		t.Errorf("locale for loc_en resolves to %q, want %q", got, i18n.EN)
 	}
-	if got := locales["loc_vi"]; got != i18n.VI {
-		t.Errorf("locales[loc_vi] = %q, want %q", got, i18n.VI)
+	if got := i18n.FromStored(locales["loc_vi"]); got != i18n.VI {
+		t.Errorf("locale for loc_vi resolves to %q, want %q", got, i18n.VI)
 	}
+	// The query filters `WHERE locale IS NOT NULL`, so the NULL row never reaches
+	// the map — and a missing key is exactly what FromStored resolves to the
+	// source language.
 	if _, ok := locales["loc_null"]; ok {
-		t.Errorf("locales contains a NULL preference; it must be absent so the default applies")
+		t.Errorf("locales contains a NULL preference; it must be absent so FromStored sees nil")
+	}
+	if got := i18n.FromStored(locales["loc_null"]); got != i18n.VI {
+		t.Errorf("locale for an absent preference resolves to %q, want the source language %q", got, i18n.VI)
 	}
 	// The map is keyed by userId and covers only rows that have a preference.
 	if len(locales) != 2 {
@@ -948,9 +956,11 @@ func TestLoadLocalesReadsStoredPreferences(t *testing.T) {
 	}
 }
 
-// The whole path, end to end: the same warranty bucket, two users, two stored
-// preferences, two languages out. This is what makes User.locale load-bearing
-// rather than decorative.
+// The whole path, end to end: the same warranty bucket, three users, three
+// answers out — an explicit 'en', an explicit 'vi', and a NULL preference, which
+// follows the ARTIFACT rule (Vietnamese) rather than the product's request
+// default (English). This is what makes User.locale load-bearing rather than
+// decorative.
 func TestRunRendersPushInTheRecipientsStoredLanguage(t *testing.T) {
 	ctx := context.Background()
 	pool := cronScratchDB(t)
@@ -991,7 +1001,8 @@ func TestRunRendersPushInTheRecipientsStoredLanguage(t *testing.T) {
 
 	seed("i18n_en", "en", "dev_i18n_en")
 	seed("i18n_vi", "vi", "dev_i18n_vi")
-	// No stored preference at all: must get the product default, English.
+	// No stored preference at all: an artifact falls back to the SOURCE language,
+	// Vietnamese — not to the product's request default, English.
 	seed("i18n_null", nil, "dev_i18n_null")
 
 	mock := &mockDispatcher{}
@@ -1019,8 +1030,8 @@ func TestRunRendersPushInTheRecipientsStoredLanguage(t *testing.T) {
 	if got, want := titles["/devices/dev_i18n_vi"], `BH Tiêu chuẩn của "iPhone 15" sắp hết trong 7 ngày`; got != want {
 		t.Errorf("stored 'vi' title = %q, want %q", got, want)
 	}
-	if got, want := titles["/devices/dev_i18n_null"], `Standard warranty for "iPhone 15" expires in 7 days`; got != want {
-		t.Errorf("NULL locale title = %q, want the default (%q)", got, want)
+	if got, want := titles["/devices/dev_i18n_null"], `BH Tiêu chuẩn của "iPhone 15" sắp hết trong 7 ngày`; got != want {
+		t.Errorf("NULL locale title = %q, want the source language (%q)", got, want)
 	}
 }
 

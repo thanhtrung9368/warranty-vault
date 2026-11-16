@@ -98,6 +98,54 @@ public final class AuthStore: ObservableObject {
         status = .unauthenticated
     }
 
+    /// Re-proves the signed-in account for the app lock.
+    ///
+    /// `POST /api/v1/auth/login` with the account's own email and the typed
+    /// password is the only thing that can check an account password — the app
+    /// stores no hash and compares nothing locally. A **401** is the server
+    /// saying the password is wrong; the lock screen maps it (see
+    /// `AppLockPasswordError.from`).
+    ///
+    /// ## The session
+    ///
+    /// A successful login **issues a fresh session**, and this method adopts it:
+    /// the bearer already in the Keychain is the one the app has been using, and
+    /// it may be the very token the server has already expired — that is one of
+    /// the reasons the lock screen is in the way. Keeping it would open the UI
+    /// and leave every following request 401.
+    ///
+    /// Adoption happens **only after the answer is checked**, and the existing
+    /// session survives every failure:
+    ///
+    /// * a transport / decoding failure throws before anything is written;
+    /// * a 2xx with a blank bearer, or one for a different account, throws
+    ///   `.cannotVerify` and leaves the Keychain and `status` exactly as they
+    ///   were — an unlock must never silently sign the user out;
+    /// * a sign-out that lands while the request is in flight wins: the response
+    ///   is discarded rather than signing the user back in.
+    public func verifyAccountPassword(_ password: String) async throws {
+        guard case .authenticated(let current) = status else {
+            throw AppLockPasswordError.cannotVerify
+        }
+        let result = try await client.login(LoginInput(
+            email: current.email, password: password,
+            deviceLabel: deviceLabel(), platform: "ios"
+        ))
+        let token = result.accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Re-checked after the await: the user may have signed out (or the
+        // session may have been replaced) while the server was answering.
+        guard case .authenticated(let stillCurrent) = status,
+              stillCurrent.id == current.id,
+              result.user.id == current.id,
+              !token.isEmpty
+        else {
+            throw AppLockPasswordError.cannotVerify
+        }
+        keychain.write(token)
+        RememberedEmail.save(result.user.email)
+        status = .authenticated(result.user)
+    }
+
     /// `PATCH /api/v1/auth/me` → `displayName`.
     ///
     /// `raw` is exactly what the user typed: blank/whitespace clears the stored

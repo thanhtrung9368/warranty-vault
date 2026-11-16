@@ -13,9 +13,18 @@
 // column exists. There is no request here and therefore no `Accept-Language` and
 // no caller to ask: a cron pass builds text for hundreds of users at once, each
 // of whom may want a different language, so the stored preference is the only
-// signal available. A user with no stored preference (locale IS NULL, i.e. every
-// account that predates the column, and anyone who never opened the picker) gets
-// the product default (English).
+// signal available.
+//
+// A user with no stored preference (locale IS NULL — every account that predates
+// the column, and anyone whose client never persisted one) gets VIETNAMESE, not
+// the product default English. A notification is an ARTIFACT: it lands on a lock
+// screen and cannot be re-rendered once sent, so the resolution rule is
+// i18n.FromStored — the same function the transactional mail uses
+// (internal/email, resolved in handlers.Forgot / ChangeEmail) and the same
+// fallback the public share certificate pins. The English default belongs to the
+// REQUEST path, where a page is re-rendered on every look and the reader can
+// reach a language switch. See CLAUDE.md, "Artifacts are Vietnamese; requests
+// are English".
 //
 // The locale map is read ONCE per pass by loadLocales and then consulted per
 // recipient, so a run costs one extra query in total rather than one per push.
@@ -90,34 +99,29 @@ var warrantyTypeLabels = map[string]string{
 }
 
 // loadLocales reads every stored language preference in one query and returns it
-// as userId -> locale. Users who never chose one are simply absent, and the
-// lookup below returns the default for them.
+// keyed by userId, still RAW: the value is resolved per recipient by
+// i18n.FromStored in langOf rather than filtered here, so this job and the
+// transactional mail cannot drift on what a NULL or unsupported value means.
+// Filtering at load time would turn "not a language we ship" into a missing key,
+// and the fallback would then be decided by whoever read the map — which is how
+// the cron ended up on the request default while the email path was on the
+// artifact default.
 //
-// A failure is NOT fatal: the run continues with every notification in the
-// default language, which is what the whole service did before migration 0014.
-// Losing a day's reminders because a preference could not be read would be a far
-// worse outcome than one day of English.
-func loadLocales(ctx context.Context, q *store.Queries) map[string]i18n.Tag {
-	out := map[string]i18n.Tag{}
+// A failure is NOT fatal: the map is empty, every notification still goes out,
+// and i18n.FromStored(nil) renders it in Vietnamese. Losing a day's reminders
+// because a preference could not be read would be a far worse outcome than one
+// day in the source language.
+func loadLocales(ctx context.Context, q *store.Queries) map[string]*string {
+	out := map[string]*string{}
 	rows, err := q.ListUserLocales(ctx)
 	if err != nil {
-		slog.Error("cron: list user locales failed; falling back to the default language", "err", err)
+		slog.Error("cron: list user locales failed; falling back to the source language", "err", err)
 		return out
 	}
 	for _, r := range rows {
-		if tag, ok := i18n.Normalize(derefString(r.Locale)); ok {
-			out[r.ID] = tag
-		}
+		out[r.ID] = r.Locale
 	}
 	return out
-}
-
-// derefString tolerates a NULL text column.
-func derefString(p *string) string {
-	if p == nil {
-		return ""
-	}
-	return *p
 }
 
 // render looks up a key that was COMPUTED rather than written out, and fills in
@@ -251,12 +255,13 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	q := store.New(db)
 
 	// Recipient language lookup. Read once for the whole pass — see loadLocales.
+	// langOf applies i18n.FromStored, the ONE artifact rule (also used by the
+	// password-reset / email-change mail): a stored preference wins, NULL or an
+	// unsupported value resolves to Vietnamese. The map miss covers both "this
+	// user has no stored preference" and "the locale query failed" — same answer.
 	locales := loadLocales(ctx, q)
 	langOf := func(userID string) i18n.Tag {
-		if tag, ok := locales[userID]; ok {
-			return tag
-		}
-		return i18n.Default
+		return i18n.FromStored(locales[userID])
 	}
 
 	// Cache PushSubscription lists per user to avoid hammering the DB during

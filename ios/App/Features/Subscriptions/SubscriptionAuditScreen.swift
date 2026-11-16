@@ -20,6 +20,13 @@ import WarrlyKit
 //   * the rule lines come from the payload's own `thresholds`;
 //   * there is no cancel, no disable-auto-renew, no "dọn gói này" — links navigate
 //     into the subscription and stop. The endpoint has no write path at all.
+//
+// Layout at thirty subscriptions: the findings are **grouped by kind**, each
+// group's heading carries its count before any card is read, and a group longer
+// than `SubscriptionAuditRules.collapsedFindingLimit` shows its first five with
+// an explicit "Xem tất cả N phát hiện" row — never a silent truncation. Within a
+// group the order is the server's (most money at stake first), and the monthly
+// drain is printed on the card so that order is legible instead of inferred.
 // ============================================================
 
 /// A link from a finding into one of its subscriptions.
@@ -32,6 +39,10 @@ struct SubscriptionAuditScreen: View {
     @ObservedObject var subsStore: SubscriptionsStore
     @StateObject private var store: SubscriptionAuditStore
 
+    /// Group ids whose full finding list is on screen. A collapsed group shows
+    /// `collapsedFindingLimit` cards and a row that names the rest.
+    @State private var expandedSections: Set<String> = []
+
     init(client: APIClient, subsStore: SubscriptionsStore) {
         self.client = client
         self.subsStore = subsStore
@@ -39,56 +50,101 @@ struct SubscriptionAuditScreen: View {
     }
 
     private var audit: SubscriptionAudit? { store.audit }
-    private var findings: [SubscriptionAuditFinding] {
-        SubscriptionAuditRules.sorted(audit?.findings ?? [])
+    private var sections: [SubscriptionAuditSection] {
+        SubscriptionAuditRules.sections(audit?.findings ?? [])
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                Spacer().frame(height: 8)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    Spacer().frame(height: 8)
 
-                if let audit {
-                    summaryCard(audit)
+                    if let audit {
+                        summaryCard(audit)
 
-                    if findings.isEmpty {
-                        emptyCard
-                    } else {
-                        WVSectionHeader(L.t("Phát hiện"))
-                        VStack(spacing: 8) {
-                            ForEach(findings) { finding in
-                                findingCard(finding, thresholds: audit.thresholds)
+                        if sections.isEmpty {
+                            emptyCard
+                        } else {
+                            ForEach(sections) { section in
+                                sectionBlock(section, thresholds: audit.thresholds)
                             }
                         }
-                        .padding(.horizontal, WVSpacing.gutter)
+
+                        rulesCard(audit)
+                    } else if case let .error(message) = store.state {
+                        WVEmpty(icon: "alert", title: L.t("Không tải được phần soát gói"),
+                                description: message) {
+                            WVButton(L.t("Thử lại")) { Task { await store.load() } }
+                                .padding(.horizontal, WVSpacing.gutter)
+                        }
+                    } else {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 40)
                     }
 
-                    rulesCard(audit)
-                } else if case let .error(message) = store.state {
-                    WVEmpty(icon: "alert", title: L.t("Không tải được phần soát gói"),
-                            description: message) {
-                        WVButton(L.t("Thử lại")) { Task { await store.load() } }
-                            .padding(.horizontal, WVSpacing.gutter)
-                    }
-                } else {
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 40)
+                    Spacer().frame(height: 24)
                 }
-
-                Spacer().frame(height: 24)
+            }
+            .wvScreen()
+            .navigationTitle(L.t("Soát gói đăng ký"))
+            .navigationBarTitleDisplayMode(.inline)
+            .task {
+                await store.load()
+#if DEBUG
+                await qaScrollToRequestedSection(proxy)
+#endif
+            }
+            .refreshable { await store.load() }
+            .navigationDestination(for: AuditSubscriptionNav.self) { nav in
+                SubscriptionDetailView(client: client, store: subsStore,
+                                       subscriptionId: nav.subscriptionId)
             }
         }
-        .wvScreen()
-        .navigationTitle(L.t("Soát gói đăng ký"))
-        .navigationBarTitleDisplayMode(.inline)
-        .task { await store.load() }
-        .refreshable { await store.load() }
-        .navigationDestination(for: AuditSubscriptionNav.self) { nav in
-            SubscriptionDetailView(client: client, store: subsStore,
-                                   subscriptionId: nav.subscriptionId)
+    }
+
+#if DEBUG
+    /// Screenshot QA only. The simulator cannot tap or scroll, so a launch env
+    /// opens the report on one named group:
+    /// `WV_QA_AUDIT_SECTION=DUPLICATE|PRICE_INCREASED|QUIET_AUTO_RENEW` scrolls
+    /// that group's heading to the top, and `WV_QA_AUDIT_EXPAND=1` also expands
+    /// it so its "Xem tất cả" / "Thu gọn" row is photographed in place.
+    /// Never compiled into Release.
+    private func qaScrollToRequestedSection(_ proxy: ScrollViewProxy) async {
+        let anchor = ProcessInfo.processInfo.environment["WV_QA_AUDIT_ANCHOR"]
+        if anchor == "rules" {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            proxy.scrollTo("rules-card", anchor: .top)
+            return
+        }
+        guard let raw = ProcessInfo.processInfo.environment["WV_QA_AUDIT_SECTION"],
+              !raw.isEmpty else { return }
+        let id: String?
+        switch raw.uppercased() {
+        case SubscriptionAuditRules.kindQuietAutoRenew:
+            id = SubscriptionAuditSection.Kind.quietAutoRenew.rawValue
+        case SubscriptionAuditRules.kindPriceIncreased:
+            id = SubscriptionAuditSection.Kind.priceIncreased.rawValue
+        case SubscriptionAuditRules.kindDuplicate:
+            id = SubscriptionAuditSection.Kind.duplicate.rawValue
+        default:
+            id = nil
+        }
+        guard let id else { return }
+        if ProcessInfo.processInfo.environment["WV_QA_AUDIT_EXPAND"] == "1" {
+            expandedSections.insert(id)
+        }
+        // One runloop turn is not enough for the section to lay out after the
+        // read returns; a short fixed wait is the screenshot-only trade.
+        try? await Task.sleep(nanoseconds: 350_000_000)
+        if anchor == "more" {
+            proxy.scrollTo("\(id)-more", anchor: .center)
+        } else {
+            proxy.scrollTo(id, anchor: .top)
         }
     }
+#endif
 
     // MARK: - Summary
 
@@ -147,6 +203,73 @@ struct SubscriptionAuditScreen: View {
         .padding(.top, 12)
     }
 
+    // MARK: - One group
+
+    /// A group of findings: a heading that states the count, then up to
+    /// `collapsedFindingLimit` cards, then — when there are more — a row that
+    /// says exactly how many and opens them. The count in the heading and in the
+    /// row is the same number, so nothing is ever truncated silently.
+    private func sectionBlock(_ section: SubscriptionAuditSection,
+                              thresholds: SubscriptionAuditThresholds?) -> some View {
+        let expanded = expandedSections.contains(section.id)
+        let visible = SubscriptionAuditRules.visibleFindings(section, expanded: expanded)
+
+        return VStack(alignment: .leading, spacing: 0) {
+            WVSectionHeader(sectionHeading(section))
+                .id(section.id)
+
+            VStack(spacing: 8) {
+                ForEach(visible) { finding in
+                    findingCard(finding, thresholds: thresholds)
+                }
+                if SubscriptionAuditRules.hasHiddenFindings(section) {
+                    expandRow(section, expanded: expanded)
+                }
+            }
+            .padding(.horizontal, WVSpacing.gutter)
+        }
+    }
+
+    /// "Tự trừ lâu, không ghi nhận · 7 phát hiện" — the number a reader needs
+    /// before scrolling, not after.
+    private func sectionHeading(_ section: SubscriptionAuditSection) -> String {
+        section.title + " · " + L.p("%d phát hiện", section.count)
+    }
+
+    /// The explicit cap control. "Xem tất cả 20 phát hiện" always names the whole
+    /// group's count; "Thu gọn" puts the first five back. Never a silent
+    /// truncation, and never a second sorting rule — expansion only reveals more
+    /// of the same money-ordered list.
+    private func expandRow(_ section: SubscriptionAuditSection, expanded: Bool) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                if expanded {
+                    expandedSections.remove(section.id)
+                } else {
+                    expandedSections.insert(section.id)
+                }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Text(expanded
+                     ? L.t("Thu gọn")
+                     : L.p("Xem tất cả %d phát hiện", section.count))
+                    .wvFont(.footnoteEmphasis)
+                    .foregroundStyle(WVColor.label2)
+                WVIcon(expanded ? "arrowUp" : "arrowDown", size: 11, weight: .semibold)
+                    .foregroundStyle(WVColor.label3)
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(WVColor.bg2)
+            .clipShape(RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(WVRowButtonStyle())
+        .id("\(section.id)-more")
+    }
+
     // MARK: - One finding
 
     private func findingCard(_ finding: SubscriptionAuditFinding,
@@ -185,6 +308,15 @@ struct SubscriptionAuditScreen: View {
                 Text(money)
                     .wvFont(.footnoteEmphasis)
                     .foregroundStyle(WVColor.label)
+            }
+
+            // The figure this group is ordered by. Printing it makes "which one
+            // is the expensive one" readable instead of a hidden sort key (the
+            // list screen's H6 mistake, not repeated here).
+            if let monthly = SubscriptionAuditRules.monthlyLine(finding) {
+                Text(monthly)
+                    .wvFont(.footnote)
+                    .foregroundStyle(WVColor.label2)
             }
 
             if let timeline = SubscriptionAuditRules.timelineNote(finding) {
@@ -227,7 +359,7 @@ struct SubscriptionAuditScreen: View {
                 .padding(.top, 2)
             }
         }
-        .padding(14)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(WVColor.bg2)
         .clipShape(RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous))
@@ -252,6 +384,7 @@ struct SubscriptionAuditScreen: View {
         let lines = SubscriptionAuditRules.thresholdLines(audit.thresholds)
         if !lines.isEmpty {
             WVSectionHeader(L.t("Luật đang áp dụng"))
+                .id("rules-card")
             WVGroup {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { _, line in

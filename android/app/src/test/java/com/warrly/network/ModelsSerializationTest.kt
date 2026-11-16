@@ -89,21 +89,18 @@ class ModelsSerializationTest {
     }
 
     /**
-     * The tri-state `locale`, including the branch Android could not send before
-     * the "Theo thiết bị" row existed.
+     * `PATCH /auth/me` carries a CONCRETE language, never `null`.
      *
-     * `ApiClient.json` sets `explicitNulls = false`, so a plain data class would
-     * DROP a null `locale` and the server would answer 400 to the empty body
-     * ("a body with neither key"). The custom serializer must therefore emit the
-     * key with an explicit null — this is the whole point of it.
+     * The clearing branch of the tri-state contract still exists server-side,
+     * but Android has no UI state that maps to it any more: "Theo thiết bị"
+     * persists the language the phone resolves to, because a NULL
+     * `User.locale` makes push and email fall back to Vietnamese. That is why
+     * `UpdateLocaleInput.locale` is non-nullable — the old
+     * `{"locale":null}` body is not constructible, so the serializer can only
+     * ever emit a real tag.
      */
     @Test
-    fun updateLocaleInput_alwaysSendsTheKeyAndCanClearWithAnExplicitNull() {
-        assertEquals(
-            "clearing is an explicit null, not an omitted key",
-            """{"locale":null}""",
-            json.encodeToString(UpdateLocaleInput.serializer(), UpdateLocaleInput(null)),
-        )
+    fun updateLocaleInput_alwaysSendsAConcreteLanguage() {
         assertEquals(
             """{"locale":"vi"}""",
             json.encodeToString(UpdateLocaleInput.serializer(), UpdateLocaleInput("vi")),
@@ -114,8 +111,6 @@ class ModelsSerializationTest {
         )
 
         // Round trip, because the serializer must at least be total.
-        val decoded = json.decodeFromString(UpdateLocaleInput.serializer(), """{"locale":null}""")
-        assertNull(decoded.locale)
         assertEquals(
             "vi",
             json.decodeFromString(UpdateLocaleInput.serializer(), """{"locale":"vi"}""").locale,

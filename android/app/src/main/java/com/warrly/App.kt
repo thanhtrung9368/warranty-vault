@@ -51,6 +51,10 @@ class App : Application() {
      * `MainActivity.attachBaseContext` to wrap the resources, and by the
      * `Accept-Language` provider below so the API answers in the same language
      * the screen is rendered in.
+     *
+     * It also mirrors the resolved language to `User.locale` while the user is
+     * on "Theo thiết bị" — the write the push/email path needs — which is why
+     * it is attached to the client below.
      */
     lateinit var languageStore: LanguageStore
         private set
@@ -111,7 +115,7 @@ class App : Application() {
         ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         deadlineSnapshots = DeadlineSnapshotUpdater(this, ioScope, tokenStore)
         navigationIntake = NavigationIntake()
-        languageStore = LanguageStore(this)
+        languageStore = LanguageStore(this, ioScope)
         // Both providers are lambdas read per request, so a language change in
         // Settings takes effect on the next call without rebuilding Retrofit.
         // `onDeadlineMutation` is the widget's write hook: it fires only for
@@ -123,6 +127,11 @@ class App : Application() {
             onDeadlineMutation = { deadlineSnapshots.onMutation() },
         )
         deadlineSnapshots.attach(api)
+        // The store's silent "Theo thiết bị" mirror writes through the same
+        // client. It is attached rather than injected because the client's
+        // language provider reads the store, so the dependency only points this
+        // way after `build`.
+        languageStore.attach(api)
         auth = AuthStore(tokenStore, api, languageStore = languageStore)
         pushRegistrar = PushRegistrar(api, tokenStore, auth)
         pushRegistrar.start()

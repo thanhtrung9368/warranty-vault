@@ -119,6 +119,12 @@ class AuthI18nNetworkTest {
      * other half of this endpoint — a language change would also rewrite the
      * user's name (and the server treats the two keys independently, so it would
      * not complain).
+     *
+     * There is deliberately no `{"locale": null}` variant any more: "Theo thiết
+     * bị" persists the language the phone resolved to, so the clearing branch
+     * the API still accepts is never sent. `UpdateLocaleInput.locale` is
+     * non-nullable, which makes that body unrepresentable rather than merely
+     * unused.
      */
     @Test
     fun updateLocaleSendsOnlyTheLocaleKey() = runBlocking {
@@ -144,24 +150,6 @@ class AuthI18nNetworkTest {
         val body = server.takeRequest().body.readUtf8()
         assertEquals("""{"displayName":"Nguyễn An"}""", body)
         assertTrue("must not carry locale: $body", !body.contains("locale"))
-    }
-
-    /**
-     * "Theo thiết bị" is `PATCH {"locale": null}` on the wire — the tri-state
-     * clear branch, not an omission. This goes through Retrofit's converter, so
-     * it proves the hand-written serializer survives the real call path as well
-     * as the direct `encodeToString` in `ModelsSerializationTest`.
-     */
-    @Test
-    fun updateLocaleCanClearTheStoredLanguageWithAnExplicitNull() = runBlocking {
-        enqueueJson(userJson)
-
-        api().updateLocale(UpdateLocaleInput(locale = null))
-
-        val recorded = server.takeRequest()
-        assertEquals("PATCH", recorded.method)
-        assertEquals("/api/v1/auth/me", recorded.path)
-        assertEquals("""{"locale":null}""", recorded.body.readUtf8())
     }
 
     /** `User.locale` decodes when present and defaults to null when absent. */

@@ -14,7 +14,7 @@ settings:
     # một build trùng số. Tăng CURRENT_PROJECT_VERSION, không sửa pbxproj tay —
     # file đó sinh ra từ chính project.yml này.
     MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "14"
+    CURRENT_PROJECT_VERSION: "23"
     ENABLE_USER_SCRIPT_SANDBOXING: NO
   configs:
     # APNs dùng hai môi trường khác nhau: build Debug đăng ký token với
@@ -362,6 +362,43 @@ targets:
           - group.com.warrly
 
 schemes:
+  # The app's own scheme MUST be declared here. It used to be "Xcode-managed",
+  # which meant it lived only in the .xcodeproj — and `xcodegen generate`
+  # rewrites that file, so the first regeneration silently deleted the scheme
+  # and every `xcodebuild -scheme Warrly` in CI and in the docs stopped working
+  # with "does not contain a scheme named Warrly". Declared here, it survives.
+  Warrly:
+    build:
+      targets:
+        Warrly: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+
+  # A second app scheme that differs only in the launch environment, so a build
+  # installed on a phone talks to production instead of `localhost:4000`.
+  # than editing anything Xcode owns. Same build, different API — the only
+  # difference is the launch environment.
+  #
+  # `WV_BASE_URL` is the launch-environment override BaseURLResolver documents
+  # as winning over both the Info.plist key and the xcconfig. So the simulator
+  # keeps talking to `localhost:4000` (Debug.xcconfig) and this scheme talks to
+  # production, with no per-build flags to remember and no xcconfig edited.
+  #
+  # Without it, a build installed on a phone asks `localhost:4000`, which on a
+  # phone is the phone — so sign-in fails before the credentials are even checked.
+  "Warrly (Device)":
+    build:
+      targets:
+        Warrly: all
+    run:
+      config: Debug
+      environmentVariables:
+        WV_BASE_URL: https://api.warrly.com
+    archive:
+      config: Release
+
   # XcodeGen does not create a shared scheme for an extension target by default,
   # which would make "build the extension's scheme" impossible in CI. Declare
   # one explicitly; the app's own scheme stays Xcode-managed.

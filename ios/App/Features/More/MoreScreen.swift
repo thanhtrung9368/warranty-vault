@@ -3,8 +3,10 @@ import UniformTypeIdentifiers
 import WarrlyKit
 
 // ============================================================
-// MoreScreen — landing tab for Nhắc nhở, Thống kê, Cài đặt,
-// Hồ sơ, and other utilities. Matches `MoreScreen` in screens-3.jsx.
+// MoreScreen — root of the fifth tab, ordered by what the person came to do:
+// the account first, then their own records (inbox / reminders / stats /
+// claims), then the app itself (settings, CSV export, backup import), and
+// sign out on its own at the end.
 // ============================================================
 
 struct MoreScreen: View {
@@ -46,18 +48,26 @@ struct MoreScreen: View {
             VStack(spacing: 0) {
                 Spacer().frame(height: WVSpacing.sm)
 
-                // MARK: Main actions — Tìm kiếm / Hộp thư đến / Nhắc nhở / Thống kê
-                moreActionsSection
-
+                // MARK: Account — the thing this tab exists to manage, so it
+                // comes first instead of under five unrelated shortcuts.
                 WVSectionHeader(L.t("Tài khoản"))
                 accountSection
 
+                // MARK: The user's own records — receipts waiting to be filed,
+                // deadlines, spending, repairs. One group because every row is
+                // a view onto the same data, not a separate utility.
+                WVSectionHeader(L.t("Dữ liệu của bạn"))
+                dataSection
+
+                // MARK: The app itself — preferences, then the two file
+                // in/out shortcuts.
                 WVSectionHeader(L.t("Ứng dụng"))
                 appSection
 
-                Spacer().frame(height: WVSpacing.lg)
+                Spacer().frame(height: WVSpacing.xl)
 
-                // Logout button
+                // Sign out, alone and last: it ends the session, it is not a
+                // setting and it does not belong under a group header.
                 WVGroup {
                     WVRow(title: L.t("Đăng xuất"), role: .tint) {
                         Task { await auth.logout() }
@@ -72,7 +82,8 @@ struct MoreScreen: View {
             }
         }
         .wvScreen()
-        .navigationTitle(L.t("Thêm"))
+        .wvQAScrollBottom()
+        .navigationTitle(L.t("Tôi"))
         .navigationBarTitleDisplayMode(.large)
         .task {
             // Refresh both counts on every visit: a receipt filed from another
@@ -125,36 +136,11 @@ struct MoreScreen: View {
 
     // MARK: - Sections
 
-    private var moreActionsSection: some View {
+    private var dataSection: some View {
         VStack(spacing: 0) {
             WVGroup {
-                // Cross-entity search. Same screen as the magnifier in the
-                // Tổng quan toolbar; this row is the way in from the "Thêm" tab.
-                NavigationLink {
-                    SearchScreen(client: client)
-                } label: {
-                    HStack(spacing: WVSpacing.md) {
-                        WVLeadingIcon(icon: "search")
-                        Text(L.t("Tìm kiếm"))
-                            .wvFont(.body)
-                            .foregroundStyle(WVColor.label)
-                        Spacer(minLength: WVSpacing.sm)
-                        WVIcon("arrowRight", size: 13, weight: .semibold)
-                            .foregroundStyle(WVColor.label4)
-                    }
-                    .padding(.horizontal, WVSpacing.gutter)
-                    .frame(minHeight: 44)
-                    .padding(.vertical, WVSpacing.sm)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(WVRowButtonStyle())
-
-                WVDivider()
-
-                // Capture-first inbox. Placed in the same actions group as
-                // Nhắc nhở because this is the existing "row + trailing count"
-                // navigation pattern — the count is the number of receipts
-                // waiting to be filed, not a device's attachment count.
+                // Capture-first inbox. The trailing count is the number of
+                // receipts waiting to be filed, not a device's attachment count.
                 NavigationLink {
                     InboxScreen(client: client)
                 } label: {

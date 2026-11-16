@@ -360,10 +360,16 @@ struct ClaimAssessmentView: View {
                     .foregroundStyle(WVColor.label2)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text(L.t("Bạn có thể tắt lại bất cứ lúc nào trong Cài đặt → Trợ lý AI."))
-                    .wvFont(.caption)
-                    .foregroundStyle(WVColor.label3)
-                    .fixedSize(horizontal: false, vertical: true)
+                // No "you can turn this off in Settings" line. `AIOptInSurface`
+                // hides that row in 1.0.0, so pointing at it sent the reader to a
+                // screen that no longer mentions AI at all — and the switch that
+                // does work is the one directly below this text.
+                if AIOptInSurface.isVisible {
+                    Text(L.t("Bạn có thể tắt lại bất cứ lúc nào trong Cài đặt → Trợ lý AI."))
+                        .wvFont(.caption)
+                        .foregroundStyle(WVColor.label3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 if let optInError {
                     Text(optInError)

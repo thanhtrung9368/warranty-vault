@@ -54,6 +54,12 @@ const (
 	EN Tag = "en"
 	// Default is served when no level of the precedence chain produces a
 	// supported language. The owner asked for English as the product default.
+	//
+	// It is the REQUEST default and must never decide the language of an
+	// ARTIFACT. A push, an email and a public certificate are rendered once and
+	// read later, away from the language switcher that could undo a wrong
+	// choice; those resolve through FromStored, whose fallback is the source
+	// language (Vietnamese).
 	Default = EN
 )
 

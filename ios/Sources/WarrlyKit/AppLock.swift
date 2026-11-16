@@ -29,8 +29,16 @@ import LocalAuthentication
 //     in place before the process is suspended, so the app-switcher card shows
 //     the lock screen rather than the user's data.
 //  6. The lock screen always offers an escape hatch: "Mở khoá" (retry, with
-//     passcode fallback) and "Đăng xuất" (clears the Keychain session; the
-//     user can always sign back in with email + password).
+//     passcode fallback), "Dùng mật khẩu" (the account password, checked by
+//     the API — see `AppLockPasswordError`), and last "Đăng xuất" (clears the
+//     Keychain session; the user can always sign back in with email +
+//     password).
+//  7. The password is a *fallback for the fallback*. It is never compared
+//     locally, never cached and never stored: the only thing that can check an
+//     account password is the server, so `unlock(password:verify:)` hands the
+//     typed value to the auth layer and unlocks only when that call succeeds.
+//     A transport failure leaves the app locked and says the check could not be
+//     made.
 //
 // The bearer token itself stays in the Keychain and is untouched by any of
 // this. Nothing here encrypts data at rest — it is a UI lock, exactly like the
@@ -126,6 +134,63 @@ public enum AppLockError: Error, Equatable, Sendable {
     public var isCancellation: Bool {
         if case .userCancelled = self { return true }
         return false
+    }
+}
+
+// MARK: - Password fallback errors
+
+/// Why typing the account password did not open the app.
+///
+/// There are exactly three things the lock screen may say, and they are kept
+/// apart on purpose: a wrong password is a fact about the password, a rate limit
+/// is a fact about the server's throttle, and "cannot verify" is a fact about
+/// the request that never reached an answer. Collapsing the last two into the
+/// first is how a user with the right password gets told it is wrong.
+///
+/// There is deliberately no "attempts left" case: the UI does not count
+/// attempts, because a local counter would be a guess rather than the server's
+/// answer.
+public enum AppLockPasswordError: Error, Equatable, Sendable {
+    /// The API answered **401** `invalid_credentials` — the password is wrong.
+    case wrongPassword
+    /// The API answered **429** `rate_limited` — its own per-account / per-IP
+    /// throttle, not anything this app counted.
+    case rateLimited
+    /// No answer, or an answer that proves nothing: a transport failure, a
+    /// timeout, a 5xx, a 4xx that is not about the password, a malformed login
+    /// response, or a session that changed while the request was in flight.
+    /// The app stays locked and the existing session is untouched.
+    case cannotVerify
+
+    /// User-facing copy, in the language the lock screen is rendering.
+    public var message: String {
+        switch self {
+        case .wrongPassword:
+            return L.t("Mật khẩu không đúng. Thử lại.")
+        case .rateLimited:
+            return L.t("Bạn đã thử quá nhiều lần. Đợi một lát rồi thử lại.")
+        case .cannotVerify:
+            return L.t("Ứng dụng chưa kiểm tra được mật khẩu lúc này. Kiểm tra kết nối mạng rồi thử lại.")
+        }
+    }
+
+    /// Maps whatever the auth layer threw onto one of the three outcomes.
+    ///
+    /// `POST /api/v1/auth/login` uses **401** for a bad password and **429** for
+    /// its rate limiter (`api/internal/handlers/auth.go`); every other status is
+    /// something else going wrong. A `.decoding` or transport failure is
+    /// "could not check", never "wrong password" — guessing otherwise would
+    /// accuse a user whose password was fine.
+    public static func from(_ error: Error) -> AppLockPasswordError {
+        if let local = error as? AppLockPasswordError { return local }
+        if let api = error as? APIError {
+            switch api.statusCode {
+            case 401: return .wrongPassword
+            case 429: return .rateLimited
+            default:  return .cannotVerify
+            }
+        }
+        return .cannotVerify
     }
 }
 
@@ -273,6 +338,11 @@ public final class AppLockStore: ObservableObject {
     @Published public private(set) var availability: AppLockAvailability
     /// Last non-cancellation failure, Vietnamese, for the lock screen banner.
     @Published public private(set) var lastError: String?
+    /// True while a typed password is being checked against the API.
+    @Published public private(set) var isVerifyingPassword = false
+    /// The last password attempt's failure, in the lock screen's language, for
+    /// the inline note under the field. Cleared when the next attempt starts.
+    @Published public private(set) var passwordError: String?
     /// Set when the lock turned itself off because the device lost its
     /// passcode. The account screen shows it until the switch is touched again
     /// or the lock is re-enabled.
@@ -281,6 +351,8 @@ public final class AppLockStore: ObservableObject {
     private let authenticator: BiometricAuthenticating
     private let storage: AppLockStorage
     private let reason: String
+    /// Screenshot QA only — see `init`. Constant `false` outside DEBUG.
+    private let isQAForced: Bool
 
     public init(authenticator: BiometricAuthenticating = LocalAuthenticationAuthenticator(),
                 storage: AppLockStorage = UserDefaultsAppLockStorage(),
@@ -292,9 +364,25 @@ public final class AppLockStore: ObservableObject {
         let availability = authenticator.availability()
         self.availability = availability
 
+        // Screenshot QA only: a headless simulator has no device passcode, so
+        // the safety net below (rule 4) switches the lock off before the cover
+        // can be photographed. `WV_QA_APP_LOCK` forces the cover **on** for that
+        // shot: it never removes a lock, it is DEBUG-only, and a Release build
+        // compiles the branch — and the environment variable — out.
+        let qaForced: Bool
+        #if DEBUG
+        qaForced = ProcessInfo.processInfo.environment["WV_QA_APP_LOCK"] != nil
+        #else
+        qaForced = false
+        #endif
+        self.isQAForced = qaForced
+
         let storedEnabled = storage.isEnabled
         // Rule 4: never lock when there is no way to authenticate.
-        if storedEnabled && availability.passcodeNotSet {
+        if qaForced {
+            self.isEnabled = true
+            self.isLocked = true
+        } else if storedEnabled && availability.passcodeNotSet {
             self.isEnabled = false
             self.isLocked = false
             self.autoDisabledNotice = Self.passcodeLostNotice
@@ -309,6 +397,10 @@ public final class AppLockStore: ObservableObject {
 
     /// Re-reads device capabilities. Cheap, no prompt.
     public func refreshAvailability() {
+        // The QA-forced cover exists precisely because this device has no
+        // passcode; re-reading would run the safety net and unlock, which is the
+        // one thing the screenshot has to show. Release never takes this branch.
+        guard !isQAForced else { return }
         availability = authenticator.availability()
         if isEnabled && availability.passcodeNotSet {
             disableWithoutAuthentication(notice: Self.passcodeLostNotice)
@@ -322,10 +414,17 @@ public final class AppLockStore: ObservableObject {
         isLocked = true
     }
 
-    /// Called when the scene becomes active again.
-    public func handleForeground() async {
+    /// Called when the scene becomes active again: re-reads what the device can
+    /// still do, and **locks harder if it can no longer verify** — but never
+    /// opens a prompt by itself.
+    ///
+    /// It used to `await unlock()` here, and that was a loop: a cancelled Face ID
+    /// sheet returns the app to `.active`, which called this, which re-opened the
+    /// sheet. Two `.onChange(of: scenePhase)` handlers did it, so cancelling could
+    /// re-prompt from both. Unlocking is now a tap (`Mở khoá`) or the `.task` that
+    /// runs when the cover appears — never a side effect of coming back.
+    public func handleForegroundWithoutPrompt() {
         refreshAvailability()
-        if isLocked { await unlock() }
     }
 
     /// Dropped by the app on logout — there is nothing to protect once the
@@ -333,6 +432,7 @@ public final class AppLockStore: ObservableObject {
     public func clearLock() {
         isLocked = false
         lastError = nil
+        passwordError = nil
     }
 
     // MARK: Unlock
@@ -343,7 +443,11 @@ public final class AppLockStore: ObservableObject {
     public func unlock() async {
         guard isLocked, !isAuthenticating else { return }
         if availability.passcodeNotSet {
-            isLocked = false
+            // Fail open, never strand (rule 4) — except for the QA-forced cover,
+            // which is locked *because* this device has no passcode. Release
+            // never reaches the second condition (`isQAForced` is a constant
+            // `false`), so the fail-open rule is unchanged there.
+            if !isQAForced { isLocked = false }
             return
         }
         isAuthenticating = true
@@ -356,6 +460,34 @@ public final class AppLockStore: ObservableObject {
             lastError = error.isCancellation ? nil : error.message
         } catch {
             lastError = L.t("Không xác thực được. Thử lại.")
+        }
+    }
+
+    /// Unlocks with the account password instead of biometrics.
+    ///
+    /// The password is handed **only** to `verify`, which must prove it against
+    /// the API and throw when it is wrong; this store keeps no hash, no cached
+    /// answer and no local comparison, so a guess cannot open the app and a
+    /// failed request cannot do it either. Any thrown error is rendered as one of
+    /// the three `AppLockPasswordError` messages.
+    ///
+    /// - Parameters:
+    ///   - password: exactly what the user typed. Never trimmed — leading or
+    ///     trailing whitespace is part of a password.
+    ///   - verify: the proof step. The app passes the auth store, which logs in
+    ///     against the server and adopts the fresh session.
+    public func unlock(password: String, verify: (String) async throws -> Void) async {
+        guard isLocked, !isVerifyingPassword, !password.isEmpty else { return }
+        isVerifyingPassword = true
+        passwordError = nil
+        defer { isVerifyingPassword = false }
+        do {
+            try await verify(password)
+            isLocked = false
+            lastError = nil
+            passwordError = nil
+        } catch {
+            passwordError = AppLockPasswordError.from(error).message
         }
     }
 
@@ -417,6 +549,7 @@ public final class AppLockStore: ObservableObject {
         storage.isEnabled = false
         isEnabled = false
         isLocked = false
+        passwordError = nil
         autoDisabledNotice = notice
     }
 

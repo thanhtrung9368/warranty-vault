@@ -121,7 +121,7 @@ struct SessionsView: View {
                     }
                 }
 
-                WVSectionFooter(L.t("Thu hồi một phiên sẽ đăng xuất thiết bị đó ngay lập tức — lần mở app kế tiếp trên máy đó phải đăng nhập lại. Danh sách này khác “Thiết bị nhận thông báo”: xoá một đích nhận thông báo chỉ ngừng gửi push, không thu hồi quyền truy cập dữ liệu."))
+                WVSectionFooter(L.t("Thu hồi một phiên sẽ đăng xuất thiết bị đó ngay lập tức — lần mở app kế tiếp trên máy đó phải đăng nhập lại. Danh sách này khác “Nơi nhận thông báo”: xoá một nơi nhận chỉ ngừng gửi push, không thu hồi quyền truy cập dữ liệu."))
                 WVSectionFooter(L.t("Phiên tự hết hạn sau %@. Mở app thường xuyên sẽ tự gia hạn thêm.", expiryNote))
 
                 Spacer().frame(height: 24)

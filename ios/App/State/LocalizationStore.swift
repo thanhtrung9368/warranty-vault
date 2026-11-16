@@ -29,6 +29,20 @@ import WidgetKit
 /// Step 3 is deliberate: a Vietnamese phone gets a Vietnamese app without
 /// anyone opening Settings, which is the behaviour docs/I18N_PLAN.md §2.4 asks
 /// for. Step 4 is the product default for everyone else.
+///
+/// ## What is written back, and why the third state is not `null`
+///
+/// The language shown on screen and the language stored for the account are
+/// not the same decision. "Theo thiết bị" is a real third state: the app must
+/// keep following the device, but the server still needs ONE answer it can
+/// render a push or an email in, months later, with no device to ask. So the
+/// store persists the **resolved** language — never "system" — while
+/// `storedChoice` stays `nil` and the Settings row keeps showing "Theo thiết
+/// bị".
+///
+/// That write is what makes a notification stop leaking English: an account
+/// with `locale IS NULL` is rendered in the artifact fallback, and "Theo thiết
+/// bị" used to leave the column NULL for everyone who never opened the picker.
 @MainActor
 final class LocalizationStore: ObservableObject {
 
@@ -50,10 +64,22 @@ final class LocalizationStore: ObservableObject {
     private let defaults: UserDefaults
     private static let cacheKey = "wv.selectedLanguage"
 
-    /// `nil` = the user has never chosen (the row shows "Theo thiết bị").
+    /// The value this device last wrote to `User.locale` while the user was on
+    /// "Theo thiết bị".
+    ///
+    /// The server cannot tell "the person chose Vietnamese" from "this device
+    /// mirrored Vietnamese because that is what the phone speaks", so the app
+    /// remembers which value it wrote. Without this marker the mirrored value
+    /// would come back on the next `/me` looking like an explicit choice and
+    /// the Settings row would silently move from "Theo thiết bị" to "Tiếng
+    /// Việt" — a UI change the write is not allowed to cause.
+    private static let mirroredKey = "wv.mirroredLanguage"
+
+    /// `nil` = the user is on "Theo thiết bị" (the row shows the device state).
     /// Kept separate from `language` on purpose: "device says Vietnamese" and
     /// "the user chose Vietnamese" are different states, and only the second
-    /// one should ever be written to the server.
+    /// one is an explicit choice. Both persist a language to the server; the
+    /// first persists the RESOLVED one through `mirror`.
     private(set) var storedChoice: AppLanguage?
 
     init(client: APIClient, defaults: UserDefaults = .standard) {
@@ -78,22 +104,40 @@ final class LocalizationStore: ObservableObject {
         return nil
     }
 
-    /// Adopts the account's stored language after `/me` or a login.
+    /// Adopts the account's language after `/me` or a login — and persists the
+    /// resolved one when the account has none.
     ///
-    /// A `nil` `User.locale` means "never chosen", and it must NOT reset the
-    /// device-derived language — it only clears the *stored* marker so the
-    /// Settings row goes back to showing "Theo thiết bị".
+    /// A `nil` `User.locale` means "never stored". It must NOT reset the
+    /// device-derived language, and it is exactly the state that leaves every
+    /// push and both mails in the artifact fallback forever, because the cron
+    /// has no request to read a language from. So the resolved language is
+    /// written back here, once, as a concrete value: never `null`, never
+    /// "system".
+    ///
+    /// A stored value equal to `mirroredKey` is this device's own mirror and
+    /// keeps the row on "Theo thiết bị"; anything else is someone's deliberate
+    /// choice (possibly from the web or another phone) and is adopted as one.
     func adopt(user: User) {
         let fromServer = user.preferredLanguage
-        storedChoice = fromServer
-        SharedInboxLanguage.publish(fromServer)
-        if let fromServer {
+        let mirrored = AppLanguage.parse(defaults.string(forKey: Self.mirroredKey))
+
+        if let fromServer, fromServer != mirrored || storedChoice != nil {
+            storedChoice = fromServer
+            SharedInboxLanguage.publish(fromServer)
             defaults.set(fromServer.rawValue, forKey: Self.cacheKey)
+            defaults.removeObject(forKey: Self.mirroredKey)
             apply(fromServer)
-        } else {
-            defaults.removeObject(forKey: Self.cacheKey)
-            apply(Self.deviceLanguage() ?? AppLanguage.productDefault)
+            return
         }
+
+        // "Theo thiết bị": either the account stores nothing yet, or what it
+        // stores is this device's mirror of the device language.
+        storedChoice = nil
+        SharedInboxLanguage.publish(nil)
+        defaults.removeObject(forKey: Self.cacheKey)
+        let resolved = Self.deviceLanguage() ?? AppLanguage.productDefault
+        apply(resolved)
+        mirror(resolved)
     }
 
     /// Forgets the account's language on sign-out so the next account on this
@@ -102,13 +146,22 @@ final class LocalizationStore: ObservableObject {
         storedChoice = nil
         SharedInboxLanguage.publish(nil)
         defaults.removeObject(forKey: Self.cacheKey)
+        // The mirror belongs to the account that was signed in, not to the
+        // phone: leaving it behind would make the next account's stored
+        // language look like this device's "Theo thiết bị" value.
+        defaults.removeObject(forKey: Self.mirroredKey)
         apply(Self.deviceLanguage() ?? AppLanguage.productDefault)
     }
 
-    /// Switches the app language and persists it for the account.
+    /// Switches the app language and persists the RESOLVED language for the
+    /// account.
     ///
-    /// `nil` clears the stored value (`PATCH {"locale": null}`), which sends the
-    /// server back to deciding per request — the "Theo thiết bị" row.
+    /// `nil` is the "Theo thiết bị" row. It deliberately no longer sends
+    /// `PATCH {"locale": null}`: the server keeps the language the device
+    /// resolved to (English if the device asks for something this build does
+    /// not ship), so a notification built at 03:00 has an answer. The row is
+    /// unaffected — `storedChoice` stays `nil` and the tick stays on "Theo
+    /// thiết bị".
     ///
     /// The local switch happens first so the UI answers immediately, and is
     /// rolled back if the write fails: a language that is only local would make
@@ -116,42 +169,101 @@ final class LocalizationStore: ObservableObject {
     /// failure this whole feature exists to avoid.
     func select(_ choice: AppLanguage?) async {
         guard choice != storedChoice else { return }
-        let previous = storedChoice
+
+        let previousChoice = storedChoice
         let previousLanguage = language
+        let previousMirror = defaults.string(forKey: Self.mirroredKey)
+
+        // Only two values are ever sent: the chosen language, or — for "Theo
+        // thiết bị" — the one the device resolved to. "System" is not a value
+        // `User.locale` can hold.
+        let resolved = choice ?? Self.deviceLanguage() ?? AppLanguage.productDefault
 
         storedChoice = choice
         SharedInboxLanguage.publish(choice)
         if let choice {
             defaults.set(choice.rawValue, forKey: Self.cacheKey)
-            apply(choice)
+            defaults.removeObject(forKey: Self.mirroredKey)
         } else {
             defaults.removeObject(forKey: Self.cacheKey)
-            apply(Self.deviceLanguage() ?? AppLanguage.productDefault)
         }
+        apply(resolved)
 
         isSaving = true
         defer { isSaving = false }
         do {
             let result = try await client.updateProfile(
-                UpdateProfileInput(locale: choice.map { .set($0.rawValue) } ?? .clear)
+                UpdateProfileInput(locale: .set(resolved.rawValue))
             )
-            // The response carries the stored user; trust the server's echo over
-            // our optimistic guess (it is also what normalises `vi-VN` → `vi`).
-            adopt(user: result.user)
+            if choice == nil {
+                // What the server now holds is a mirror, not a choice: remember
+                // it so the next `/me` keeps the row on "Theo thiết bị".
+                defaults.set(resolved.rawValue, forKey: Self.mirroredKey)
+                storedChoice = nil
+                SharedInboxLanguage.publish(nil)
+                apply(resolved)
+            } else {
+                // The response carries the stored user; trust the server's echo
+                // over our optimistic guess (it is also what normalises `vi-VN`
+                // → `vi`).
+                adopt(user: result.user)
+            }
             saveError = nil
         } catch let APIError.server(_, envelope) {
-            storedChoice = previous
-            SharedInboxLanguage.publish(previous)
-            apply(previousLanguage)
+            restore(choice: previousChoice, previousLanguage: previousLanguage, mirror: previousMirror)
             saveError = envelope.fieldErrors?["locale"]?.first
                 ?? envelope.message
                 ?? L.t("Không lưu được ngôn ngữ.")
         } catch {
-            storedChoice = previous
-            SharedInboxLanguage.publish(previous)
-            apply(previousLanguage)
+            restore(choice: previousChoice, previousLanguage: previousLanguage, mirror: previousMirror)
             saveError = L.t("Không kết nối được máy chủ.")
         }
+    }
+
+    /// Persists the resolved language for an account that has no explicit
+    /// choice.
+    ///
+    /// Silent and best-effort on purpose: the user did not ask for this write,
+    /// so it must not show the save spinner or an error alert. A failure leaves
+    /// the marker untouched and the next `adopt` tries again; until then the
+    /// account keeps the artifact fallback (Vietnamese), which is the language
+    /// the server should have used all along.
+    private func mirror(_ resolved: AppLanguage) {
+        // Already mirrored this exact value: a `/me` that changed nothing must
+        // not produce a write.
+        guard AppLanguage.parse(defaults.string(forKey: Self.mirroredKey)) != resolved else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                _ = try await self.client.updateProfile(
+                    UpdateProfileInput(locale: .set(resolved.rawValue))
+                )
+                self.defaults.set(resolved.rawValue, forKey: Self.mirroredKey)
+            } catch {
+                // Retried by the next adopt. Nothing to surface: the UI is
+                // already in the right language and the server keeps its
+                // fallback until this succeeds.
+            }
+        }
+    }
+
+    /// Puts the local state back after a failed `PATCH`, including the mirror
+    /// marker: a rolled-back "Theo thiết bị" that never reached the server must
+    /// not leave a value the account does not hold.
+    private func restore(choice: AppLanguage?, previousLanguage: AppLanguage, mirror: String?) {
+        storedChoice = choice
+        SharedInboxLanguage.publish(choice)
+        if let choice {
+            defaults.set(choice.rawValue, forKey: Self.cacheKey)
+        } else {
+            defaults.removeObject(forKey: Self.cacheKey)
+        }
+        if let mirror {
+            defaults.set(mirror, forKey: Self.mirroredKey)
+        } else {
+            defaults.removeObject(forKey: Self.mirroredKey)
+        }
+        apply(previousLanguage)
     }
 
     /// Pushes a language into the library, which is what every `L.t` call reads.
@@ -166,8 +278,9 @@ final class LocalizationStore: ObservableObject {
     }
 }
 
-/// The Settings rows, in order. `.device` is the "no stored choice" state and
-/// maps to `PATCH {"locale": null}`.
+/// The Settings rows, in order. `.device` is the "no stored choice" state: the
+/// account still stores the RESOLVED language (so push and email have an
+/// answer), but this device keeps following the phone's own language.
 enum LanguageChoice: CaseIterable, Identifiable {
     case device
     case vietnamese

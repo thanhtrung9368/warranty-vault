@@ -113,6 +113,28 @@ struct WishlistScreen: View {
                     wishSummaryLine
                 }
 
+                // Essentials are a separate restock list, but they belong in the
+                // shopping tab: a user looking for "what do I need to buy" should
+                // not have to remember a second destination. The row opens a
+                // dedicated screen because the write semantics differ from
+                // Wishlist (no price, no Device on purchase).
+                WVSectionHeader(L.t("Đồ dùng thiết yếu"))
+                WVGroup {
+                    NavigationLink {
+                        StaplesView(client: client)
+                    } label: {
+                        WVRow(
+                            icon: "package",
+                            iconColor: WVColor.green,
+                            tintedIcon: true,
+                            title: L.t("Đồ dùng thiết yếu"),
+                            subtitle: L.t("Sắp hết, nhắc mua lại"),
+                            chevron: true
+                        )
+                    }
+                    .buttonStyle(WVRowButtonStyle())
+                }
+
                 WVSegmented(
                     options: [
                         (WishFilter.watchingDecided, L.t("Đang ngó")),

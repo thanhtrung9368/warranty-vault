@@ -34,10 +34,17 @@ import Foundation
 ///
 /// Every key decodes defensively: a server that sends no thresholds must leave
 /// the rule lines out, never invent them.
+///
+/// `upcomingRenewalDays` is deliberately **not** decoded. The server still
+/// echoes it (`subscription_audit.go`), but no audit kind consumes the window:
+/// `attachRenewal` runs only in the quiet-auto-renew loop, where it fills that
+/// one finding's own `nextRenewalAt`. Rendering a "renews within 14 days" rule
+/// line described a filter the audit never ran — openapi's wording overstated
+/// it. If the server ever grows a renewal-window finding, that finding's own
+/// copy will say so; there is nothing here to revive.
 public struct SubscriptionAuditThresholds: Decodable, Sendable, Hashable {
     public let quietMinAutoCharges: Int
     public let quietMinMonths: Int
-    public let upcomingRenewalDays: Int
     public let priceRiseMinPercent: Int
     public let duplicateNormalized: Bool
 
@@ -45,13 +52,12 @@ public struct SubscriptionAuditThresholds: Decodable, Sendable, Hashable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         quietMinAutoCharges = try c.decodeIfPresent(Int.self, forKey: .quietMinAutoCharges) ?? 0
         quietMinMonths = try c.decodeIfPresent(Int.self, forKey: .quietMinMonths) ?? 0
-        upcomingRenewalDays = try c.decodeIfPresent(Int.self, forKey: .upcomingRenewalDays) ?? 0
         priceRiseMinPercent = try c.decodeIfPresent(Int.self, forKey: .priceRiseMinPercent) ?? 0
         duplicateNormalized = try c.decodeIfPresent(Bool.self, forKey: .duplicateNormalized) ?? false
     }
 
     private enum CodingKeys: String, CodingKey {
-        case quietMinAutoCharges, quietMinMonths, upcomingRenewalDays
+        case quietMinAutoCharges, quietMinMonths
         case priceRiseMinPercent, duplicateNormalized
     }
 }
@@ -128,6 +134,50 @@ public struct SubscriptionAuditFinding: Decodable, Sendable, Hashable, Identifia
         case lastRecordedAt, nextRenewalAt, daysUntilRenewal
         case previousAmountVnd, amountVnd, increaseVnd, increasePercent
         case material, reason
+    }
+}
+
+/// One group of findings, for rendering the report by kind.
+///
+/// At three subscriptions the screen could be a flat list and still be read.
+/// At thirty it could not: one to two dozen LOW duplicate findings pushed every
+/// HIGH finding off the first screens, and nothing told the reader how many of
+/// each existed. Grouping is the difference between a report and a wall — the
+/// group heading announces its count before any card is read, and each block
+/// keeps the server's severity-then-money order, so the finding with the most
+/// money at stake comes before the rest.
+public struct SubscriptionAuditSection: Identifiable, Equatable, Sendable {
+    /// The finding kinds the screen knows, plus a bucket for a code this build
+    /// has never seen. An unknown kind still renders (data, not a broken row)
+    /// under "Khác" instead of being dropped from the report.
+    public enum Kind: String, Sendable, CaseIterable {
+        case quietAutoRenew, priceIncreased, duplicate, other
+
+        /// A factual label derived from a machine code, in the same voice as
+        /// the rule lines. Never a verdict about usage.
+        public var title: String {
+            switch self {
+            case .quietAutoRenew: return L.t("Tự trừ lâu, không ghi nhận")
+            case .priceIncreased: return L.t("Giá đã tăng")
+            case .duplicate:      return L.t("Có thể trùng nhau")
+            case .other:          return L.t("Khác")
+            }
+        }
+    }
+
+    public let kind: Kind
+    /// Already ordered by `SubscriptionAuditRules.sorted`: severity, then the
+    /// biggest monthly drain, then key. A section is a filtered view of that
+    /// order, so its first row is its most expensive finding.
+    public let findings: [SubscriptionAuditFinding]
+
+    public var id: String { kind.rawValue }
+    public var title: String { kind.title }
+    public var count: Int { findings.count }
+
+    public init(kind: Kind, findings: [SubscriptionAuditFinding]) {
+        self.kind = kind
+        self.findings = findings
     }
 }
 
@@ -324,9 +374,15 @@ public enum SubscriptionAuditRules {
         advisory ? L.t("Chỉ tư vấn: không có gì bị sửa, bị huỷ hay bị tắt tự động.") : nil
     }
 
-    /// The "Luật đang áp dụng" lines: one per rule, built from the payload's
-    /// thresholds. Empty when the server sent none — the card is then hidden
-    /// instead of showing an empty box.
+    /// The "Luật đang áp dụng" lines: one per rule **the audit actually runs**,
+    /// built from the payload's thresholds. Empty when the server sent none —
+    /// the card is then hidden instead of showing an empty box.
+    ///
+    /// There is no renewal-window line. The payload's `upcomingRenewalDays` is
+    /// echoed but never applied by any kind, so printing "renews within 14 days"
+    /// would promise a rule this feature does not have. The window a finding
+    /// does mention — `Kỳ gia hạn tới` — comes from its own `nextRenewalAt` in
+    /// `timelineNote`, which only quiet-auto-renew findings carry.
     public static func thresholdLines(_ thresholds: SubscriptionAuditThresholds?) -> [String] {
         guard let t = thresholds else { return [] }
         var lines: [String] = []
@@ -337,9 +393,6 @@ public enum SubscriptionAuditRules {
         if t.priceRiseMinPercent > 0 {
             lines.append(L.t("Tăng giá: mọi mức tăng đều được báo; từ %d%% trở lên là đáng kể.",
                               t.priceRiseMinPercent))
-        }
-        if t.upcomingRenewalDays > 0 {
-            lines.append(L.p("Còn kịp xử lý trước khi bị trừ tiền: %d ngày.", t.upcomingRenewalDays))
         }
         if t.duplicateNormalized {
             lines.append(L.t("Trùng nhau: so tên có bỏ dấu, không phân biệt hoa/thường, chỉ giữa các gói đang hoạt động."))
@@ -377,6 +430,63 @@ public enum SubscriptionAuditRules {
             if a.monthlyVnd != b.monthlyVnd { return a.monthlyVnd > b.monthlyVnd }
             return a.findingKey < b.findingKey
         }
+    }
+
+    // MARK: Grouping — the report at thirty, not at three
+
+    /// The group a finding belongs to. Unknown kinds are kept (data, not a
+    /// broken row) and gathered under `.other`, never dropped from the report.
+    public static func sectionKind(for finding: SubscriptionAuditFinding) -> SubscriptionAuditSection.Kind {
+        switch normalizedKind(finding) {
+        case kindQuietAutoRenew: return .quietAutoRenew
+        case kindPriceIncreased: return .priceIncreased
+        case kindDuplicate:      return .duplicate
+        default:                 return .other
+        }
+    }
+
+    /// Groups the report by finding kind, in the order the rules run: quiet
+    /// auto-renew, price rise, duplicates, then anything this build does not
+    /// know. Empty groups are dropped rather than rendered as empty headings.
+    ///
+    /// Filtering `sorted` (rather than re-sorting each group) keeps the server's
+    /// severity-then-monthly order inside every block. All three kinds today map
+    /// to a single severity, so their most expensive finding is also their first.
+    public static func sections(_ findings: [SubscriptionAuditFinding]) -> [SubscriptionAuditSection] {
+        let ordered = sorted(findings)
+        return SubscriptionAuditSection.Kind.allCases.compactMap { kind in
+            let rows = ordered.filter { sectionKind(for: $0) == kind }
+            return rows.isEmpty ? nil : SubscriptionAuditSection(kind: kind, findings: rows)
+        }
+    }
+
+    /// How many cards a group shows before its explicit "show all" row. Five is
+    /// roughly one screen of cards: enough for the common case to need no tap,
+    /// few enough that a 20-finding duplicate cluster cannot bury the other two
+    /// groups. Never a silent cap — the count stays in the group heading and the
+    /// row below the cards states exactly how many are hidden.
+    public static let collapsedFindingLimit = 5
+
+    /// The cards a group renders for the current expansion state.
+    public static func visibleFindings(_ section: SubscriptionAuditSection,
+                                       expanded: Bool) -> [SubscriptionAuditFinding] {
+        expanded ? section.findings : Array(section.findings.prefix(collapsedFindingLimit))
+    }
+
+    /// `true` when the group holds more cards than `collapsedFindingLimit`, i.e.
+    /// when the "show all" row must exist.
+    public static func hasHiddenFindings(_ section: SubscriptionAuditSection) -> Bool {
+        section.count > collapsedFindingLimit
+    }
+
+    /// The monthly drain of the plan(s) in a finding, when the payload carries
+    /// one. This is the figure the report is money-ordered by, so it belongs on
+    /// the card: a reader can see *which* finding is expensive without comparing
+    /// cards by eye. Duplicates already state the combined monthly equivalent in
+    /// `moneyLine`, so repeating it there would print the same number twice.
+    public static func monthlyLine(_ finding: SubscriptionAuditFinding) -> String? {
+        guard finding.monthlyVnd > 0, normalizedKind(finding) != kindDuplicate else { return nil }
+        return L.t("~ %@ / tháng", formatVnd(finding.monthlyVnd))
     }
 
     /// How many findings are announced. Comes straight from `counts`, which the
