@@ -184,7 +184,7 @@ func RepairPromiseClock(openedAt, closedAt wire.Instant, status string, days int
 	switch {
 	case closedAt.Valid:
 		closed := vietnamCalendarDay(closedAt.Time)
-		daysLeft = wholeDaysBetween(closed, due)
+		daysLeft = promiseDaysBetween(closed, due)
 		if closed.After(due) {
 			state = PromiseStateMissed
 		} else {
@@ -192,7 +192,7 @@ func RepairPromiseClock(openedAt, closedAt wire.Instant, status string, days int
 		}
 	case isOpenClaimStatus(status):
 		today := vietnamCalendarDay(now)
-		daysLeft = wholeDaysBetween(today, due)
+		daysLeft = promiseDaysBetween(today, due)
 		switch {
 		case daysLeft < 0:
 			state = PromiseStateOverdue
@@ -305,6 +305,6 @@ func vietnamCalendarDay(t time.Time) time.Time {
 // wholeDaysBetween returns to − from in whole days. Both arguments are UTC
 // midnights produced by vietnamCalendarDay, so the division cannot lose a day
 // to an offset.
-func wholeDaysBetween(from, to time.Time) int32 {
+func promiseDaysBetween(from, to time.Time) int32 {
 	return int32(to.Sub(from) / (24 * time.Hour))
 }

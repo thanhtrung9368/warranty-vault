@@ -80,8 +80,8 @@ type InstallmentInput struct {
 	// FileFee / MonthlyFee are optional. NULL means "the user did not say", not
 	// zero — an unknown fee makes the derived total a LOWER BOUND, which
 	// `InstallmentPlan.HasUnknownFees` reports so the UI can say so.
-	FileFee    *int32  `json:"fileFee"`
-	MonthlyFee *int32  `json:"monthlyFee"`
+	FileFee    *int32 `json:"fileFee"`
+	MonthlyFee *int32 `json:"monthlyFee"`
 	// PaidCount is how many monthly payments the user has made, 0..Months.
 	// Self-reported; the server never derives it.
 	PaidCount int32 `json:"paidCount"`

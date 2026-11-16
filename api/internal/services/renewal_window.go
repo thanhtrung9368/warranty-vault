@@ -193,9 +193,9 @@ func BuildRenewalWindow(lang i18n.Tag, sub store.Subscription, payments []store.
 	}
 
 	win := &RenewalWindow{
-		ConvertedOn: converted,
+		ConvertedOn:  converted,
 		WindowEndsAt: wire.Date(converted.Time.UTC().AddDate(0, 0, renewalWindowDays)),
-		StoreRules: renewalStoreRules(lang),
+		StoreRules:   renewalStoreRules(lang),
 	}
 	if sub.ConvertsToPrice != nil {
 		expected := int64(*sub.ConvertsToPrice)
