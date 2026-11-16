@@ -25285,6 +25285,448 @@
           }
         }
       }
+    },
+    "Ngày cuối của cửa sổ" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last day of the window"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngày cuối của cửa sổ"
+          }
+        }
+      }
+    },
+    "~1 ngày nữa" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "about 1 day left"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~1 ngày nữa"
+          }
+        }
+      }
+    },
+    "~%d ngày nữa" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "about %d days left"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~%d ngày nữa"
+          }
+        }
+      }
+    },
+    "Sau dùng thử" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After the trial"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sau dùng thử"
+          }
+        }
+      }
+    },
+    "Ngày chuyển đổi" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conversion date"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngày chuyển đổi"
+          }
+        }
+      }
+    },
+    "Đã ghi nhận" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã ghi nhận"
+          }
+        }
+      }
+    },
+    "Chưa ghi nhận khoản nào" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing recorded yet"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa ghi nhận khoản nào"
+          }
+        }
+      }
+    },
+    "Còn lại" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time left"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Còn lại"
+          }
+        }
+      }
+    },
+    "Đếm theo ngày lịch." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Counted in calendar days."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đếm theo ngày lịch."
+          }
+        }
+      }
+    },
+    "Ghi nhận khoản đã trừ" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record the charge"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ghi nhận khoản đã trừ"
+          }
+        }
+      }
+    },
+    "Cửa sổ 14 ngày này chỉ để xem lại, không phải hạn chót nào." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This 14-day window is only for reviewing the charge — it is not a deadline."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cửa sổ 14 ngày này chỉ để xem lại, không phải hạn chót nào."
+          }
+        }
+      }
+    },
+    "Hướng dẫn sau khi bị trừ tiền" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What to do after a charge"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hướng dẫn sau khi bị trừ tiền"
+          }
+        }
+      }
+    },
+    "5 bước và quy tắc cửa hàng — không hứa hạn hoàn tiền." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5 steps and the store rules — no refund deadline is promised."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5 bước và quy tắc cửa hàng — không hứa hạn hoàn tiền."
+          }
+        }
+      }
+    },
+    "Kiểm tra khoản vừa bị trừ" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the charge you just got"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra khoản vừa bị trừ"
+          }
+        }
+      }
+    },
+    "Xem ngày chuyển đổi và khoản đã ghi nhận ở trên. Nếu cửa hàng đã trừ tiền mà app chưa có, bấm «Ghi nhận khoản đã trừ» để lưu vào lịch sử thanh toán." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Look at the conversion date and the recorded amount above. If the store has already charged you and the app does not have it, tap “Record the charge” to add it to the payment history."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xem ngày chuyển đổi và khoản đã ghi nhận ở trên. Nếu cửa hàng đã trừ tiền mà app chưa có, bấm «Ghi nhận khoản đã trừ» để lưu vào lịch sử thanh toán."
+          }
+        }
+      }
+    },
+    "Mở phần quản lý đăng ký của cửa hàng" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the store's subscription settings"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mở phần quản lý đăng ký của cửa hàng"
+          }
+        }
+      }
+    },
+    "App Store hoặc Google Play cho bạn thấy gói đang ở giá nào và lần trừ kế tiếp là khi nào. App không mở được hộ tài khoản của bạn." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The App Store or Google Play shows the current price and the next charge date. The app cannot open your store account."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Store hoặc Google Play cho bạn thấy gói đang ở giá nào và lần trừ kế tiếp là khi nào. App không mở được hộ tài khoản của bạn."
+          }
+        }
+      }
+    },
+    "Biết quyền của mình theo quy tắc cửa hàng" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Know your rights under the store rules"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biết quyền của mình theo quy tắc cửa hàng"
+          }
+        }
+      }
+    },
+    "Dừng bị trừ tiếp thì huỷ ở cửa hàng" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To stop further charges, cancel at the store"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dừng bị trừ tiếp thì huỷ ở cửa hàng"
+          }
+        }
+      }
+    },
+    "Huỷ gói trong phần quản lý đăng ký của cửa hàng trước ngày gia hạn kế tiếp. App không tự huỷ gói và không gửi yêu cầu hoàn tiền thay bạn." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel the plan in the store's subscription settings before the next renewal date. The app does not cancel plans and does not send refund requests for you."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Huỷ gói trong phần quản lý đăng ký của cửa hàng trước ngày gia hạn kế tiếp. App không tự huỷ gói và không gửi yêu cầu hoàn tiền thay bạn."
+          }
+        }
+      }
+    },
+    "App chỉ ghi lại những gì bạn nhập" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app only records what you enter"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App chỉ ghi lại những gì bạn nhập"
+          }
+        }
+      }
+    },
+    "App không trừ tiền và không đọc được giao dịch của cửa hàng, nên không hứa hạn hoàn tiền: hạn mức là của cửa hàng, xem câu ở bước 3." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app does not charge you and cannot read the store's transactions, so it makes no refund deadline promise: that deadline belongs to the store — see step 3."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App không trừ tiền và không đọc được giao dịch của cửa hàng, nên không hứa hạn hoàn tiền: hạn mức là của cửa hàng, xem câu ở bước 3."
+          }
+        }
+      }
+    },
+    "đã kiểm tra %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "checked %@"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "đã kiểm tra %@"
+          }
+        }
+      }
+    },
+    "Nguồn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Source"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nguồn"
+          }
+        }
+      }
+    },
+    "Chính sách hoàn tiền" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refund policy"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chính sách hoàn tiền"
+          }
+        }
+      }
+    },
+    "Quy tắc áp dụng tuỳ nơi bạn mua gói — app không lưu nơi mua." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The rules below depend on where you bought the plan — the app does not record the store."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quy tắc áp dụng tuỳ nơi bạn mua gói — app không lưu nơi mua."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

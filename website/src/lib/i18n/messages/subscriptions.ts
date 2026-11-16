@@ -140,6 +140,50 @@ export const subscriptions = defineMessages({
   'Gói tự chuyển sang trả phí khi hết dùng thử.':
     'The plan starts charging when the trial ends.',
 
+  // ── Renewal window card (FEATURE_RESEARCH_2026-11 §6.6) ────────────────
+  // The card rendered from `SubscriptionDetail.renewalWindow`. Its two
+  // store-rule sentences (`consentCopy` / `refundCopy`) are NOT here on
+  // purpose: they come from the API in the request's language, built from the
+  // numbers in the same payload, so they cannot drift or over-promise.
+  'Sau dùng thử': 'After the trial',
+  'Dùng thử đã chuyển sang trả phí ngày {date}.': 'The trial converted to a paid plan on {date}.',
+  'Ngày chuyển đổi': 'Conversion date',
+  'Đã ghi nhận': 'Recorded',
+  'Chưa ghi nhận khoản nào': 'Nothing recorded yet',
+  'Nếu cửa hàng đã trừ, bấm nút bên dưới để lưu vào lịch sử thanh toán.':
+    'If the store has already charged you, use the button below to add it to the payment history.',
+  'ngày {date}': 'on {date}',
+  'Còn lại': 'Time left',
+  // A calendar-day count, not an hour count. `enOne` keeps "1 days" out.
+  '~{days} ngày nữa': { en: 'about {days} days left', enOne: 'about {days} day left' },
+  'Ngày cuối của cửa sổ': 'Last day of the window',
+  'Đếm theo ngày lịch.': 'Counted in calendar days.',
+  'Ghi nhận khoản đã trừ': 'Record the charge',
+  'Cửa sổ 14 ngày này chỉ để xem lại, không phải hạn chót nào.':
+    'This 14-day window is only for reviewing the charge — it is not a deadline.',
+  'Hướng dẫn sau khi bị trừ tiền ({count} bước)': {
+    en: 'What to do after a charge ({count} steps)',
+    enOne: 'What to do after a charge ({count} step)',
+  },
+  'Kiểm tra khoản vừa bị trừ': 'Check the charge you just got',
+  'Xem ngày chuyển đổi và khoản đã ghi nhận ở trên. Nếu cửa hàng đã trừ tiền mà app chưa có, bấm "Ghi nhận khoản đã trừ" để lưu vào lịch sử thanh toán.':
+    'Look at the conversion date and the recorded amount above. If the store has charged you and the app does not have it yet, tap "Record the charge" to add it to the payment history.',
+  'Mở phần quản lý đăng ký của cửa hàng': 'Open the store\'s subscription settings',
+  'App Store hoặc Google Play cho bạn thấy gói đang ở giá nào và lần trừ kế tiếp là khi nào. App không mở được hộ tài khoản của bạn.':
+    'The App Store or Google Play shows the current price and the next charge date. The app cannot open your store account.',
+  'Biết quyền của mình theo quy tắc cửa hàng': 'Know your rights under the store rules',
+  'Quy tắc áp dụng tuỳ nơi bạn mua gói — app không lưu nơi mua.':
+    'The rules below depend on where you bought the plan — the app does not record the store.',
+  'đã kiểm tra {date}': 'checked {date}',
+  'Nguồn': 'Source',
+  'Chính sách hoàn tiền': 'Refund policy',
+  'Dừng bị trừ tiếp thì huỷ ở cửa hàng': 'To stop further charges, cancel at the store',
+  'Huỷ gói trong phần quản lý đăng ký của cửa hàng trước ngày gia hạn kế tiếp. App không tự huỷ gói và không gửi yêu cầu hoàn tiền thay bạn.':
+    'Cancel the plan in the store\'s subscription settings before the next renewal date. The app does not cancel plans and does not send refund requests for you.',
+  'App chỉ ghi lại những gì bạn nhập': 'The app only records what you enter',
+  'App không trừ tiền và không đọc được giao dịch của cửa hàng, nên không hứa hạn hoàn tiền: hạn mức là của cửa hàng, xem câu ở bước 3.':
+    'The app does not charge you and cannot read the store\'s transactions, so it makes no refund deadline promise: that deadline belongs to the store — see step 3.',
+
   // ── Actions (`components/subscription-actions.tsx`) ─────────────────────
   'Log một lần thanh toán': 'Log one payment',
   'Số tiền (VND)': 'Amount (VND)',

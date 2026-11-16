@@ -266,6 +266,15 @@ func createSubscriptionHandler(deps Deps) http.HandlerFunc {
 type subscriptionDetailDTO struct {
 	store.Subscription
 	Payments []store.SubscriptionPayment `json:"payments"`
+	// RenewalWindow is the post-conversion card (services/renewal_window.go,
+	// FEATURE_RESEARCH_2026-11 §6.6). It is present only while a trial converted
+	// within 14 days; `omitempty` keeps the key ABSENT rather than null otherwise,
+	// which is the same statement the rest of that feature makes — "there is
+	// nothing to say about a charge", not "the server forgot to derive one".
+	//
+	// This is the only place the object is attached: there is no dedicated
+	// endpoint, no new column and no queue kind, deliberately.
+	RenewalWindow *services.RenewalWindow `json:"renewalWindow,omitempty"`
 }
 
 func getSubscriptionHandler(deps Deps) http.HandlerFunc {
@@ -286,6 +295,11 @@ func getSubscriptionHandler(deps Deps) http.HandlerFunc {
 		out := subscriptionDetailDTO{
 			Subscription: detail.Subscription,
 			Payments:     detail.Payments,
+			// Derived on read, from rows that already exist: trialEndsAt (the
+			// conversion day), convertsToPrice (what it was supposed to cost) and
+			// the payment log (what was actually recorded). `now` is the request's
+			// clock, passed in so the 14-day boundary is one testable rule.
+			RenewalWindow: services.BuildRenewalWindow(i18n.From(ctx), detail.Subscription, detail.Payments, time.Now()),
 		}
 		if out.Payments == nil {
 			out.Payments = []store.SubscriptionPayment{}

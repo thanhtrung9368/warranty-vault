@@ -26,9 +26,16 @@ import {
 export function LogPaymentDialog({
   subId,
   defaultAmount,
+  // Optional trigger label. The default keeps the historical "Log payment"
+  // wording for the detail-page action row; the post-trial renewal card passes
+  // "Ghi nhận khoản đã trừ" so its button names what the user is recording.
+  // One sheet, one submit path — a second payment form is exactly the duplicate
+  // this prop exists to avoid.
+  label,
 }: {
   subId: string;
   defaultAmount: number;
+  label?: string;
 }) {
   const router = useRouter();
   const t = useT();
@@ -72,7 +79,7 @@ export function LogPaymentDialog({
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="rounded-pill border-border-strong">
           <RefreshCcw className="mr-2 h-4 w-4" />
-          Log payment
+          {label ?? 'Log payment'}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md rounded-lg border-[1.5px]">

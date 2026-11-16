@@ -27,6 +27,7 @@ import {
   SubscriptionStatusButtons,
   DeleteSubscriptionButton,
 } from '@/components/subscription-actions';
+import { RenewalWindowCard } from '@/components/renewal-window-card';
 import { api } from '@/lib/api';
 import { billingCycleLabel, categoryLabel, subscriptionStatusLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
@@ -244,6 +245,17 @@ export default async function SubscriptionDetailPage({
           </div>
         </div>
       </Card>
+
+      {/* Post-conversion card (FEATURE_RESEARCH_2026-11 §6.6). The server only
+          sends `renewalWindow` while a trial converted in the last 14 days, so
+          this is either the whole card or nothing — never an empty shell. */}
+      {sub.renewalWindow && (
+        <RenewalWindowCard
+          renewalWindow={sub.renewalWindow}
+          subId={sub.id}
+          defaultAmount={sub.price}
+        />
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div className="space-y-4">

@@ -743,12 +743,36 @@ extension APIClient {
         return w.subscriptions
     }
 
-    public func getSubscription(id: String) async throws -> (Subscription, [Payment]) {
-        // Server returns { subscription: { ...Subscription, payments: [...] } }.
-        // Decode twice with two views over the same nested object.
+    /// The subscription detail payload: the row, its payment log, and — while a
+    /// trial converted within 14 days — the derived `renewalWindow`
+    /// (FEATURE_RESEARCH_2026-11 §6.6).
+    ///
+    /// `renewalWindow` is decoded with `decodeIfPresent` inside `Body`, so an
+    /// older server that has never sent the key decodes exactly as before. The
+    /// server omits it (rather than sending null) outside the window; the two
+    /// shapes mean the same thing to `Body`.
+    public struct SubscriptionDetailPayload: Decodable, Sendable {
+        public let subscription: Subscription
+        public let payments: [Payment]
+        public let renewalWindow: RenewalWindow?
+
+        public init(subscription: Subscription,
+                    payments: [Payment],
+                    renewalWindow: RenewalWindow?) {
+            self.subscription = subscription
+            self.payments = payments
+            self.renewalWindow = renewalWindow
+        }
+    }
+
+    public func getSubscriptionDetail(id: String) async throws -> SubscriptionDetailPayload {
+        // Server returns { subscription: { ...Subscription, payments: [...],
+        // renewalWindow: {...} } }. Decode twice with two views over the same
+        // nested object, the way this call has always done it.
         struct Outer: Decodable {
             struct Body: Decodable {
                 let payments: [Payment]?
+                let renewalWindow: RenewalWindow?
             }
             let subscription: Subscription
             let body: Body
@@ -760,7 +784,19 @@ extension APIClient {
             enum CodingKeys: String, CodingKey { case subscription }
         }
         let outer: Outer = try await request("GET", "/api/v1/subscriptions/\(id)")
-        return (outer.subscription, outer.body.payments ?? [])
+        return SubscriptionDetailPayload(
+            subscription: outer.subscription,
+            payments: outer.body.payments ?? [],
+            renewalWindow: outer.body.renewalWindow
+        )
+    }
+
+    /// The payload without the renewal window. Kept for callers that only need
+    /// the row and its payments; it is the same request, so the two can never
+    /// disagree about what the server said.
+    public func getSubscription(id: String) async throws -> (Subscription, [Payment]) {
+        let detail = try await getSubscriptionDetail(id: id)
+        return (detail.subscription, detail.payments)
     }
 
     /// Creates a subscription. `SubscriptionInput.leadDays` rides in the body,
