@@ -1058,6 +1058,98 @@ extension APIClient {
         return w.reminders
     }
 
+    // MARK: - Resale handoff (Warrly 2.0)
+
+    /// Mints a handoff code for one device (`POST /devices/{id}/handoff`).
+    ///
+    /// ⚠️ **The response is the only place `code` / `claimPath` ever appear.**
+    /// The server stores just the sha256, so neither can be fetched again — not
+    /// by the seller, not from a log. The caller must show them immediately,
+    /// next to copy/share controls, in a surface that refuses to close until
+    /// they were copied or acknowledged (`HandoffCopy.closeBlockedHint`), and
+    /// must never persist them.
+    ///
+    /// `attachmentIds` is **always sent explicitly** — `[]` means "no document
+    /// travels", a subset means exactly those files. The server validates each
+    /// id against this device (a foreign id is a `400 VALIDATION`).
+    ///
+    /// Errors: `404` device not owned; `409` the device is SOLD/LOST, an open
+    /// code already exists, or the 30-day window has not elapsed; `429`.
+    public func createHandoff(deviceId: String,
+                              attachmentIds: [String]) async throws -> DeviceHandoff {
+        struct Wrapper: Decodable { let handoff: DeviceHandoff }
+        let w: Wrapper = try await request(
+            "POST", "/api/v1/devices/\(deviceId)/handoff",
+            body: CreateHandoffInput(attachmentIds: attachmentIds)
+        )
+        return w.handoff
+    }
+
+    /// The device's latest handoff row, **without** its code
+    /// (`GET /devices/{id}/handoff`).
+    ///
+    /// A device that has never been handed off answers `{handoff: null}`, not a
+    /// 404 — but a 404 is still treated as "none" so an older server cannot make
+    /// the sheet fail. `nextAllowedAt` is optional in the contract and is
+    /// decoded when present: it is the exact instant the 30-day rule lets the
+    /// seller mint again.
+    public func currentHandoff(deviceId: String) async throws -> HandoffStatusResponse {
+        do {
+            return try await request("GET", "/api/v1/devices/\(deviceId)/handoff",
+                                     as: HandoffStatusResponse.self)
+        } catch let error as APIError where error.statusCode == 404 {
+            return HandoffStatusResponse(handoff: nil, nextAllowedAt: nil)
+        }
+    }
+
+    /// Cancels the open code for a device (`DELETE /devices/{id}/handoff`).
+    ///
+    /// The cancel is device-scoped by contract: the seller's sheet may know the
+    /// handoff id, but the server keys the operation on the device it belongs
+    /// to. A `404` means there is no open row (or the device is not the
+    /// caller's); a `409` means it is already CLAIMED or EXPIRED and therefore
+    /// cannot be cancelled.
+    public func cancelHandoff(deviceId: String) async throws {
+        let _: EmptyResponse = try await request(
+            "DELETE", "/api/v1/devices/\(deviceId)/handoff"
+        )
+    }
+
+    /// The buyer's public preview (`GET /public/handoff/{code}`).
+    ///
+    /// Unauthenticated on purpose: the buyer has not signed in yet, and the
+    /// code is the capability. The response is the server-built safe projection
+    /// (masked serial only, no price, no notes, no attachment bytes or ids), so
+    /// the client must render **this** and never infer the rest from it.
+    ///
+    /// Errors: `404` unknown code; `410` expired or cancelled; `409` already
+    /// claimed; `429` too many lookups.
+    public func previewHandoff(code: String) async throws -> HandoffPreview {
+        struct Wrapper: Decodable { let handoff: HandoffPreview }
+        let normalized = HandoffRules.normalizedCode(code)
+        let w: Wrapper = try await request(
+            "GET", "/api/v1/public/handoff/\(normalized)", authenticated: false
+        )
+        return w.handoff
+    }
+
+    /// Claims a handoff into the signed-in buyer's account
+    /// (`POST /handoff/{code}/claim`, empty body).
+    ///
+    /// Single-use: a repeat claim — including by the same buyer — is a `409`.
+    /// The response carries the **new full device**, already copied with the
+    /// remaining warranties, the selected attachment metadata and the repair
+    /// history; prices are zero and private notes do not travel.
+    ///
+    /// Errors: `401` not signed in; `403` the seller claiming their own code;
+    /// `404` unknown; `410` expired/cancelled; `409` already claimed, the
+    /// seller's device turned SOLD/LOST, or the buyer's device quota; `400`
+    /// CATEGORY_INVALID; `429`.
+    public func claimHandoff(code: String) async throws -> ClaimHandoffResult {
+        let normalized = HandoffRules.normalizedCode(code)
+        return try await request("POST", "/api/v1/handoff/\(normalized)/claim")
+    }
+
     // MARK: - Handover certificate / share links
 
     /// The device's share links, newest first, **dead rows included** (openapi

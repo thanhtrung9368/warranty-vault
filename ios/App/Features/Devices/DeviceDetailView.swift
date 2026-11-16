@@ -37,6 +37,9 @@ struct DeviceDetailView: View {
 
     @State private var showActionMenu = false
     @State private var showDeleteAlert = false
+    /// The seller's handoff sheet (`HandoffSheet`). Offered only while this
+    /// device is still the owner's and not sold; see `HandoffRules.canOfferHandoff`.
+    @State private var showHandoffSheet = false
     @State private var showServiceChecklist = false
     @State private var deletionError: String?
     @State private var actionError: String?
@@ -476,6 +479,55 @@ struct DeviceDetailView: View {
                                   detail: currentDevice.serialNumber ?? "—")
                 }
 
+                // Resale handoff (Warrly 2.0). The section exists for BOTH
+                // sides of a handoff: the buyer sees where the row came from,
+                // the seller sees that it left. The action is offered only
+                // while the device is owned and unsold — the server refuses
+                // the rest, and a button that cannot work is not a feature.
+                if HandoffRules.hasReceived(currentDevice)
+                    || HandoffRules.hasSent(currentDevice)
+                    || HandoffRules.canOfferHandoff(currentDevice) {
+                    WVSectionHeader(HandoffCopy.handoffSectionTitle)
+                    WVGroup {
+                        if let receivedAt = currentDevice.handoffReceivedAt {
+                            DeviceFactRow(
+                                icon: "userPlus",
+                                title: HandoffCopy.receivedFromSeller(WVFormat.date(receivedAt)),
+                                subtitle: currentDevice.handoffSellerName.flatMap { name in
+                                    name.trimmingCharacters(in: .whitespaces).isEmpty
+                                        ? nil : HandoffCopy.sellerLine(name)
+                                }
+                            )
+                        }
+                        if let sentAt = currentDevice.handoffSentAt {
+                            if currentDevice.handoffReceivedAt != nil { WVDivider() }
+                            DeviceFactRow(icon: "send",
+                                          title: HandoffCopy.sentToBuyer(WVFormat.date(sentAt)))
+                        }
+                        if HandoffRules.canOfferHandoff(currentDevice) {
+                            if currentDevice.handoffReceivedAt != nil
+                                || currentDevice.handoffSentAt != nil {
+                                WVDivider()
+                            }
+                            WVRow(icon: "userPlus",
+                                  title: HandoffCopy.sellerRowTitle,
+                                  subtitle: HandoffCopy.sellerRowSubtitle,
+                                  subtitleLineLimit: 2,
+                                  chevron: true,
+                                  action: { showHandoffSheet = true })
+                        }
+                    }
+                    if HandoffRules.hasReceived(currentDevice) {
+                        WVSectionFooter(HandoffCopy.receivedFootnote)
+                    } else if HandoffRules.hasSent(currentDevice) {
+                        WVSectionFooter(HandoffCopy.sentFootnote)
+                    } else {
+                        // The row is a way in, so it states what the feature is
+                        // not before the seller taps it.
+                        WVSectionFooter(HandoffCopy.disclaimerShort)
+                    }
+                }
+
                 // Installment plan ("Trả góp", FEATURE_RESEARCH_2026-11 §6.5,
                 // migration 0031). Read-only rows plus its own edit sheet: the
                 // plan is written by a dedicated endpoint so a device save can
@@ -795,6 +847,13 @@ struct DeviceDetailView: View {
             }
         } message: { _ in
             Text(L.t("Thiết bị đang có một lần sửa chữa đang mở. Đổi trạng thái sẽ đóng lần sửa đó với kết quả Đã xử lý."))
+        }
+        .sheet(isPresented: $showHandoffSheet) {
+            HandoffSheet(client: client, device: currentDevice) {
+                // A cancel changes the status card on this screen; a completed
+                // claim changes the row to SOLD on the seller's device.
+                Task { await devicesStore.refresh() }
+            }
         }
         .sheet(isPresented: $showServiceChecklist) {
             ServiceChecklistSheet(

@@ -6,6 +6,7 @@ import Foundation
 ///
 ///     warrly://device/<device-id>   — open that device
 ///     warrly://capture              — open receipt capture (inbox, no device)
+///     warrly://handoff/<code>       — claim a resale handoff (Warrly 2.0)
 ///
 /// The device URL is used by the widget's tap target and by the "open this
 /// device" App Intent. The capture URL is the URL half of the Control Center
@@ -16,6 +17,11 @@ public enum WarrlyDeepLink {
     public static let scheme = "warrly"
     public static let deviceHost = "device"
     public static let captureHost = "capture"
+    /// The resale-handoff claim link. The **web** page is canonical
+    /// (`https://warrly.com/handoff/<code>`); this scheme only exists so the
+    /// same link can be opened by the app without a Universal Link
+    /// entitlement the repo does not have.
+    public static let handoffHost = "handoff"
 
     /// App Group defaults key the "open device" intent writes. The app consumes
     /// it on the next activation, so the intent works even if the app was not
@@ -46,6 +52,33 @@ public enum WarrlyDeepLink {
         components.scheme = scheme
         components.host = captureHost
         return components.url
+    }
+
+    /// `warrly://handoff/<code>`, the in-app form of the buyer's claim link.
+    public static func handoffURL(code: String) -> URL? {
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = handoffHost
+        components.path = "/" + code
+        return components.url
+    }
+
+    /// The raw code segment of a `warrly://handoff/<code>` URL. Validation and
+    /// normalisation stay in `HandoffRules` — this only decides whether the URL
+    /// is this app's handoff link at all, so a stray path cannot be read as a
+    /// code.
+    public static func handoffCode(from url: URL) -> String? {
+        guard url.scheme?.lowercased() == scheme,
+              (url.host ?? "").lowercased() == handoffHost,
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        else { return nil }
+
+        let code = components.path
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        // One segment only: `/handoff/ABC123/extra` is not this link.
+        guard !code.isEmpty, !code.contains("/") else { return nil }
+        return code
     }
 
     /// Returns the device id for a well-formed Warrly device URL, never for any

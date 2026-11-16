@@ -30,6 +30,14 @@ final class AppRouter: ObservableObject {
     /// authenticated gate AND below the App Lock cover.
     @Published private(set) var pendingCapture = false
 
+    /// A resale handoff code from `warrly://handoff/<code>` (Warrly 2.0).
+    ///
+    /// Like the capture flag, it survives while the app is not ready: the code
+    /// can arrive on a cold launch, before login, or while the App Lock cover is
+    /// up. `DevicesScreen` presents the claim sheet only inside the
+    /// authenticated tab tree, so the code waits here until it can.
+    @Published private(set) var pendingHandoffCode: String?
+
     private var observer: NSObjectProtocol?
     private var pushObserver: NSObjectProtocol?
     private var captureObserver: NSObjectProtocol?
@@ -82,11 +90,16 @@ final class AppRouter: ObservableObject {
         if let captureObserver { NotificationCenter.default.removeObserver(captureObserver) }
     }
 
-    /// Handles `warrly://device/<id>` and `warrly://capture`. Any other URL is
-    /// ignored, not treated as a device id.
+    /// Handles `warrly://device/<id>`, `warrly://capture` and
+    /// `warrly://handoff/<code>`. Any other URL is ignored, not treated as a
+    /// device id.
     func open(_ url: URL) {
         if WarrlyDeepLink.isCaptureURL(url) {
             openCapture()
+            return
+        }
+        if let code = WarrlyDeepLink.handoffCode(from: url) {
+            openHandoff(code: code)
             return
         }
         guard let id = WarrlyDeepLink.deviceId(from: url) else { return }
@@ -108,6 +121,20 @@ final class AppRouter: ObservableObject {
     /// `warrly://capture` or the App Group flag both land here.
     func openCapture() {
         pendingCapture = true
+    }
+
+    /// A claim link (`warrly://handoff/<code>`) asked for the claim sheet. The
+    /// code is held until `DevicesScreen` is on screen and the user is signed
+    /// in — a claim needs a bearer token, so consuming it before login would
+    /// drop the request.
+    func openHandoff(code: String) {
+        pendingHandoffCode = code
+    }
+
+    /// Hands the code to the claim sheet exactly once.
+    func consumeHandoff() -> String? {
+        defer { pendingHandoffCode = nil }
+        return pendingHandoffCode
     }
 
     /// Picks up the id an App Intent queued in the App Group. Called on every
@@ -167,6 +194,7 @@ final class AppRouter: ObservableObject {
         pendingSubscriptionId = nil
         pendingWishlistId = nil
         pendingCapture = false
+        pendingHandoffCode = nil
         WarrlyIntentBridge.clearPendingDevice()
         WarrlyIntentBridge.clearPendingCapture()
     }

@@ -511,7 +511,7 @@ struct MainTabView: View {
             // a tapped push wins over the default tab; the target screen
             // consumes the id once it can push.
             router.restorePendingFromSharedDefaults()
-            if router.pendingDeviceId != nil {
+            if router.pendingDeviceId != nil || router.pendingHandoffCode != nil {
                 selection = 1
             } else if router.pendingSubscriptionId != nil {
                 selection = 2
@@ -537,7 +537,7 @@ struct MainTabView: View {
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             router.restorePendingFromSharedDefaults()
-            if router.pendingDeviceId != nil {
+            if router.pendingDeviceId != nil || router.pendingHandoffCode != nil {
                 selection = 1
             } else if router.pendingSubscriptionId != nil {
                 selection = 2
@@ -561,6 +561,12 @@ struct MainTabView: View {
             // The app may already be showing this tab; switching is enough for
             // DevicesScreen's own onChange/task to push the detail view.
             if id != nil { selection = 1 }
+        }
+        // A claim link opened while another tab was showing. The sheet itself is
+        // presented by DevicesScreen, which owns the authenticated navigation
+        // stack — this only brings that tab forward.
+        .onChange(of: router.pendingHandoffCode) { _, code in
+            if code != nil { selection = 1 }
         }
         .onChange(of: router.pendingSubscriptionId) { _, id in
             // Same rule for a subscription-renewal notification: bring the
