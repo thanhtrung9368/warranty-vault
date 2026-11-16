@@ -211,19 +211,6 @@ func RepairPromiseClock(openedAt, closedAt wire.Instant, status string, days int
 	return wire.Date(due), daysLeft, state, true
 }
 
-// repairPolicyFromCatalog maps a generated policy row + store name into the
-// narrow shape above.
-func repairPolicyFromCatalog(storeID, storeName string, p store.RetailerPolicy) RepairPolicy {
-	return RepairPolicy{
-		StoreID:           storeID,
-		RetailerName:      storeName,
-		RepairCeilingDays: p.RepairCeilingDays,
-		RepairCeilingNote: p.RepairCeilingNote,
-		SourceURL:         p.SourceUrl,
-		CheckedAt:         p.CheckedAt,
-	}
-}
-
 // retailerPoliciesByDevice returns the ACTIVE policy for each of `deviceIDs`
 // that has a retailer link. Devices without one are absent, which callers read
 // as "no promise" without a second lookup.
