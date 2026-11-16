@@ -14,7 +14,7 @@ import (
 const listOpenReturnWindows = `-- name: ListOpenReturnWindows :many
 
 SELECT
-    d.id, d."userId", d.name, d.category, d.brand, d.model, d."serialNumber", d."purchaseDate", d."purchasePrice", d."purchasePlace", d.status, d.notes, d."createdAt", d."updatedAt", d."soldAt", d."soldPrice", d."returnWindowDays", d."receivedAt", d."returnWindowNotifiedAt", d."leadDays", d."activationRequired", d."activatedAt", d."extendedCoverBuyBy", d."activationNotifiedAt", d."extendedCoverNotifiedAt", d."extendedCoverNotifiedLeadDay", d.currency, d."fxRate", d."brandWarrantyStatus", d."brandWarrantyStart", d."brandWarrantyEnd", d."brandCheckedAt", d."brandLookupUrl",
+    d.id, d."userId", d.name, d.category, d.brand, d.model, d."serialNumber", d."purchaseDate", d."purchasePrice", d."purchasePlace", d.status, d.notes, d."createdAt", d."updatedAt", d."soldAt", d."soldPrice", d."returnWindowDays", d."receivedAt", d."returnWindowNotifiedAt", d."leadDays", d."activationRequired", d."activatedAt", d."extendedCoverBuyBy", d."activationNotifiedAt", d."extendedCoverNotifiedAt", d."extendedCoverNotifiedLeadDay", d.currency, d."fxRate", d."brandWarrantyStatus", d."brandWarrantyStart", d."brandWarrantyEnd", d."brandCheckedAt", d."brandLookupUrl", d."retailerId",
     (COALESCE(d."receivedAt", d."purchaseDate")
         + (d."returnWindowDays" * INTERVAL '1 day'))::timestamp AS "returnDeadline"
 FROM "Device" d
@@ -66,6 +66,7 @@ type ListOpenReturnWindowsRow struct {
 	BrandWarrantyEnd             wire.Day     `json:"brandWarrantyEnd"`
 	BrandCheckedAt               wire.Instant `json:"brandCheckedAt"`
 	BrandLookupUrl               *string      `json:"brandLookupUrl"`
+	RetailerId                   *string      `json:"retailerId"`
 	ReturnDeadline               wire.Instant `json:"returnDeadline"`
 }
 
@@ -135,6 +136,7 @@ func (q *Queries) ListOpenReturnWindows(ctx context.Context, arg ListOpenReturnW
 			&i.BrandWarrantyEnd,
 			&i.BrandCheckedAt,
 			&i.BrandLookupUrl,
+			&i.RetailerId,
 			&i.ReturnDeadline,
 		); err != nil {
 			return nil, err

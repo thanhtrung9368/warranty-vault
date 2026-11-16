@@ -61,6 +61,11 @@ struct DeviceFormView: View {
     @State private var purchaseDate: Date
     @State private var price: Int?
     @State private var purchasePlace: String
+    /// Optional retailer link (migration 0030). Empty string is the wire's
+    /// explicit clear: the form always sends the field, so picking "Chưa gắn
+    /// cửa hàng" means clear, while every non-form PATCH omits it and the
+    /// server keeps the stored link.
+    @State private var retailerId: String
 
     /// The device's currency and the rate **locked at entry**.
     ///
@@ -370,6 +375,7 @@ struct DeviceFormView: View {
         _purchaseDate = State(initialValue: purchaseDay)
         _price = State(initialValue: device?.purchasePrice)
         _purchasePlace = State(initialValue: device?.purchasePlace ?? carried.store ?? "")
+        _retailerId = State(initialValue: device?.retailerId ?? "")
         // A payload without `currency` means the contract default VND; the
         // normalized value is what the picker and the payload use from here on.
         _currency = State(initialValue: CurrencyRules.normalized(device?.currency))
@@ -983,6 +989,81 @@ struct DeviceFormView: View {
         .padding(.vertical, 10)
     }
 
+    /// The retailer picker. A `Menu`-style Picker with an explicit "none"
+    /// value: the link is optional, and clearing it is a supported action (the
+    /// first value is `""`, the wire's clear signal). The rows carry the
+    /// policy's headline facts so the user can see WHY linking matters; a store
+    /// with no policy shows just its name, never an invented number.
+    private var retailerRow: some View {
+        formRow {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(L.t("Cửa hàng"))
+                    .wvFont(.body)
+                    .foregroundStyle(WVColor.label)
+                Text(L.t("Liên kết để dùng chính sách đã xác minh"))
+                    .wvFont(.caption)
+                    .foregroundStyle(WVColor.label3)
+            }
+        } value: {
+            Picker("", selection: $retailerId) {
+                Text(L.t("Chưa gắn cửa hàng")).tag("")
+                ForEach(catalog.retailers) { retailer in
+                    Text(retailerOptionLabel(retailer)).tag(retailer.id)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+        }
+    }
+
+    /// The selected retailer, when it has a verified policy.
+    private var selectedRetailer: RetailerOption? {
+        catalog.retailers.first { $0.id == retailerId }
+    }
+
+    /// One picker row: "CellphoneS — cam kết 15 ngày · đổi trả 30 ngày", built
+    /// only from non-nil policy fields. No number is shown for a shop without a
+    /// policy (the `null` row is the honest one).
+    private func retailerOptionLabel(_ retailer: RetailerOption) -> String {
+        var facts: [String] = []
+        if let days = retailer.repairCeilingDays {
+            facts.append(L.p("cam kết %d ngày", days))
+        }
+        if let days = retailer.returnWindowDays {
+            facts.append(L.p("đổi trả %d ngày", days))
+        }
+        return facts.isEmpty ? retailer.name : "\(retailer.name) — \(facts.joined(separator: " · "))"
+    }
+
+    /// The "Dùng 30 ngày" chip: one tap copies the shop's published return
+    /// window onto this device. It only exists when the selected retailer has a
+    /// verified `returnWindowDays`; picking the number is still an explicit
+    /// user action, and the answer stops being the app's suggestion.
+    @ViewBuilder
+    private var retailerWindowChip: some View {
+        if let retailer = selectedRetailer, let days = retailer.returnWindowDays, days > 0 {
+            Button {
+                withAnimation(.easeOut(duration: 0.15)) {
+                    returnWindowDays = days
+                    returnWindowIsAuto = false
+                    fieldErrors["returnWindowDays"] = nil
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    WVIcon("sparkles", size: 13)
+                    Text(L.p("Dùng %d ngày", days))
+                        .wvFont(.footnoteEmphasis)
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(WVColor.tint)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(WVPressableStyle())
+        }
+    }
+
     /// The delivery day, drawn only for a real window. Without a recorded day
     /// the picker starts on the purchase day — the same day the server's
     /// `COALESCE(receivedAt, purchaseDate)` would have used — and says so, so
@@ -1425,12 +1506,22 @@ struct DeviceFormView: View {
                         AutocompleteRow(suggestions: storeSuggestions, text: $purchasePlace)
                     }
 
+                    // Retailer link (migration 0030). `purchasePlace` above is
+                    // the free-text address; this is the optional link to a
+                    // known chain, which is what resolves the shop's repair
+                    // promise on the claim. The picker is complete (every
+                    // active Store) — a shop with no verified policy still
+                    // appears, it just has no countdown.
+                    WVDivider()
+                    retailerRow
+
                     // "Hạn đổi/trả" (migration 0010). The API already derived a
                     // RETURN_WINDOW_UNKNOWN action from the missing value, and
                     // this is the input that action was pointing at; without it
                     // the queue handed the user a to-do with nowhere to do it.
                     WVDivider()
                     returnWindowRow
+                    retailerWindowChip
                     fieldErrorRow("returnWindowDays")
 
                     if showsDeliveryDayPicker {
@@ -2507,6 +2598,10 @@ struct DeviceFormView: View {
         input.model = model.isEmpty ? nil : model
         input.serialNumber = serial.isEmpty ? nil : serial
         input.purchasePlace = purchasePlace.isEmpty ? nil : purchasePlace
+        // Always send the key: "" is the explicit clear, an id is the link. A
+        // nil would mean "keep", which is right for a status tap but wrong
+        // when the user just picked "Chưa gắn cửa hàng" in this form.
+        input.retailerId = retailerId
         input.purchasePrice = price ?? 0
         // What the typed price means. `fxRate` is sent as nil for VND — the
         // encoder writes it as an explicit null so switching a device back to

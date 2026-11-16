@@ -70,6 +70,12 @@ export type DeviceInput = {
   // missing rate before the request. Also always sent on PATCH.
   fxRate?: number | null;
   purchasePlace?: string | null;
+  /**
+   * Optional link to a known retail chain (migration 0030). TRI-state on PATCH:
+   * absent = keep, `""` = clear, `<store id>` = set. Every web save sends the
+   * loaded value back (the form carries it), so an edit cannot erase it.
+   */
+  retailerId?: string | null;
   status?: 'ACTIVE' | 'EXPIRED' | 'SOLD' | 'BROKEN' | 'LOST';
   notes?: string | null;
   // Resale pair (migration 0006). Both or neither: sending exactly one is a
@@ -170,6 +176,8 @@ export type Device = {
   // tags it `omitempty`; optional handles both.
   soldPriceVnd?: number | null;
   purchasePlace: string | null;
+  /** Optional retailer chain link (migration 0030); null = not linked. */
+  retailerId?: string | null;
   status: string;
   notes: string | null;
   // Resale record. `soldAt` serialises like `purchaseDate`

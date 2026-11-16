@@ -77,6 +77,11 @@ export default async function EditDevicePage({
           currency: device.currency,
           fxRate: device.fxRate,
           purchasePlace: device.purchasePlace,
+          // Retailer link (migration 0030) — must round-trip, because PATCH
+          // replaces the whole device and a build-23-shaped save without the key
+          // would otherwise be read as "keep" (ok) while the form's empty select
+          // would be read as "clear" (not ok). The select always submits it.
+          retailerId: device.retailerId,
           warrantyMonths: standard?.months ?? 0,
           warrantyProvider: standard?.provider ?? null,
           warrantyAddress: standard?.address ?? null,

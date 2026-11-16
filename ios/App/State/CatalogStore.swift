@@ -7,6 +7,9 @@ public final class CatalogStore: ObservableObject {
     @Published public private(set) var categories: [CategoryOption] = []
     @Published public private(set) var brands: [BrandOption] = []
     @Published public private(set) var stores: [StoreOption] = []
+    /// Store + RetailerPolicy (migration 0030). Empty for an older server: the
+    /// retailer picker then shows only "Chưa gắn cửa hàng", which is honest.
+    @Published public private(set) var retailers: [RetailerOption] = []
     @Published public private(set) var warrantyProviders: [WarrantyProviderOption] = []
     @Published public private(set) var isLoaded = false
 
@@ -34,6 +37,7 @@ public final class CatalogStore: ObservableObject {
             categories = cat.categories
             brands = cat.brands
             stores = cat.stores
+            retailers = cat.retailersOrEmpty
             warrantyProviders = cat.warrantyProviders
             isLoaded = true
         } catch {

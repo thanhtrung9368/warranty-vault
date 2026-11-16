@@ -111,6 +111,11 @@ function buildDeviceInput(formData: FormData): DeviceInput {
     currency,
     fxRate,
     purchasePlace: str(formData, 'purchasePlace') ?? null,
+    // Retailer link (migration 0030). The select always ships the key, so this
+    // is the explicit value: `''` clears, an id sets. The server's tri-state
+    // exists for clients that do NOT know the field (build 23), not for this
+    // form — which loads and re-sends the stored link.
+    retailerId: str(formData, 'retailerId') ?? null,
     status: status as DeviceInput['status'],
     notes: str(formData, 'notes') ?? null,
     soldAt: str(formData, 'soldAt') ?? null,
@@ -275,6 +280,7 @@ function deviceToInput(device: DeviceDetail): DeviceInput {
     currency: device.currency,
     fxRate: device.fxRate,
     purchasePlace: device.purchasePlace,
+    retailerId: device.retailerId,
     status: device.status as DeviceInput['status'],
     notes: device.notes,
     soldAt: device.soldAt,

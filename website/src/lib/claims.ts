@@ -105,6 +105,55 @@ export function claimStatusLabel(status: string, locale: Locale): string {
 }
 
 /**
+ * The shop's repair promise (migration 0030, FEATURE_RESEARCH_2026-11 §6.1
+ * wave 2). These labels are catalog keys, not display strings: callers go
+ * through `repairPromiseStateLabel`, which applies the active language.
+ *
+ * The set is deliberately closed and matches the wire enum. `null` on the claim
+ * means "no verified policy", which is NOT one of these states — a missing
+ * promise must never render as ON_TRACK.
+ */
+export const REPAIR_PROMISE_STATE_LABELS = {
+  ON_TRACK: 'Đang trong hạn',
+  DUE_SOON: 'Sắp tới hạn',
+  OVERDUE: 'Đã quá hạn sửa chữa',
+  MET: 'Đúng hạn',
+  MISSED: 'Trễ hạn',
+} as const;
+
+export type RepairPromiseState = keyof typeof REPAIR_PROMISE_STATE_LABELS;
+
+/** Status → label in the active language; unknown codes fall through verbatim. */
+export function repairPromiseStateLabel(state: string, locale: Locale): string {
+  const key =
+    (REPAIR_PROMISE_STATE_LABELS as Record<string, string>)[state] ?? state;
+  return translate(locale, key);
+}
+
+/**
+ * A policy older than this is shown dimmed with "số liệu có thể đã cũ"
+ * (FEATURE_RESEARCH_2026-11 §6.1: the threshold is 180 days). The server never
+ * hides an old policy — an old citation is still the only evidence the app has.
+ */
+export const REPAIR_PROMISE_STALE_DAYS = 180;
+
+/**
+ * Whether the policy's `checkedAt` day is older than REPAIR_PROMISE_STALE_DAYS.
+ * `now` is injected so the rule is testable; production passes the default.
+ * An unparseable/missing date is NOT stale — the caller renders the promise
+ * without the warning rather than asserting staleness it cannot prove.
+ */
+export function repairPromiseIsStale(
+  checkedAt: string | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  if (!checkedAt) return false;
+  const checked = Date.parse(checkedAt);
+  if (!Number.isFinite(checked)) return false;
+  return now - checked > REPAIR_PROMISE_STALE_DAYS * 24 * 60 * 60 * 1000;
+}
+
+/**
  * What a status change means, without forbidding any of them.
  *
  * The client deliberately does not hide statuses: Go accepts a PATCH with any

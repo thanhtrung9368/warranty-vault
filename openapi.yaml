@@ -3122,6 +3122,7 @@ paths:
                       - pushesFailed
                       - pushesGone
                       - repairExtensionShiftedNotices
+                      - repairPromiseNotices
                     properties:
                       warrantyNotices: { type: integer, description: 'Số lượt nhắc bảo hành đã xử lý: một lượt cho mỗi cặp (warranty, mốc `leadDays`) rơi đúng ngày. Mặc định [30, 7] cho kết quả như lịch 30/7 ngày cũ.' }
                       activationNotices: { type: integer, description: 'Số thiết bị được nhắc "chưa kích hoạt bảo hành" trong lượt chạy. Chỉ bắn MỘT lần cho mỗi thiết bị (`activationRequired = true`, `activatedAt IS NULL`, chưa từng nhắc) — không theo `leadDays`, không nhắc hằng ngày.' }
@@ -3137,6 +3138,7 @@ paths:
                       pushesFailed: { type: integer }
                       pushesGone: { type: integer, description: 'Push trả 404/410 — hàng `PushSubscription` tương ứng đã bị xoá.' }
                       repairExtensionShiftedNotices: { type: integer, description: 'Số lượt nhắc bảo hành dùng **ngày được hưởng** (`endDate + số ngày sửa đã đóng`) thay vì ngày trên giấy. Chỉ khác 0 khi env `WV_REPAIR_EXTENSION` bật (mặc định tắt — lịch và nội dung build 23 không đổi).' }
+                      repairPromiseNotices: { type: integer, description: 'Số push **cam kết sửa chữa** đã gửi trong lượt chạy (T-2 "sắp tới hạn" và T+1 "đã quá hạn"). Cùng cờ `WV_REPAIR_EXTENSION` (mặc định tắt). Chỉ đếm khi thiết bị có `retailerId` trỏ tới một `RetailerPolicy` đang hoạt động **và** chính sách có `repairCeilingDays`; không có chính sách ⇒ không push, không đoán.' }
         '401': { description: 'Missing or wrong CRON_SECRET' }
 
   /api/v1/ai/extract-receipt:
@@ -4229,6 +4231,16 @@ components:
         purchaseDate: { type: string, format: date-time }
         purchasePrice: { type: integer }
         purchasePlace: { type: string, nullable: true }
+        retailerId:
+          type: string
+          nullable: true
+          description: |
+            Liên kết cửa hàng (migration 0030). **Vắng mặt** ở thiết bị chưa
+            gắn, nên payload của người dùng chưa bao giờ chọn retailer vẫn
+            byte-for-byte như trước. Import tra id trong catalog Store đang hoạt
+            động; id lạ/đã ngừng ⇒ **lưu `null`**, không làm hỏng cả file — bản
+            sao lưu là đường khôi phục, một cửa hàng bị gỡ khỏi catalog không
+            được phép chặn nó.
         status: { type: string }
         notes: { type: string, nullable: true }
         soldAt:
@@ -4604,8 +4616,95 @@ components:
             Ba trạng thái có chủ đích: `null` = **chưa biết** (cửa hàng chưa nói),
             `true` = bảo hành trả, `false` = người dùng tự trả. Gộp `null` vào
             `false` sẽ khẳng định một điều chưa xảy ra.
+        promiseNotifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Dấu chống trùng của cron cho push **cam kết sửa chữa** (migration
+            0030), lần gần nhất đã gửi. Chi tiết vận hành, `null` = chưa từng
+            gửi. Cùng vai trò với `Device.returnWindowNotifiedAt`.
+        promiseNotifiedKind:
+          type: string
+          nullable: true
+          enum: [DUE_SOON, OVERDUE, null]
+          description: |
+            Loại push đã gửi gần nhất: `DUE_SOON` (T-2) hoặc `OVERDUE` (T+1).
+            Giữ theo **loại**, không theo ngày, nên lượt T-2 không chặn lượt T+1;
+            chạy lại cron trong cùng ngày không gửi lặp.
+        repairPromise:
+          allOf: [{ $ref: '#/components/schemas/RepairPromise' }]
+          nullable: true
+          description: |
+            **Trường tính sẵn, chỉ đọc** (migration 0030,
+            FEATURE_RESEARCH_2026-11 §6.1 wave 2). Cam kết thời gian sửa của
+            **cửa hàng** cho lần sửa này, suy ra từ `RetailerPolicy` của
+            `Device.retailerId` + ngày mở phiếu.
+
+            `null` khi: thiết bị chưa gắn `retailerId`; cửa hàng chưa có
+            chính sách đã xác minh; chính sách không công bố **số ngày theo lịch**
+            (`repairCeilingDays = null`); hoặc phiếu đã kết thúc mà thiếu
+            `closedAt`. Server **không đoán** — không có chính sách thì không có
+            countdown.
+
+            Mọi surface hiển thị object này phải in kèm "theo chính sách của
+            `<retailerName>`" và `checkedAt`: đây là chính sách của cửa hàng,
+            không phải điều khoản Warrly bảo đảm. `checkedAt` quá 180 ngày thì
+            client nên làm mờ và ghi "số liệu có thể đã cũ" (client tự so, server
+            không cắt).
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    RepairPromise:
+      type: object
+      description: |
+        Cam kết sửa chữa của cửa hàng cho một phiếu (migration 0030). Một phép
+        tính duy nhất ở server (`services.RepairPromiseClock`) dùng cho cả object
+        này và cron, nên chip trong app và push không thể lệch nhau về ngày.
+
+        Ngày được tính theo **lịch Việt Nam** (`Asia/Ho_Chi_Minh`): `openedAt` là
+        instant UTC, nhưng "hạn 15 ngày" là hạn trên lịch mà người dùng và cửa
+        hàng cùng nhìn. Trạng thái đóng băng theo ngày đóng phiếu; trạng thái mở
+        trôi theo hôm nay.
+      required: [days, dueAt, daysLeft, state, sourceUrl, retailerId, retailerName]
+      properties:
+        days:
+          type: integer
+          minimum: 1
+          description: 'Số ngày cam kết, đúng bằng `RetailerPolicy.repairCeilingDays` (ngày theo lịch, không phải ngày làm việc).'
+        dueAt:
+          type: string
+          format: date
+          description: 'Ngày hết cam kết = ngày mở phiếu (lịch Việt Nam) + `days`, dạng `YYYY-MM-DD`.'
+        daysLeft:
+          type: integer
+          description: |
+            Số ngày còn lại, **có dấu**: dương = còn sớm, âm = đã trễ.
+            Phiếu đang mở: `dueAt − hôm nay`. Phiếu đã đóng: `dueAt − ngày đóng`,
+            nên `MET` luôn `>= 0` và `MISSED` luôn `< 0`.
+        state:
+          type: string
+          enum: [ON_TRACK, DUE_SOON, OVERDUE, MET, MISSED]
+          description: |
+            * `ON_TRACK` — đang mở, còn hơn 2 ngày.
+            * `DUE_SOON` — đang mở, còn 0–2 ngày (đúng cửa sổ push T-2).
+            * `OVERDUE` — đang mở, đã qua `dueAt`.
+            * `MET` — đã đóng trong hạn (kể cả đúng ngày).
+            * `MISSED` — đã đóng sau hạn.
+        sourceUrl:
+          type: string
+          format: uri
+          description: 'URL chính sách của cửa hàng mà server đã đọc. Luôn có khi object tồn tại (cột `RetailerPolicy.sourceUrl` NOT NULL).'
+        checkedAt:
+          type: string
+          format: date
+          description: 'Ngày chính sách được đọc, `YYYY-MM-DD`. Client so với hôm nay để cảnh báo số liệu cũ (>180 ngày).'
+        retailerId: { type: string, description: '`Store.id` của cửa hàng.' }
+        retailerName: { type: string, description: 'Tên cửa hàng để in "theo chính sách của …".' }
+        note:
+          type: string
+          nullable: true
+          description: 'Ghi chú chính sách bằng lời cửa hàng (ví dụ "1 đổi 1 trong 30 ngày"), hoặc `null`.'
 
     ClaimInput:
       type: object
@@ -4770,6 +4869,19 @@ components:
             bị đã bán** (`soldPrice != null`) và tỷ giá dùng được; **vắng mặt**
             khi chưa bán. Cùng quy tắc `int64`/`null` với `purchasePriceVnd`.
         purchasePlace: { type: string, nullable: true }
+        retailerId:
+          type: string
+          nullable: true
+          description: |
+            `Store.id` của chuỗi bán lẻ, **tuỳ chọn** (migration 0030). Đây là
+            liên kết để tra `RetailerPolicy` và tính `claim.repairPromise`;
+            `purchasePlace` (chuỗi tự do) vẫn độc lập và **không bao giờ** được
+            dùng để đoán cửa hàng.
+
+            `null` = chưa gắn. Migration 0030 backfill **khớp chính xác** qua
+            `wv_unaccent` (sau khi bỏ dấu và lower-case, `purchasePlace` phải
+            bằng tên Store); thiết bị có tên mơ hồ hoặc địa chỉ chi nhánh giữ
+            `null`. Người dùng có thể chọn lại trong form.
         status: { $ref: '#/components/schemas/DeviceStatus' }
         notes: { type: string, nullable: true }
         soldAt:
@@ -5393,6 +5505,25 @@ components:
             Dùng `GET /api/v1/fx/rates?base=USD` để **gợi ý** con số này; người
             dùng xác nhận trước khi lưu.
         purchasePlace: { type: string, nullable: true }
+        retailerId:
+          type: string
+          nullable: true
+          description: |
+            Liên kết tuỳ chọn tới `Store.id` (migration 0030). Trường này là
+            **ba trạng thái**, cùng kiểu `warrantyMonths`:
+
+              * **Vắng mặt** (hoặc `null`) — request không nói gì về cửa hàng:
+                CREATE không gắn; **PATCH giữ nguyên** liên kết đã lưu. Đây là
+                lý do một client build 23 (chưa biết trường này) có thể PATCH
+                thiết bị mà không xoá mất liên kết.
+              * `""` — **xoá** liên kết (lưu `null`). Trên CREATE không có gì để
+                giữ nên giống vắng mặt.
+              * `"<store id>"` — gắn, sau khi server xác nhận Store tồn tại và
+                đang hoạt động. Id lạ/đã ngừng ⇒ 400 `fieldErrors.retailerId`.
+
+            Danh sách id hợp lệ nằm trong `GET /api/v1/catalog` → `retailers[]`.
+            `purchasePlace` vẫn là chuỗi tự do: gắn retailer không đổi địa chỉ
+            người dùng đã ghi.
         status: { $ref: '#/components/schemas/DeviceStatus' }
         notes: { type: string, nullable: true }
         soldAt:
@@ -6344,7 +6475,7 @@ components:
 
     Catalog:
       type: object
-      required: [categories, brands, stores, warrantyProviders, brandServiceInfo]
+      required: [categories, brands, stores, retailers, warrantyProviders, brandServiceInfo]
       properties:
         categories:
           type: array
@@ -6382,6 +6513,17 @@ components:
               id: { type: string }
               name: { type: string }
               type: { type: string }
+        retailers:
+          type: array
+          description: |
+            **Mọi** Store đang hoạt động, ghép với `RetailerPolicy` của nó
+            (migration 0030) — đây là nguồn cho picker cửa hàng trong form thiết
+            bị. Store chưa có chính sách vẫn có mặt với các trường policy `null`,
+            để một thiết bị mua ở đó vẫn gắn được retailer.
+
+            Cùng cache 60 giây với năm mảng kia. Thêm vào sau này nên client cũ
+            không biết `retailers` vẫn đọc được các mảng cũ.
+          items: { $ref: '#/components/schemas/Retailer' }
         warrantyProviders:
           type: array
           items:
@@ -6412,6 +6554,53 @@ components:
             `GET /api/v1/brands/{brandId}/service-info`; hai endpoint dùng chung
             cache 60 giây nên không thể lệch nhau.
           items: { $ref: '#/components/schemas/BrandServiceInfo' }
+
+    Retailer:
+      type: object
+      description: |
+        Một cửa hàng bán lẻ + chính sách đã xác minh (migration 0030,
+        FEATURE_RESEARCH_2026-11 §6.1 wave 2). `id` khớp `stores[].id`.
+
+        Các trường số là **nullable và `null` = "chưa xác minh"**, không bao giờ
+        là 0. Chính sách chỉ được seed khi có `sourceUrl` + `checkedAt`; mọi
+        surface in số liệu phải in kèm "theo chính sách của <name>" + ngày kiểm
+        tra. `repairCeilingDays` là **ngày theo lịch** — chính sách tính bằng
+        ngày làm việc cố ý để `null` thay vì quy đổi, vì một hạn báo sớm là lời
+        buộc tội sai với cửa hàng.
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        returnWindowDays:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 3650
+          description: 'Cửa sổ đổi/trả mà cửa hàng công bố, cùng nghĩa `Device.returnWindowDays`. `null` = chưa xác minh.'
+        repairCeilingDays:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 3650
+          description: 'Thời gian sửa tối đa, **ngày theo lịch**. `null` = không có số đã xác minh ⇒ không countdown (xem `RepairPromise`).'
+        repairCeilingNote:
+          type: string
+          nullable: true
+          description: 'Lời cửa hàng / ghi chú về thời gian sửa, chưa được parse.'
+        exchangeNote:
+          type: string
+          nullable: true
+          description: 'Lời cửa hàng về đổi trả ("1 đổi 1 trong 30 ngày"), chưa được parse.'
+        sourceUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: 'Trang chính sách đã đọc. `null` khi Store chưa có RetailerPolicy.'
+        checkedAt:
+          type: string
+          format: date
+          nullable: true
+          description: 'Ngày đọc chính sách, `YYYY-MM-DD`. `null` khi chưa có policy.'
 
     # ─── Session management (GET/DELETE /api/v1/auth/sessions) ──────────────
 

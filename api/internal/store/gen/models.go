@@ -52,22 +52,24 @@ type Category struct {
 }
 
 type Claim struct {
-	ID                string       `json:"id"`
-	DeviceId          string       `json:"deviceId"`
-	WarrantyId        *string      `json:"warrantyId"`
-	Status            string       `json:"status"`
-	OpenedAt          wire.Instant `json:"openedAt"`
-	ExpectedReturnAt  wire.Day     `json:"expectedReturnAt"`
-	ClosedAt          wire.Instant `json:"closedAt"`
-	TicketNumber      *string      `json:"ticketNumber"`
-	ServiceCenter     *string      `json:"serviceCenter"`
-	Issue             string       `json:"issue"`
-	Diagnosis         *string      `json:"diagnosis"`
-	Outcome           *string      `json:"outcome"`
-	Cost              *int32       `json:"cost"`
-	CoveredByWarranty *bool        `json:"coveredByWarranty"`
-	CreatedAt         wire.Instant `json:"createdAt"`
-	UpdatedAt         wire.Instant `json:"updatedAt"`
+	ID                  string       `json:"id"`
+	DeviceId            string       `json:"deviceId"`
+	WarrantyId          *string      `json:"warrantyId"`
+	Status              string       `json:"status"`
+	OpenedAt            wire.Instant `json:"openedAt"`
+	ExpectedReturnAt    wire.Day     `json:"expectedReturnAt"`
+	ClosedAt            wire.Instant `json:"closedAt"`
+	TicketNumber        *string      `json:"ticketNumber"`
+	ServiceCenter       *string      `json:"serviceCenter"`
+	Issue               string       `json:"issue"`
+	Diagnosis           *string      `json:"diagnosis"`
+	Outcome             *string      `json:"outcome"`
+	Cost                *int32       `json:"cost"`
+	CoveredByWarranty   *bool        `json:"coveredByWarranty"`
+	CreatedAt           wire.Instant `json:"createdAt"`
+	UpdatedAt           wire.Instant `json:"updatedAt"`
+	PromiseNotifiedAt   wire.Instant `json:"promiseNotifiedAt"`
+	PromiseNotifiedKind *string      `json:"promiseNotifiedKind"`
 }
 
 type DecisionSnooze struct {
@@ -112,6 +114,7 @@ type Device struct {
 	BrandWarrantyEnd             wire.Day     `json:"brandWarrantyEnd"`
 	BrandCheckedAt               wire.Instant `json:"brandCheckedAt"`
 	BrandLookupUrl               *string      `json:"brandLookupUrl"`
+	RetailerId                   *string      `json:"retailerId"`
 }
 
 type DeviceShare struct {
@@ -194,6 +197,17 @@ type Reminder struct {
 	CreatedAt           wire.Instant `json:"createdAt"`
 	LastNotifiedAt      wire.Instant `json:"lastNotifiedAt"`
 	LastNotifiedLeadDay *int32       `json:"lastNotifiedLeadDay"`
+}
+
+type RetailerPolicy struct {
+	StoreId           string   `json:"storeId"`
+	ReturnWindowDays  *int32   `json:"returnWindowDays"`
+	RepairCeilingDays *int32   `json:"repairCeilingDays"`
+	RepairCeilingNote *string  `json:"repairCeilingNote"`
+	ExchangeNote      *string  `json:"exchangeNote"`
+	SourceUrl         string   `json:"sourceUrl"`
+	CheckedAt         wire.Day `json:"checkedAt"`
+	IsActive          bool     `json:"isActive"`
 }
 
 type Session struct {

@@ -36,6 +36,8 @@ import com.warrly.R
 import com.warrly.i18n.appStrings
 import com.warrly.network.Claim
 import com.warrly.network.Device
+import com.warrly.network.RepairPromise
+import com.warrly.ui.components.PillKind
 import com.warrly.ui.components.StatusPill
 import com.warrly.ui.screens.vietnamDate
 import com.warrly.ui.theme.WVAccent
@@ -293,6 +295,10 @@ private fun ClaimCard(
                     coveredByWarrantyLabel(s, it),
                 )
             }
+            // Shop's repair promise (migration 0030, §6.1 wave 2). `null` means
+            // there is no verified policy / no calendar-day ceiling — render
+            // nothing rather than inventing a countdown.
+            claim.repairPromise?.let { ClaimPromiseCard(it) }
             claim.diagnosis?.takeIf { it.isNotBlank() }?.let {
                 ClaimParagraph(stringResource(R.string.claim_diagnosis), it)
             }
@@ -313,6 +319,102 @@ private fun ClaimCard(
             }
         }
     }
+}
+
+/**
+ * The shop's repair promise chip + countdown + the mandatory attribution line
+ * (migration 0030, FEATURE_RESEARCH_2026-11 §6.1 wave 2).
+ *
+ * Every number is printed with the retailer name and the date the policy was
+ * checked: the promise belongs to the shop, not to Warrly. A policy older than
+ * 180 days is dimmed with "số liệu có thể đã cũ."
+ */
+@Composable
+private fun ClaimPromiseCard(promise: RepairPromise) {
+    val cs = MaterialTheme.colorScheme
+    Card(
+        colors = CardDefaults.cardColors(containerColor = cs.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StatusPill(
+                    label = promiseStateLabel(promise),
+                    kind = promisePillKind(promise),
+                )
+                if (promise.isOpen) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        promiseCountdown(promise),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (promise.promiseState == RepairPromise.State.OVERDUE) {
+                            cs.error
+                        } else {
+                            cs.onSurface
+                        },
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(
+                    R.string.claim_promise_terms,
+                    promise.days,
+                    vietnamDate(promise.dueAt) ?: promise.dueAt,
+                ),
+                fontSize = 12.sp,
+                color = cs.onSurfaceVariant,
+            )
+            Text(
+                stringResource(
+                    R.string.claim_promise_attribution,
+                    promise.retailerName,
+                    vietnamDate(promise.checkedAt) ?: promise.checkedAt,
+                ),
+                fontSize = 12.sp,
+                color = cs.onSurfaceVariant,
+            )
+            promise.note?.takeIf { it.isNotBlank() }?.let {
+                Text(it, fontSize = 12.sp, color = cs.onSurfaceVariant)
+            }
+            if (promise.isStale()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    stringResource(R.string.claim_promise_stale),
+                    fontSize = 12.sp,
+                    color = cs.error,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun promiseStateLabel(promise: RepairPromise): String = when (promise.promiseState) {
+    RepairPromise.State.ON_TRACK -> stringResource(R.string.claim_promise_state_on_track)
+    RepairPromise.State.DUE_SOON -> stringResource(R.string.claim_promise_state_due_soon)
+    RepairPromise.State.OVERDUE -> stringResource(R.string.claim_promise_state_overdue)
+    RepairPromise.State.MET -> stringResource(R.string.claim_promise_state_met)
+    RepairPromise.State.MISSED -> stringResource(R.string.claim_promise_state_missed)
+    null -> promise.state
+}
+
+private fun promisePillKind(promise: RepairPromise): PillKind = when (promise.promiseState) {
+    RepairPromise.State.ON_TRACK, RepairPromise.State.MET -> PillKind.Success
+    RepairPromise.State.DUE_SOON -> PillKind.Warning
+    RepairPromise.State.OVERDUE, RepairPromise.State.MISSED -> PillKind.Danger
+    null -> PillKind.Neutral
+}
+
+@Composable
+private fun promiseCountdown(promise: RepairPromise): String = when {
+    promise.daysLeft > 0 ->
+        stringResource(R.string.claim_promise_days_left, promise.daysLeft)
+    promise.daysLeft == 0 -> stringResource(R.string.claim_promise_due_today)
+    else -> stringResource(R.string.claim_promise_days_overdue, -promise.daysLeft)
 }
 
 @Composable

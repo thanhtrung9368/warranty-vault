@@ -79,7 +79,7 @@ INSERT INTO "Claim" (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
     NOW(), NOW()
 )
-RETURNING id, "deviceId", "warrantyId", status, "openedAt", "expectedReturnAt", "closedAt", "ticketNumber", "serviceCenter", issue, diagnosis, outcome, cost, "coveredByWarranty", "createdAt", "updatedAt"
+RETURNING id, "deviceId", "warrantyId", status, "openedAt", "expectedReturnAt", "closedAt", "ticketNumber", "serviceCenter", issue, diagnosis, outcome, cost, "coveredByWarranty", "createdAt", "updatedAt", "promiseNotifiedAt", "promiseNotifiedKind"
 `
 
 type CreateClaimParams struct {
@@ -137,6 +137,8 @@ func (q *Queries) CreateClaim(ctx context.Context, arg CreateClaimParams) (Claim
 		&i.CoveredByWarranty,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PromiseNotifiedAt,
+		&i.PromiseNotifiedKind,
 	)
 	return i, err
 }
@@ -161,7 +163,7 @@ func (q *Queries) DeleteClaim(ctx context.Context, arg DeleteClaimParams) (int64
 }
 
 const getClaimByID = `-- name: GetClaimByID :one
-SELECT c.id, c."deviceId", c."warrantyId", c.status, c."openedAt", c."expectedReturnAt", c."closedAt", c."ticketNumber", c."serviceCenter", c.issue, c.diagnosis, c.outcome, c.cost, c."coveredByWarranty", c."createdAt", c."updatedAt"
+SELECT c.id, c."deviceId", c."warrantyId", c.status, c."openedAt", c."expectedReturnAt", c."closedAt", c."ticketNumber", c."serviceCenter", c.issue, c.diagnosis, c.outcome, c.cost, c."coveredByWarranty", c."createdAt", c."updatedAt", c."promiseNotifiedAt", c."promiseNotifiedKind"
 FROM "Claim" c
 JOIN "Device" d ON d.id = c."deviceId"
 WHERE c.id = $1 AND d."userId" = $2
@@ -193,12 +195,14 @@ func (q *Queries) GetClaimByID(ctx context.Context, arg GetClaimByIDParams) (Cla
 		&i.CoveredByWarranty,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PromiseNotifiedAt,
+		&i.PromiseNotifiedKind,
 	)
 	return i, err
 }
 
 const listClaimsByDevice = `-- name: ListClaimsByDevice :many
-SELECT c.id, c."deviceId", c."warrantyId", c.status, c."openedAt", c."expectedReturnAt", c."closedAt", c."ticketNumber", c."serviceCenter", c.issue, c.diagnosis, c.outcome, c.cost, c."coveredByWarranty", c."createdAt", c."updatedAt"
+SELECT c.id, c."deviceId", c."warrantyId", c.status, c."openedAt", c."expectedReturnAt", c."closedAt", c."ticketNumber", c."serviceCenter", c.issue, c.diagnosis, c.outcome, c.cost, c."coveredByWarranty", c."createdAt", c."updatedAt", c."promiseNotifiedAt", c."promiseNotifiedKind"
 FROM "Claim" c
 JOIN "Device" d ON d.id = c."deviceId"
 WHERE c."deviceId" = $1 AND d."userId" = $2
@@ -238,6 +242,8 @@ func (q *Queries) ListClaimsByDevice(ctx context.Context, arg ListClaimsByDevice
 			&i.CoveredByWarranty,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PromiseNotifiedAt,
+			&i.PromiseNotifiedKind,
 		); err != nil {
 			return nil, err
 		}
@@ -251,7 +257,7 @@ func (q *Queries) ListClaimsByDevice(ctx context.Context, arg ListClaimsByDevice
 
 const listClaimsByUser = `-- name: ListClaimsByUser :many
 
-SELECT c.id, c."deviceId", c."warrantyId", c.status, c."openedAt", c."expectedReturnAt", c."closedAt", c."ticketNumber", c."serviceCenter", c.issue, c.diagnosis, c.outcome, c.cost, c."coveredByWarranty", c."createdAt", c."updatedAt"
+SELECT c.id, c."deviceId", c."warrantyId", c.status, c."openedAt", c."expectedReturnAt", c."closedAt", c."ticketNumber", c."serviceCenter", c.issue, c.diagnosis, c.outcome, c.cost, c."coveredByWarranty", c."createdAt", c."updatedAt", c."promiseNotifiedAt", c."promiseNotifiedKind"
 FROM "Claim" c
 JOIN "Device" d ON d.id = c."deviceId"
 WHERE d."userId" = $1::text
@@ -313,6 +319,8 @@ func (q *Queries) ListClaimsByUser(ctx context.Context, arg ListClaimsByUserPara
 			&i.CoveredByWarranty,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PromiseNotifiedAt,
+			&i.PromiseNotifiedKind,
 		); err != nil {
 			return nil, err
 		}
@@ -429,7 +437,7 @@ FROM "Device" d
 WHERE c.id = $1
   AND c."deviceId" = d.id
   AND d."userId" = $2
-RETURNING c.id, c."deviceId", c."warrantyId", c.status, c."openedAt", c."expectedReturnAt", c."closedAt", c."ticketNumber", c."serviceCenter", c.issue, c.diagnosis, c.outcome, c.cost, c."coveredByWarranty", c."createdAt", c."updatedAt"
+RETURNING c.id, c."deviceId", c."warrantyId", c.status, c."openedAt", c."expectedReturnAt", c."closedAt", c."ticketNumber", c."serviceCenter", c.issue, c.diagnosis, c.outcome, c.cost, c."coveredByWarranty", c."createdAt", c."updatedAt", c."promiseNotifiedAt", c."promiseNotifiedKind"
 `
 
 type UpdateClaimParams struct {
@@ -490,6 +498,8 @@ func (q *Queries) UpdateClaim(ctx context.Context, arg UpdateClaimParams) (Claim
 		&i.CoveredByWarranty,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PromiseNotifiedAt,
+		&i.PromiseNotifiedKind,
 	)
 	return i, err
 }

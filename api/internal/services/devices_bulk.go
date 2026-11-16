@@ -82,6 +82,19 @@ func bulkCategoryLookup(ctx context.Context, db *pgxpool.Pool) (catalogCategoryL
 	return lookup, nil
 }
 
+// catalogRetailerLookup answers the retailer-link rule from ListCatalog's store
+// list instead of per-row queries. It satisfies the same small interface the
+// single-device path uses (assertRetailerExists), so the two paths share the
+// error shape and cannot drift on what "known retailer" means.
+type catalogRetailerLookup map[string]struct{}
+
+func (m catalogRetailerLookup) GetStoreByID(ctx context.Context, id string) (store.Store, error) {
+	if _, ok := m[id]; !ok {
+		return store.Store{}, pgx.ErrNoRows
+	}
+	return store.Store{ID: id}, nil
+}
+
 // bulkCandidate is a row that passed validation and is ready to INSERT.
 type bulkCandidate struct {
 	index  int
@@ -239,9 +252,40 @@ func BulkCreateDevices(ctx context.Context, db *pgxpool.Pool, userID string, inp
 	if err != nil {
 		return nil, err
 	}
+	// Retailer links are validated through the SAME 60 s catalog cache, in one
+	// map, so a 50-row batch cannot cost 50 Store reads. The cache is a minute
+	// stale at worst, which is the same trade-off the category check makes.
+	bundle, err := ListCatalog(ctx, db)
+	if err != nil {
+		return nil, fmt.Errorf("load catalog: %w", err)
+	}
+	retailers := make(catalogRetailerLookup, len(bundle.Stores))
+	for _, s := range bundle.Stores {
+		retailers[s.ID] = struct{}{}
+	}
 	plan, err := planBulkDevices(ctx, inputs, categories)
 	if err != nil {
 		return nil, err
+	}
+	// A row with an unknown/inactive retailer is a normal per-row failure, not a
+	// failed batch: the same contract as a bad category. A row with no retailer
+	// (absent or empty) passes — on CREATE both mean "no link".
+	if len(plan.candidates) > 0 {
+		kept := plan.candidates[:0]
+		for _, c := range plan.candidates {
+			if c.input.RetailerID != nil && *c.input.RetailerID != "" {
+				if rerr := assertRetailerExists(ctx, retailers, *c.input.RetailerID); rerr != nil {
+					failure, ok := bulkFailureFromError(ctx, c.index, rerr)
+					if !ok {
+						return nil, rerr
+					}
+					plan.failures = append(plan.failures, failure)
+					continue
+				}
+			}
+			kept = append(kept, c)
+		}
+		plan.candidates = kept
 	}
 	quotaPlan, err := PlanFor(ctx, db, userID)
 	if err != nil {

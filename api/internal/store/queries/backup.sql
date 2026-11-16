@@ -192,7 +192,7 @@ INSERT INTO "Device" (
     "activationNotifiedAt", "extendedCoverNotifiedAt",
     "extendedCoverNotifiedLeadDay", "leadDays", currency, "fxRate",
     "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd",
-    "brandCheckedAt", "brandLookupUrl"
+    "brandCheckedAt", "brandLookupUrl", "retailerId"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
     $17, $18, $19, $20, $21, $22, $23, $24, $25,
@@ -202,7 +202,8 @@ INSERT INTO "Device" (
     sqlc.narg('brandWarrantyStart'),
     sqlc.narg('brandWarrantyEnd'),
     sqlc.narg('brandCheckedAt')::timestamp,
-    sqlc.narg('brandLookupUrl')::text
+    sqlc.narg('brandLookupUrl')::text,
+    sqlc.narg('retailerId')::text
 );
 
 -- name: BackupInsertWarranty :exec

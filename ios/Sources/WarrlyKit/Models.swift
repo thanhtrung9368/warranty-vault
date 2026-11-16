@@ -443,6 +443,15 @@ public struct Device: Codable, Sendable, Identifiable, Hashable {
     /// side (`DeviceInput.purchasePrice` is non-optional).
     public let purchasePrice: Int
     public let purchasePlace: String?
+    /// Optional link to a known retail chain (migration 0030,
+    /// FEATURE_RESEARCH_2026-11 §6.1 wave 2). It is what resolves a
+    /// `RetailerPolicy` for `Claim.repairPromise`; `purchasePlace` stays the
+    /// free-text address the user typed and is never used to guess a shop.
+    ///
+    /// Optional on the read side so a cached/pre-0030 payload still decodes;
+    /// `nil` means "not linked", the state of every device before this
+    /// migration and of every backfill that could not match exactly.
+    public let retailerId: String?
     public let status: DeviceStatus
     public let notes: String?
     public let createdAt: Date?
@@ -831,6 +840,18 @@ public struct DeviceInput: Encodable, Sendable {
     public var purchaseDate: String  // YYYY-MM-DD
     public var purchasePrice: Int = 0
     public var purchasePlace: String?
+    /// Optional retailer link (migration 0030), a TRI-state on PATCH:
+    ///
+    ///   * key absent (`nil`, dropped by the encoder) — keep the stored link.
+    ///     Every non-form save (status tap, brand-check sheet, claim sync) uses
+    ///     this, so none of them can erase a retailer recorded here.
+    ///   * `""` — explicit clear. The device form sends this when the user picks
+    ///     "Chưa gắn cửa hàng", because a dropped key would mean "keep".
+    ///   * `"<store id>"` — set; an unknown/inactive id is a 400
+    ///     `fieldErrors.retailerId`.
+    ///
+    /// The id list is `Catalog.retailers` (every active Store + its policy).
+    public var retailerId: String?
     public var status: DeviceStatus = .ACTIVE
     public var notes: String?
     public var warrantyMonths: Int = 0
@@ -991,6 +1012,7 @@ public struct DeviceInput: Encodable, Sendable {
         case returnWindowDays, receivedAt, soldAt, soldPrice
         case brandWarrantyStatus, brandWarrantyStart, brandWarrantyEnd
         case brandCheckedAt, brandLookupUrl
+        case retailerId
         case currency, fxRate
     }
 
@@ -1010,6 +1032,8 @@ public struct DeviceInput: Encodable, Sendable {
         try container.encodeIfPresent(model, forKey: .model)
         try container.encodeIfPresent(serialNumber, forKey: .serialNumber)
         try container.encodeIfPresent(purchasePlace, forKey: .purchasePlace)
+        // Tri-state: nil is omitted ("keep"), "" is sent as an explicit clear.
+        try container.encodeIfPresent(retailerId, forKey: .retailerId)
         try container.encodeIfPresent(notes, forKey: .notes)
         try container.encodeIfPresent(warrantyProvider, forKey: .warrantyProvider)
         try container.encodeIfPresent(warrantyAddress, forKey: .warrantyAddress)
@@ -1621,6 +1645,121 @@ public struct Claim: Codable, Sendable, Identifiable, Hashable {
     /// VND; `nil` = not recorded, `0` = a real number (a free repair).
     public let cost: Int?
     public let coveredByWarranty: Bool?
+    /// The shop's repair promise, derived server-side (migration 0030). `nil`
+    /// when the device has no retailer link, the retailer has no verified
+    /// policy, the policy has no calendar-day repair ceiling, or the claim is
+    /// terminal with no close stamp. **Never** substitute "on track" for nil —
+    /// the absence of a promise is not a promise that is going well.
+    public let repairPromise: RepairPromise?
+
+    /// Explicit memberwise init with `repairPromise` defaulted.
+    ///
+    /// The synthesized memberwise init would have made the new field REQUIRED
+    /// for every test fixture and preview that builds a claim by hand — a
+    /// source-breaking change for no reason, since "no promise" is exactly the
+    /// pre-0030 state. `Codable`'s synthesized `init(from:)` is unaffected
+    /// (declaring a custom init does not suppress it), and a missing key still
+    /// decodes to nil, so an older server payload keeps working.
+    public init(
+        id: String,
+        deviceId: String,
+        warrantyId: String?,
+        status: ClaimStatus,
+        openedAt: String,
+        expectedReturnAt: String?,
+        closedAt: String?,
+        ticketNumber: String?,
+        serviceCenter: String?,
+        diagnosis: String?,
+        outcome: String?,
+        issue: String,
+        cost: Int?,
+        coveredByWarranty: Bool?,
+        repairPromise: RepairPromise? = nil
+    ) {
+        self.id = id
+        self.deviceId = deviceId
+        self.warrantyId = warrantyId
+        self.status = status
+        self.openedAt = openedAt
+        self.expectedReturnAt = expectedReturnAt
+        self.closedAt = closedAt
+        self.ticketNumber = ticketNumber
+        self.serviceCenter = serviceCenter
+        self.diagnosis = diagnosis
+        self.outcome = outcome
+        self.issue = issue
+        self.cost = cost
+        self.coveredByWarranty = coveredByWarranty
+        self.repairPromise = repairPromise
+    }
+}
+
+/// The shop's repair promise for one claim (openapi `RepairPromise`,
+/// migration 0030, FEATURE_RESEARCH_2026-11 §6.1 wave 2).
+///
+/// Derived by ONE server function (`services.RepairPromiseClock`) that the cron
+/// also uses, so the chip and the push cannot disagree about the due day. Dates
+/// are `YYYY-MM-DD` calendar days, not instants: they are compared by day, and
+/// parsing them as instants would move the day for a reader west of UTC.
+///
+/// Every surface that shows a number from this object must also print
+/// `retailerName` + `checkedAt` ("theo chính sách của …"). It is the shop's
+/// policy, not a term Warrly guarantees.
+public struct RepairPromise: Codable, Sendable, Hashable {
+    public let days: Int
+    public let dueAt: String
+    /// Signed: positive = days early, negative = days late.
+    public let daysLeft: Int
+    /// ON_TRACK | DUE_SOON | OVERDUE | MET | MISSED (the server enum).
+    public let state: String
+    public let sourceUrl: String
+    public let checkedAt: String
+    public let retailerId: String
+    public let retailerName: String
+    public let note: String?
+
+    /// The five states, as a typed view over the wire string. Unknown values (a
+    /// newer server) keep the raw string and render without a tone rather than
+    /// being dropped from the list.
+    public enum State: String, Sendable {
+        case onTrack = "ON_TRACK"
+        case dueSoon = "DUE_SOON"
+        case overdue = "OVERDUE"
+        case met = "MET"
+        case missed = "MISSED"
+    }
+
+    public var promiseState: State? { State(rawValue: state) }
+
+    /// Localized label for the chip. Vietnamese source keys, looked up through
+    /// `L.t` exactly like `ClaimStatus.label`.
+    public var label: String {
+        switch promiseState {
+        case .onTrack: return L.t("Đang trong hạn")
+        case .dueSoon: return L.t("Sắp tới hạn")
+        case .overdue: return L.t("Đã quá hạn")
+        case .met:     return L.t("Đúng hạn")
+        case .missed:  return L.t("Trễ hạn")
+        case nil:      return state
+        }
+    }
+
+    /// True for the three states of an OPEN claim (a countdown makes sense).
+    public var isOpen: Bool {
+        switch promiseState {
+        case .onTrack, .dueSoon, .overdue: return true
+        default: return false
+        }
+    }
+
+    /// The policy is older than 180 days; the UI dims it and says so. The
+    /// server never hides an old policy — an old citation is still the only
+    /// evidence the app has.
+    public var isStale: Bool {
+        guard let checked = WireDay.date(from: checkedAt) else { return false }
+        return Date().timeIntervalSince(checked) > 180 * 24 * 60 * 60
+    }
 }
 
 /// Body of `POST /api/v1/claims` and `PATCH /api/v1/claims/{id}`.
@@ -2043,7 +2182,32 @@ public struct Catalog: Decodable, Sendable {
     public let categories: [CategoryOption]
     public let brands: [BrandOption]
     public let stores: [StoreOption]
+    /// Store + RetailerPolicy (migration 0030). Optional on the read side: an
+    /// older server omits the key, and the device form must still load. Read it
+    /// through `retailersOrEmpty`, never by treating nil as "no stores".
+    public let retailers: [RetailerOption]?
     public let warrantyProviders: [WarrantyProviderOption]
+
+    /// Never-nil view for the form's retailer picker.
+    public var retailersOrEmpty: [RetailerOption] { retailers ?? [] }
+}
+
+/// A Store plus its (optional) verified retailer policy (openapi `Retailer`,
+/// migration 0030).
+///
+/// Every active Store is present; a store with no policy has all policy fields
+/// `nil`. `nil` means "not verified" — never 0 — and a nil
+/// `repairCeilingDays` means no countdown for that shop. Only a row with
+/// `sourceUrl` + `checkedAt` may be shown with a number, always attributed.
+public struct RetailerOption: Codable, Sendable, Identifiable, Hashable {
+    public let id: String
+    public let name: String
+    public let returnWindowDays: Int?
+    public let repairCeilingDays: Int?
+    public let repairCeilingNote: String?
+    public let exchangeNote: String?
+    public let sourceUrl: String?
+    public let checkedAt: String?
 }
 
 public struct CategoryOption: Codable, Sendable, Identifiable, Hashable {

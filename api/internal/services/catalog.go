@@ -12,6 +12,7 @@ import (
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // CatalogTTL is how long the in-process catalog cache lives. Mirrors the
@@ -45,6 +46,30 @@ type StoreOption struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 	Type string `json:"type"`
+}
+
+// RetailerOption is one Store plus its (optional) RetailerPolicy — the additive
+// `retailers[]` array of GET /api/v1/catalog (migration 0030,
+// FEATURE_RESEARCH_2026-11 §6.1 wave 2).
+//
+// It is every active Store, not only the policy-bearing ones: the device form's
+// retailer picker must be able to represent a device bought somewhere the app
+// has no verified policy for. In that case every policy field is NULL and the
+// picker still groups the shop under "chưa có chính sách đã xác minh".
+//
+// The two numeric fields are pointers for the same reason the column is: NULL
+// means "not verified", which is different from 0 ("the shop offers no return
+// window"). SourceURL/CheckedAt are NULL for a store with no policy; a seeded
+// policy always carries both (the NOT NULL columns enforce it).
+type RetailerOption struct {
+	ID                string    `json:"id"`
+	Name              string    `json:"name"`
+	ReturnWindowDays  *int32    `json:"returnWindowDays"`
+	RepairCeilingDays *int32    `json:"repairCeilingDays"`
+	RepairCeilingNote *string   `json:"repairCeilingNote"`
+	ExchangeNote      *string   `json:"exchangeNote"`
+	SourceURL         *string   `json:"sourceUrl"`
+	CheckedAt         *wire.Day `json:"checkedAt"`
 }
 
 // WarrantyProviderOption mirrors website/src/lib/services/catalog.ts::WarrantyProviderOption.
@@ -99,9 +124,14 @@ type BrandServiceInfoOption struct {
 // empty `Brand` table additionally makes `BrandCategory` and the OCR brand
 // matcher (buildDraft → matchBrand) dead code.
 type Catalog struct {
-	Categories        []CategoryOption         `json:"categories"`
-	Brands            []BrandOption            `json:"brands"`
-	Stores            []StoreOption            `json:"stores"`
+	Categories []CategoryOption `json:"categories"`
+	Brands     []BrandOption    `json:"brands"`
+	Stores     []StoreOption    `json:"stores"`
+	// Retailers is the Store catalog joined with RetailerPolicy (migration
+	// 0030). Additive: it ships through the SAME cached payload as the other
+	// five sections, so there is no second cache to invalidate, and a client
+	// that does not know the key ignores it.
+	Retailers         []RetailerOption         `json:"retailers"`
 	WarrantyProviders []WarrantyProviderOption `json:"warrantyProviders"`
 	// BrandServiceInfo is the brand → "where do I take this" directory added by
 	// FEATURE_IDEAS #15 / migration 0012. Additive: clients that do not know the
@@ -286,6 +316,32 @@ func loadCatalog(ctx context.Context, db *pgxpool.Pool) (*Catalog, error) {
 		storeOpts = append(storeOpts, StoreOption{ID: s.ID, Name: s.Name, Type: s.Type})
 	}
 
+	// RetailerPolicy (migration 0030). The policy side is a separate table keyed
+	// by Store; joining it in Go keeps a store without a policy representable
+	// (all-null fields) instead of making it disappear from the picker. One
+	// query, one map, no N+1.
+	policies, err := q.ListRetailerPolicies(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list retailer policies: %w", err)
+	}
+	policyByStore := make(map[string]store.RetailerPolicy, len(policies))
+	for _, p := range policies {
+		policyByStore[p.StoreId] = p
+	}
+	retailerOpts := make([]RetailerOption, 0, len(stores))
+	for _, s := range stores {
+		opt := RetailerOption{ID: s.ID, Name: s.Name}
+		if p, ok := policyByStore[s.ID]; ok {
+			opt.ReturnWindowDays = p.ReturnWindowDays
+			opt.RepairCeilingDays = p.RepairCeilingDays
+			opt.RepairCeilingNote = p.RepairCeilingNote
+			opt.ExchangeNote = p.ExchangeNote
+			opt.SourceURL = &p.SourceUrl
+			opt.CheckedAt = p.CheckedAt.Ptr()
+		}
+		retailerOpts = append(retailerOpts, opt)
+	}
+
 	wps, err := q.ListWarrantyProviders(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list warranty providers: %w", err)
@@ -322,6 +378,7 @@ func loadCatalog(ctx context.Context, db *pgxpool.Pool) (*Catalog, error) {
 		Categories:        categoryOpts,
 		Brands:            brandOpts,
 		Stores:            storeOpts,
+		Retailers:         retailerOpts,
 		WarrantyProviders: wpOpts,
 		BrandServiceInfo:  bsiOpts,
 	}, nil
