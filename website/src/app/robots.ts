@@ -12,6 +12,9 @@ import { siteBaseUrl } from '@/lib/metadata';
 //     link someone was given, never in a search result.
 //   * `/og` — the generated share card is an image, not a page.
 //   * `/share/` — the Next share-target failure screen (noindex in metadata too).
+//   * `/handoff/` — a resale-handoff claim link. The path carries a 6-character
+//     single-use code, so it belongs only in the link the seller sent; the page
+//     also sends `noindex` + `no-referrer` itself.
 //   * `/cdn-cgi/` — Cloudflare's internal email-protection endpoint
 //     (`/cdn-cgi/l/email-protection`). It is not a page of this site; Cloudflare
 //     Email Address Obfuscation can put it in links, and the endpoint 404s on
@@ -39,7 +42,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/api/', '/og', '/share/', '/cdn-cgi/'],
+        disallow: ['/api/', '/og', '/share/', '/handoff/', '/cdn-cgi/'],
       },
     ],
     sitemap: `${base}/sitemap.xml`,

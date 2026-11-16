@@ -23,6 +23,7 @@ import {
 import { CategoryIconBadge } from '@/components/category-icon';
 import { WarrantyPill } from '@/components/warranty-pill';
 import { DeviceStatusPill } from '@/components/device-status-pill';
+import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/empty-state';
 import { DevicesFilterBar } from '@/components/devices-filter-bar';
 import { api } from '@/lib/api';
@@ -34,6 +35,7 @@ import { getCategories } from '@/app/actions/catalog';
 import { type Status } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
 import { formatMoney } from '@/lib/currency';
+import { handoffDeviceTag } from '@/lib/handoff';
 
 export const dynamic = 'force-dynamic';
 
@@ -166,6 +168,11 @@ export default async function DevicesPage({
             <TableBody>
               {devices.map((d) => {
                 const status = d.status as Status;
+                // Buyer provenance ("Đã nhận") or the seller's SOLD marker
+                // ("Đã chuyển"). Both come from the server-stamped Device
+                // fields; absent means this row never crossed accounts. The
+                // full sentence with the date lives on the detail page.
+                const handoffTag = handoffDeviceTag(d, locale);
                 return (
                   <TableRow
                     key={d.id}
@@ -188,6 +195,11 @@ export default async function DevicesPage({
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                             <p className="font-bold text-ink">{d.name}</p>
                             <DeviceStatusPill status={status} className="md:hidden" />
+                            {handoffTag && (
+                              <Badge variant={handoffTag.kind === 'received' ? 'sky' : 'zinc'}>
+                                {handoffTag.kind === 'received' ? t('Đã nhận') : t('Đã chuyển')}
+                              </Badge>
+                            )}
                           </div>
                           <p className="truncate text-xs text-muted-foreground">
                             {d.brand}

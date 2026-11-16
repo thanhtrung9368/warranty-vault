@@ -186,6 +186,17 @@ export type Device = {
   // recorded, and the write path refuses half a record.
   soldAt: string | null;
   soldPrice: number | null;
+  // ── Resale handoff (2.0) ────────────────────────────────────────────────
+  //
+  // Server-owned provenance stamps, NEVER write inputs (they are not on
+  // `DeviceInput`). On the seller's row `handoffSentAt` records when the code
+  // was claimed and the device became SOLD; on the buyer's new row
+  // `handoffReceivedAt` + `handoffSellerName` are the "chuyển từ người bán"
+  // tag. Optional so a fixture or a pre-2.0 payload still type-checks; absent
+  // and null both mean "this device never crossed accounts".
+  handoffSentAt?: string | null;
+  handoffReceivedAt?: string | null;
+  handoffSellerName?: string | null;
   // Return window (migration 0010). `returnWindowDays` is per-device store
   // policy, not a server default: `null` = chưa biết, `0` = không cho đổi trả.
   // `receivedAt` is the day the device actually arrived — when set it, not

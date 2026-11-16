@@ -23,6 +23,7 @@ import { settings } from './settings';
 import { system } from './system';
 import { leadDays } from './lead-days';
 import { handover } from './handover';
+import { handoff } from './handoff';
 import { inbox } from './inbox';
 import { claims } from './claims';
 import { insurance } from './insurance';
@@ -42,6 +43,7 @@ export const catalogs: Record<string, Catalog> = {
   system,
   leadDays,
   handover,
+  handoff,
   inbox,
   claims,
   insurance,

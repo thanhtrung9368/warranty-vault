@@ -27,6 +27,7 @@ import {
   ArrowRight,
   CalendarClock,
   Wrench,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,6 +39,8 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { DeviceStatusPill } from '@/components/device-status-pill';
+import { Badge } from '@/components/ui/badge';
+import { DeviceHandoff } from '@/components/device-handoff';
 import { WarrantyPill } from '@/components/warranty-pill';
 import { WarrantyList } from '@/components/warranty-list';
 import { DeleteDeviceButton } from '@/components/delete-device-button';
@@ -71,6 +74,7 @@ import { readDeviceWarningsFlash } from '@/lib/device-warnings-flash';
 import { costPerDay } from '@/lib/stats-rollup';
 import { hasInstallment, ownershipCost } from '@/lib/installment';
 import { buildHandoverChecklist } from '@/lib/handover-checklist';
+import { handoffDeviceTag } from '@/lib/handoff';
 
 export const dynamic = 'force-dynamic';
 
@@ -121,10 +125,16 @@ export default async function DeviceDetailPage({
   // notFound below), its share links (FEATURE_IDEAS #2) and its warranty
   // directory (FEATURE_IDEAS #15). Both extra reads are allowed to fail without
   // taking the page down — each section says so in its own words.
-  const [res, sharesRes, directoryRes] = await Promise.all([
+  const [res, sharesRes, directoryRes, handoffRes] = await Promise.all([
     api.devices.get(id),
     api.shares.list(id),
     api.directory.get(id),
+    // The resale handoff (2.0). The action button and its dialog are rendered
+    // for every non-sold device; this read only tells them whether a code is
+    // already waiting, was already claimed, or is still inside the 30-day
+    // cooldown. A failed read degrades to "unknown" — the dialog says so and
+    // the server stays the authority on whether a create is allowed.
+    api.handoff.forDevice(id),
   ]);
   if (!res.ok) {
     if (res.status === 404) notFound();
@@ -133,6 +143,14 @@ export default async function DeviceDetailPage({
   const device = res.data;
   const shares = sharesRes.ok ? sharesRes.data : [];
   const directory = directoryRes.ok ? directoryRes.data : null;
+  const handoffState = handoffRes.ok
+    ? handoffRes.data
+    : { handoff: null, nextAllowedAt: null };
+  // "Chuyển từ người bán" (buyer) or "Đã chuyển" (seller). Read from the
+  // server-stamped Device fields rather than from the handoff read: the seller's
+  // SOLD row may outlive the code, and the buyer's row has no owner-side handoff
+  // at all (`GET /devices/{id}/handoff` is keyed on the device the seller owned).
+  const handoffTag = handoffDeviceTag(device, locale);
   // Brand warranty lookup (frozen contract). The service directory is already
   // fetched above and its `brand` row carries the same `warrantyLookupUrl`
   // (matched by Go's fuzzy brand rule), so that is the primary source — one fewer
@@ -244,6 +262,11 @@ export default async function DeviceDetailPage({
           <span className="flex flex-wrap items-center gap-2">
             {device.name}
             <DeviceStatusPill status={status} />
+            {handoffTag && (
+              <Badge variant={handoffTag.kind === 'received' ? 'sky' : 'zinc'}>
+                {handoffTag.kind === 'received' ? t('Đã nhận') : t('Đã chuyển')}
+              </Badge>
+            )}
           </span>
         }
         description={
@@ -253,6 +276,19 @@ export default async function DeviceDetailPage({
         }
         actions={
           <>
+            {status !== 'SOLD' && (
+              <DeviceHandoff
+                deviceId={device.id}
+                deviceName={device.name}
+                warrantyCount={device.warranties.length}
+                attachments={device.attachments.map((attachment) => ({
+                  id: attachment.id,
+                  fileName: attachment.fileName,
+                }))}
+                state={handoffState}
+                unavailable={!handoffRes.ok}
+              />
+            )}
             <Button asChild variant="outline" size="sm" className="rounded-pill">
               <Link href={`/devices/${device.id}/edit`}>
                 <Pencil className="mr-1 h-4 w-4" />
@@ -323,6 +359,26 @@ export default async function DeviceDetailPage({
                 value={device.serialNumber}
               />
               <InfoRow icon={Tag} label={t('Loại')} value={category} />
+              {handoffTag && (
+                <InfoRow
+                  icon={ArrowRightLeft}
+                  label={t('Chuyển chủ')}
+                  value={
+                    <>
+                      <span>{handoffTag.label}</span>
+                      <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                        {handoffTag.kind === 'received'
+                          ? t(
+                              'Đây là bản bạn nhận qua Warrly. Người bán giữ một bản đã bán và không còn xem được thiết bị này.',
+                            )
+                          : t(
+                              'Thiết bị này đã được chuyển cho người nhận. Bạn giữ một bản đã bán trong tài khoản.',
+                            )}
+                      </span>
+                    </>
+                  }
+                />
+              )}
             </CardContent>
           </Card>
 
