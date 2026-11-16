@@ -14,7 +14,6 @@ import {
   Plus,
   Zap,
   Wrench,
-  Receipt,
   type LucideIcon,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -22,6 +21,9 @@ import { Button } from '@/components/ui/button';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { WarrantyPill } from '@/components/warranty-pill';
 import { EmptyState } from '@/components/empty-state';
+import { StarterKit } from '@/components/starter-kit';
+import { SampleDataBanner } from '@/components/sample-data-banner';
+import { DeviceFixupPanel } from '@/components/device-fixup-panel';
 import { api } from '@/lib/api';
 import type { WishlistItem } from '@/lib/api/wishlist';
 import type { Subscription } from '@/lib/api/subscriptions';
@@ -35,6 +37,8 @@ import { brokenDevicesWithoutOpenClaim } from '@/lib/claims';
 import { computeDeviceStats } from '@/lib/device-stats';
 import { emptyStateCopy } from '@/lib/empty-state';
 import { isColdStartAccount } from '@/lib/first-run';
+import { summarizeDeviceFixups } from '@/lib/device-fixup';
+import { isSampleDevice } from '@/lib/starter-kit';
 import { categoryLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
 import { formatDate, formatVND } from '@/lib/format';
@@ -199,6 +203,21 @@ export default async function DashboardPage() {
       subscriptions: subscriptionRows.length,
       wishlist: wishlistItems.length,
     });
+  // The starter kit's fourth step ("turn on reminders") is the only checklist
+  // state that is not already in the three lists above. It costs one extra read,
+  // so it is fetched only while the first-run card is actually on screen. A
+  // failed read leaves the step unchecked — the card is a nudge, not a report.
+  const reminderReady = coldStart
+    ? await api.push
+        .list()
+        .then((res) => (res.ok ? (res.data.subscriptions?.length ?? 0) > 0 : false))
+    : false;
+  // Fix-up: real gaps on saved rows, counted per field. Sample rows are
+  // excluded inside the helper — the demo must not manufacture errands.
+  const fixup = summarizeDeviceFixups(devices);
+  // Sample rows are ordinary devices, so the dashboard has to say when the
+  // account is looking at them and offer the one-click removal.
+  const sampleDevices = devices.filter(isSampleDevice);
   // Raw rows, not `stats.total`: a sold device is data the app can talk about,
   // so it must not trigger the "no devices yet" copy. `stats.total` remains the
   // right denominator for the warranty buckets.
@@ -269,56 +288,36 @@ export default async function DashboardPage() {
         description={t('Đây là tổng quan tình trạng bảo hành & chi phí của bạn hôm nay.')}
       />
 
-      {/* First run: one panel that explains the loop, instead of a wall of
-          zeroes and a green tick congratulating an account we know nothing
-          about. Three ways in, in the order a new user actually has them:
-          buying now, already holding the receipt, already holding a list. */}
+      {/* First run: the starter kit explains the loop in four checkable steps
+          and offers three ways in — create, import the list you already keep,
+          or look at sample data first. It replaces the old single-CTA panel;
+          the idea is the same (an account with nothing saved is not "covered"),
+          but the steps now say what to do in which order and how far along the
+          account is. */}
       {coldStart ? (
-        <Card padding="md" tone="gradient">
-          <div className="flex items-start gap-4">
-            <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full bg-card text-primary sm:flex">
-              <ShieldCheck className="h-6 w-6" />
-            </span>
-            <div className="min-w-0">
-              <h2 className="display text-2xl text-ink md:text-3xl">
-                {t('Bắt đầu với một thiết bị')}
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm text-ink-2 md:text-base">
-                {t(
-                  'Thêm thiết bị kèm ngày hết bảo hành — Warrly nhắc bạn trước 30 và 7 ngày và giữ hoá đơn ở cùng một chỗ.',
-                )}
-              </p>
-            </div>
-          </div>
-          <div className="mt-5 flex flex-wrap items-center gap-2.5">
-            <Button asChild size="lg" className="rounded-pill">
-              <Link href="/devices/new">
-                <Plus className="mr-1.5 h-4 w-4" />
-                {t('Thêm thiết bị')}
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="rounded-pill bg-card">
-              <Link href="/inbox">
-                <Receipt className="mr-1.5 h-4 w-4" />
-                {t('Tôi đã có hoá đơn')}
-              </Link>
-            </Button>
-            <Link
-              href="/devices/import"
-              className="text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary-ink"
-            >
-              {t('Có sẵn bảng tính?')}
-            </Link>
-          </div>
-        </Card>
+        <StarterKit
+          devices={devices}
+          subscriptions={subscriptionRows.length}
+          reminderReady={reminderReady}
+        />
       ) : (
         <>
+      {/* Sample rows are ordinary devices, so the dashboard says so before the
+          numbers and offers the one-click removal. */}
+      {sampleDevices.length > 0 && <SampleDataBanner count={sampleDevices.length} />}
+
       {/* Stat cards */}
       <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {cards.map((c) => (
           <StatCard key={c.label} {...c} />
         ))}
       </div>
+
+      {/* Fix-up step: a saved row missing its purchase date, warranty end,
+          price or receipt cannot produce the reminders the starter kit just
+          promised. Real gaps only, counted per field, linked to the form that
+          fixes them — never an estimated date. */}
+      <DeviceFixupPanel summary={fixup} />
 
       {/* The "Hỏng" dead end, nudged once and only when it is real: a device
           marked BROKEN with no OPEN/IN_REPAIR case. Capped to four shortcuts
