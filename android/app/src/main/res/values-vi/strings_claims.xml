@@ -126,4 +126,16 @@
     <string name="claim_assess_error_title">Không lấy được đánh giá</string>
     <string name="claim_assess_error_body">Phiếu vẫn giữ nguyên. Kiểm tra kết nối rồi thử lại.</string>
 
+    <!-- ===== Cam kết sửa chữa (migration 0030, §6.1 wave 2). ===== -->
+    <string name="claim_promise_state_on_track">Đang trong hạn</string>
+    <string name="claim_promise_state_due_soon">Sắp tới hạn</string>
+    <string name="claim_promise_state_overdue">Đã quá hạn</string>
+    <string name="claim_promise_state_met">Đúng hạn</string>
+    <string name="claim_promise_state_missed">Trễ hạn</string>
+    <string name="claim_promise_terms">Cam kết %1$d ngày · hạn %2$s</string>
+    <string name="claim_promise_attribution">Theo chính sách %1$s · kiểm tra %2$s</string>
+    <string name="claim_promise_days_left">Còn %1$d ngày</string>
+    <string name="claim_promise_due_today">Đến hạn hôm nay</string>
+    <string name="claim_promise_days_overdue">Quá hạn %1$d ngày</string>
+    <string name="claim_promise_stale">Số liệu có thể đã cũ.</string>
 </resources>

@@ -27,6 +27,27 @@ export type StoreOption = {
   type: string;
 };
 
+/**
+ * A Store plus its (optional) verified retailer policy — the additive
+ * `retailers[]` array of GET /v1/catalog (migration 0030,
+ * FEATURE_RESEARCH_2026-11 §6.1 wave 2).
+ *
+ * Every active Store is present, including ones with no policy. In that case
+ * every policy field is `null`/absent: `null` means "not verified", which is
+ * different from `0`. Only a policy with `sourceUrl` + `checkedAt` may be
+ * printed with a number, and the copy must attribute it to the retailer.
+ */
+export type RetailerOption = {
+  id: string;
+  name: string;
+  returnWindowDays: number | null;
+  repairCeilingDays: number | null;
+  repairCeilingNote: string | null;
+  exchangeNote: string | null;
+  sourceUrl: string | null;
+  checkedAt: string | null;
+};
+
 export type WarrantyProviderOption = {
   id: string;
   name: string;
@@ -40,6 +61,12 @@ export type Catalog = {
   categories: CategoryOption[];
   brands: BrandOption[];
   stores: StoreOption[];
+  /**
+   * Store + RetailerPolicy (migration 0030). ADDITIVE: an older Go build omits
+   * it and the normaliser below turns that into `[]`, so the device form's
+   * retailer picker degrades to "no verified policies" instead of crashing.
+   */
+  retailers: RetailerOption[];
   warrantyProviders: WarrantyProviderOption[];
   // Brand → official service-locator link (FEATURE_IDEAS #15, migration 0012).
   // ADDITIVE on the wire: an older Go build omits it and `get()` normalises that
@@ -104,7 +131,10 @@ export async function get(): Promise<ApiResult<Catalog>> {
     ok: true,
     data: {
       ...res.data,
+      // Both are ADDITIVE arrays: normalise a missing key (older server) to [],
+      // so consumers can map unconditionally.
       brandServiceInfo: normalizeBrandServiceInfoList(res.data?.brandServiceInfo),
+      retailers: Array.isArray(res.data?.retailers) ? res.data.retailers : [],
     },
   };
 }

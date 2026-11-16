@@ -123,6 +123,7 @@ INSERT INTO "Device" (
     "brandWarrantyEnd",
     "brandCheckedAt",
     "brandLookupUrl",
+    "retailerId",
     "createdAt",
     "updatedAt"
 ) VALUES (
@@ -138,10 +139,11 @@ INSERT INTO "Device" (
     $25,
     $26::timestamp,
     $27::text,
+    $28::text,
     NOW(),
     NOW()
 )
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId"
 `
 
 type CreateDeviceParams struct {
@@ -172,6 +174,7 @@ type CreateDeviceParams struct {
 	BrandWarrantyEnd    wire.Day     `json:"brandWarrantyEnd"`
 	BrandCheckedAt      wire.Instant `json:"brandCheckedAt"`
 	BrandLookupUrl      *string      `json:"brandLookupUrl"`
+	RetailerId          *string      `json:"retailerId"`
 }
 
 // currency/fxRate (migration 0022): fxRate is the VND value of one unit of
@@ -215,6 +218,7 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		arg.BrandWarrantyEnd,
 		arg.BrandCheckedAt,
 		arg.BrandLookupUrl,
+		arg.RetailerId,
 	)
 	var i Device
 	err := row.Scan(
@@ -251,6 +255,7 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		&i.BrandWarrantyEnd,
 		&i.BrandCheckedAt,
 		&i.BrandLookupUrl,
+		&i.RetailerId,
 	)
 	return i, err
 }
@@ -276,7 +281,7 @@ func (q *Queries) DeleteDevice(ctx context.Context, arg DeleteDeviceParams) (int
 }
 
 const getDeviceByID = `-- name: GetDeviceByID :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId"
 FROM "Device"
 WHERE id = $1 AND "userId" = $2
 LIMIT 1
@@ -324,12 +329,13 @@ func (q *Queries) GetDeviceByID(ctx context.Context, arg GetDeviceByIDParams) (D
 		&i.BrandWarrantyEnd,
 		&i.BrandCheckedAt,
 		&i.BrandLookupUrl,
+		&i.RetailerId,
 	)
 	return i, err
 }
 
 const getDeviceByIDAnyUser = `-- name: GetDeviceByIDAnyUser :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId"
 FROM "Device"
 WHERE id = $1
 LIMIT 1
@@ -374,6 +380,7 @@ func (q *Queries) GetDeviceByIDAnyUser(ctx context.Context, id string) (Device, 
 		&i.BrandWarrantyEnd,
 		&i.BrandCheckedAt,
 		&i.BrandLookupUrl,
+		&i.RetailerId,
 	)
 	return i, err
 }
@@ -468,7 +475,7 @@ func (q *Queries) ListDevicesAwaitingActivation(ctx context.Context) ([]ListDevi
 
 const listDevicesByUser = `-- name: ListDevicesByUser :many
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId"
 FROM "Device"
 WHERE "userId" = $1
   AND (NULLIF($2::text, '') IS NULL OR category = $2)
@@ -572,6 +579,7 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 			&i.BrandWarrantyEnd,
 			&i.BrandCheckedAt,
 			&i.BrandLookupUrl,
+			&i.RetailerId,
 		); err != nil {
 			return nil, err
 		}
@@ -584,7 +592,7 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 }
 
 const listDevicesByUserSimple = `-- name: ListDevicesByUserSimple :many
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId"
 FROM "Device"
 WHERE "userId" = $1
 ORDER BY "createdAt" DESC
@@ -634,6 +642,7 @@ func (q *Queries) ListDevicesByUserSimple(ctx context.Context, userid string) ([
 			&i.BrandWarrantyEnd,
 			&i.BrandCheckedAt,
 			&i.BrandLookupUrl,
+			&i.RetailerId,
 		); err != nil {
 			return nil, err
 		}
@@ -792,9 +801,10 @@ UPDATE "Device" SET
     "brandWarrantyEnd" = $25,
     "brandCheckedAt" = $26::timestamp,
     "brandLookupUrl" = $27::text,
+    "retailerId" = $28::text,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId"
 `
 
 type UpdateDeviceParams struct {
@@ -825,6 +835,7 @@ type UpdateDeviceParams struct {
 	BrandWarrantyEnd    wire.Day     `json:"brandWarrantyEnd"`
 	BrandCheckedAt      wire.Instant `json:"brandCheckedAt"`
 	BrandLookupUrl      *string      `json:"brandLookupUrl"`
+	RetailerId          *string      `json:"retailerId"`
 }
 
 // Brand lookup fields are part of the full replacement, like soldAt/returnWindowDays:
@@ -859,6 +870,7 @@ func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Dev
 		arg.BrandWarrantyEnd,
 		arg.BrandCheckedAt,
 		arg.BrandLookupUrl,
+		arg.RetailerId,
 	)
 	var i Device
 	err := row.Scan(
@@ -895,6 +907,7 @@ func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Dev
 		&i.BrandWarrantyEnd,
 		&i.BrandCheckedAt,
 		&i.BrandLookupUrl,
+		&i.RetailerId,
 	)
 	return i, err
 }

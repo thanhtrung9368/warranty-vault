@@ -92,5 +92,10 @@ func main() {
 		"pushes_sent", stats.PushesSent,
 		"pushes_failed", stats.PushesFailed,
 		"pushes_gone", stats.PushesGone,
+		// Repair clock counters (FEATURE_RESEARCH_2026-11 §6.1). Both are zero
+		// unless WV_REPAIR_EXTENSION is on; the promise counter also requires a
+		// device whose retailer has a verified calendar-day ceiling.
+		"repair_extension_shifted", stats.RepairExtensionShiftedNotices,
+		"repair_promise_notices", stats.RepairPromiseNotices,
 	)
 }

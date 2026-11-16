@@ -93,6 +93,7 @@ import type {
   CategoryOption,
   BrandOption,
   StoreOption,
+  RetailerOption,
   WarrantyProviderOption,
 } from '@/app/actions/catalog';
 import type { Translator } from '@/lib/i18n/catalog';
@@ -113,6 +114,11 @@ type Initial = {
   currency?: string;
   fxRate?: number | null;
   purchasePlace?: string | null;
+  /**
+   * Optional retailer chain link (migration 0030). Carried through the edit form
+   * so a save cannot erase it; the select below always submits the value.
+   */
+  retailerId?: string | null;
   warrantyMonths?: number;
   warrantyProvider?: string | null;
   warrantyAddress?: string | null;
@@ -152,6 +158,8 @@ type Catalog = {
   categories: CategoryOption[];
   brands: BrandOption[];
   stores: StoreOption[];
+  /** Store + verified RetailerPolicy (migration 0030). Always an array. */
+  retailers: RetailerOption[];
   warrantyProviders: WarrantyProviderOption[];
 };
 
@@ -1354,6 +1362,52 @@ export function DeviceForm({
               customLabel={(v) => t('Dùng nơi mua "{value}"', { value: v })}
             />
             <input type="hidden" name="purchasePlace" value={purchasePlace} />
+          </div>
+
+          {/* Retailer link (migration 0030). This is what resolves the shop's
+              repair promise on the claim page; purchasePlace above stays the
+              free-text address the user typed. The select always ships the key,
+              so choosing "chưa gắn" is an explicit clear — the server's
+              tri-state protects clients that do not send the field at all. */}
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="retailerId">{t('Cửa hàng (chính sách đã xác minh)')}</Label>
+            <select
+              id="retailerId"
+              name="retailerId"
+              defaultValue={initial?.retailerId ?? ''}
+              className="flex h-11 w-full rounded-md border-[1.5px] border-border bg-card px-3.5 text-sm text-ink transition-[border-color,box-shadow] focus-visible:border-primary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/30"
+            >
+              <option value="">{t('Chưa gắn cửa hàng')}</option>
+              {catalog.retailers.map((retailer) => {
+                const facts: string[] = [];
+                if (retailer.repairCeilingDays != null) {
+                  facts.push(
+                    t('cam kết {days} ngày', {
+                      days: retailer.repairCeilingDays,
+                    }),
+                  );
+                }
+                if (retailer.returnWindowDays != null) {
+                  facts.push(
+                    t('đổi trả {days} ngày', {
+                      days: retailer.returnWindowDays,
+                    }),
+                  );
+                }
+                return (
+                  <option key={retailer.id} value={retailer.id}>
+                    {facts.length > 0
+                      ? `${retailer.name} — ${facts.join(' · ')}`
+                      : retailer.name}
+                  </option>
+                );
+              })}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              {t(
+                'Chỉ những cửa hàng có chính sách đã kiểm tra mới có countdown sửa chữa. Số liệu luôn hiện kèm ngày kiểm tra.',
+              )}
+            </p>
           </div>
         </div>
 

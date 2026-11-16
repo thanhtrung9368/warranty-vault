@@ -81,6 +81,12 @@ type Stats struct {
 	// pass. Zero whenever the flag is off, so build 23's response is unchanged
 	// apart from this additive key. FEATURE_RESEARCH_2026-11 §6.1.
 	RepairExtensionShiftedNotices int `json:"repairExtensionShiftedNotices"`
+	// RepairPromiseNotices counts the shop-promise pushes sent this pass (the
+	// T-2 "sắp tới hạn" and T+1 "đã quá hạn" buckets). Zero whenever
+	// WV_REPAIR_EXTENSION is off or no device has a retailer policy with a
+	// calendar-day ceiling; additive, so build 23's response shape is unchanged
+	// apart from this key. FEATURE_RESEARCH_2026-11 §6.1 wave 2.
+	RepairPromiseNotices int `json:"repairPromiseNotices"`
 }
 
 // Dispatcher is the consumer-side contract the cron needs from the push
@@ -982,7 +988,97 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		}
 	}
 
-	// ─── 10. Pruning ───────────────────────────────────────────────────────
+	// ─── 10. Repair promise (T-2 / T+1) ────────────────────────────────────
+	//
+	// The second clock of §6.1 wave 2: while a claim is OPEN / IN_REPAIR, the
+	// device's retailer may publish a repair ceiling. The due day is the claim's
+	// openedAt VIETNAM calendar day + "repairCeilingDays", derived by
+	// services.RepairPromiseClock — the same function behind Claim.repairPromise,
+	// so the push and the chip cannot disagree about what day it is.
+	//
+	// Two notices, both gated by WV_REPAIR_EXTENSION (default OFF, the same flag
+	// that moves the warranty windows). The spec deliberately does NOT add a
+	// third: T-2 warns before the deadline, T+1 says it has passed. A run that
+	// misses those exact days sends nothing, exactly like the lead-day warranty
+	// buckets; there is no catch-up push for a deadline the user already saw in
+	// the app.
+	//
+	// The send-once key is (claim, kind) via "promiseNotifiedKind", not a
+	// "Reminder" row: Reminder."warrantyId" is NOT NULL and its isDismissed column
+	// gates real warranty push. A second run on the same day reads its own kind
+	// and skips; T-1 (kind DUE_SOON) does not suppress T+1 (kind OVERDUE).
+	//
+	// No policy, no ceiling, or a terminal claim with no close stamp ⇒ no push.
+	// The app never guesses a shop's promise.
+	if repairExtension {
+		promiseClaims, err := q.ListOpenClaimsWithRetailerPolicy(ctx)
+		if err != nil {
+			return stats, fmt.Errorf("list open claims with retailer policy: %w", err)
+		}
+		for _, c := range promiseClaims {
+			if c.RepairCeilingDays == nil {
+				continue
+			}
+			dueDay, daysLeft, state, ok := services.RepairPromiseClock(
+				c.OpenedAt, c.ClosedAt, c.Status, *c.RepairCeilingDays, now)
+			if !ok {
+				continue
+			}
+			var kind string
+			switch {
+			case state == services.PromiseStateDueSoon && daysLeft == services.PromiseDueSoonDays:
+				kind = services.PromiseNoticeDueSoon
+			case state == services.PromiseStateOverdue && daysLeft == -1:
+				kind = services.PromiseNoticeOverdue
+			default:
+				continue
+			}
+			if c.PromiseNotifiedKind != nil && *c.PromiseNotifiedKind == kind {
+				continue
+			}
+
+			lang := langOf(c.UserID)
+			due := i18n.FormatDate(lang, dueDay.Time)
+			checked := ""
+			if c.CheckedAt.Valid {
+				checked = i18n.FormatDate(lang, c.CheckedAt.Time)
+			}
+			title := ""
+			body := ""
+			if kind == services.PromiseNoticeOverdue {
+				title = render(lang, `⚠️ Đã quá hạn sửa "%s"`, c.DeviceName)
+				body = render(lang,
+					`Máy "%s" đang sửa tại %s. Cam kết %d ngày, hạn %s — đã quá 1 ngày. Theo chính sách %s, kiểm tra %s.`,
+					c.DeviceName, c.RetailerName, *c.RepairCeilingDays, due,
+					c.RetailerName, checked)
+			} else {
+				title = render(lang, `⏳ Còn 2 ngày tới hạn sửa "%s"`, c.DeviceName)
+				body = render(lang,
+					`Máy "%s" đang sửa tại %s. Cam kết %d ngày, hạn %s. Theo chính sách %s, kiểm tra %s.`,
+					c.DeviceName, c.RetailerName, *c.RepairCeilingDays, due,
+					c.RetailerName, checked)
+			}
+			payload := push.Payload{
+				Title: title,
+				Body:  body,
+				URL:   fmt.Sprintf("/devices/%s", c.DeviceID),
+				Tag:   fmt.Sprintf("wv-promise-%s-%s", kind, c.ClaimID),
+			}
+			dispatch(c.UserID, payload, "repair_promise",
+				"claim", c.ClaimID, "device", c.DeviceID, "state", state)
+
+			stats.RepairPromiseNotices++
+			if err := q.StampClaimPromiseNotified(ctx, store.StampClaimPromiseNotifiedParams{
+				ID:                  c.ClaimID,
+				PromiseNotifiedKind: &kind,
+			}); err != nil {
+				slog.Error("cron: stamp claim promise notified",
+					"claim", c.ClaimID, "kind", kind, "err", err)
+			}
+		}
+	}
+
+	// ─── 11. Pruning ───────────────────────────────────────────────────────
 	pruned, err := q.PruneExpiredSessions(ctx)
 	if err != nil {
 		slog.Error("cron: prune expired sessions", "err", err)

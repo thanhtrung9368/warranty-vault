@@ -55,10 +55,27 @@ type DeviceInput struct {
 	PurchaseDate  string  `json:"purchaseDate"` // YYYY-MM-DD or RFC3339
 	PurchasePrice int32   `json:"purchasePrice"`
 	PurchasePlace *string `json:"purchasePlace,omitempty"`
-	Status        string  `json:"status,omitempty"` // default ACTIVE
-	Notes         *string `json:"notes,omitempty"`
-	SoldAt        *string `json:"soldAt,omitempty"`    // YYYY-MM-DD or RFC3339; nil = not sold
-	SoldPrice     *int32  `json:"soldPrice,omitempty"` // in the device's currency; nil = not sold
+	// RetailerID is the OPTIONAL link to a known retail chain (migration 0030),
+	// and it is a TRI-state on PATCH — the same shape and the same reason as
+	// warrantyMonths:
+	//
+	//   * nil (key absent, or JSON null) — the request says nothing about the
+	//     retailer. CREATE stores none; UPDATE keeps the stored link. This is
+	//     what makes a build-23 client, which has never heard of the field, safe:
+	//     its full-replacement PATCH cannot erase a retailer recorded here.
+	//   * "" — an explicit clear. UPDATE stores NULL. (On CREATE there is nothing
+	//     to preserve, so it is identical to absent.)
+	//   * "<store id>" — link the device to that Store, after the service proves
+	//     the row exists and is active. An unknown/inactive id is 400
+	//     fieldErrors.retailerId, never a silent NULL.
+	//
+	// The link is what resolves a RetailerPolicy for the claim promise; the
+	// free-text purchasePlace stays independent and is never used to guess it.
+	RetailerID *string `json:"retailerId,omitempty"`
+	Status     string  `json:"status,omitempty"` // default ACTIVE
+	Notes      *string `json:"notes,omitempty"`
+	SoldAt     *string `json:"soldAt,omitempty"`    // YYYY-MM-DD or RFC3339; nil = not sold
+	SoldPrice  *int32  `json:"soldPrice,omitempty"` // in the device's currency; nil = not sold
 	// Currency / FxRate are the multi-currency pair (migration 0022, gap #16).
 	//
 	//   * Currency is ISO 4217, uppercase. Empty means "not supplied": a CREATE
@@ -306,7 +323,11 @@ type DeviceDetail struct {
 	// openedAt first. Always an array — [] when the device has no claims, never
 	// null — so a client can render it unconditionally. Additive: a user with no
 	// claims gets the same device payload as before, plus an empty array.
-	Claims []store.Claim `json:"claims"`
+	//
+	// Each row also carries the derived `repairPromise` (migration 0030): the
+	// shop's repair ceiling for the device's retailer, with the same null-means-
+	// unknown rule as the standalone claim endpoints.
+	Claims []ClaimWithPromise `json:"claims"`
 	// ReturnDeadline mirrors DeviceListItem.ReturnDeadline; see the comment there.
 	ReturnDeadline *wire.Day `json:"returnDeadline"`
 	// RepairExtensionDays / EntitledWarrantyEnd mirror DeviceListItem's fields —
@@ -392,6 +413,14 @@ func ValidateDeviceInput(ctx context.Context, in *DeviceInput) error {
 	trimPtr(&in.Model)
 	trimPtr(&in.SerialNumber)
 	trimPtr(&in.PurchasePlace)
+	// RetailerID is TRI-state and must NOT go through trimPtr: that helper
+	// collapses "" to nil, which would erase the difference between "keep the
+	// stored link" (nil) and "clear it" (""). Trim in place but keep the
+	// pointer, so resolveUpdateRetailerID can see the explicit clear.
+	if in.RetailerID != nil {
+		trimmed := strings.TrimSpace(*in.RetailerID)
+		in.RetailerID = &trimmed
+	}
 	trimPtr(&in.Notes)
 	trimPtr(&in.SoldAt)
 	trimPtr(&in.ReceivedAt)
@@ -882,8 +911,10 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 	for _, a := range atts {
 		metas = append(metas, toAttachmentMeta(a))
 	}
-	claimRows := make([]store.Claim, 0, len(claims))
-	claimRows = append(claimRows, claims...)
+	claimRows, err := claimsWithPromises(ctx, q, userID, claims, time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("get claim promises: %w", err)
+	}
 	// Repair clock (§6.1 wave 1). The claim rows above are the source, but the
 	// day arithmetic belongs to SQL: openedAt/closedAt are UTC instants and the
 	// extension is the difference between their VIETNAM calendar days, which is
@@ -934,6 +965,14 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 	q := store.New(db)
 	if err := assertCategoryExists(ctx, q, in.Category); err != nil {
 		return DeviceVND{}, err
+	}
+	// The retailer link is optional, but a supplied one must name a real active
+	// Store: a dangling id would make the promise silently disappear. On create
+	// an explicit empty string is the same as absent (nothing to preserve).
+	if in.RetailerID != nil && *in.RetailerID != "" {
+		if err := assertRetailerExists(ctx, q, *in.RetailerID); err != nil {
+			return DeviceVND{}, err
+		}
 	}
 
 	quotaPlan, err := PlanFor(ctx, db, userID)
@@ -1113,6 +1152,8 @@ func createDeviceParams(userID string, in DeviceInput, values deviceCreateValues
 		Currency: values.currency,
 		FxRate:   values.fxRate,
 
+		RetailerId: nilIfEmptyString(in.RetailerID),
+
 		BrandWarrantyStatus: values.brandWarranty.Status,
 		BrandWarrantyStart:  values.brandWarranty.Start,
 		BrandWarrantyEnd:    values.brandWarranty.End,
@@ -1180,6 +1221,15 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 		return DeviceVND{}, fmt.Errorf("get device: %w", err)
 	}
 
+	// Tri-state retailer link (migration 0030): absent keeps the stored value,
+	// "" clears it, and an id must name an active Store. Resolved against the
+	// stored row BEFORE the transaction, like the currency pair, so a build-23
+	// PATCH that does not know the field cannot wipe it.
+	retailerID, err := resolveUpdateRetailerID(ctx, q, in.RetailerID, current.RetailerId)
+	if err != nil {
+		return DeviceVND{}, err
+	}
+
 	purchaseDate, err := parseDate(in.PurchaseDate)
 	if err != nil {
 		return DeviceVND{}, ErrValidationHeadline(FieldErrors{
@@ -1244,6 +1294,8 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 
 		Currency: currency,
 		FxRate:   fxRate,
+
+		RetailerId: retailerID,
 
 		BrandWarrantyStatus: brandWarranty.Status,
 		BrandWarrantyStart:  brandWarranty.Start,
@@ -1414,6 +1466,55 @@ func assertCategoryExists(ctx context.Context, q categoryLookup, code string) er
 		return fmt.Errorf("get category: %w", err)
 	}
 	return nil
+}
+
+// retailerLookup is the slice of store.Queries the retailer-link rule needs.
+// Same interface trick as categoryLookup: the bulk path passes a catalog map, so
+// a 50-row batch does not cost 50 Store reads.
+type retailerLookup interface {
+	GetStoreByID(ctx context.Context, id string) (store.Store, error)
+}
+
+// assertRetailerExists rejects a retailerId that is not an ACTIVE Store row.
+// A retired store must not gain new devices even if a stale catalog cache still
+// lists it; an unknown id is the client's 400, not a silent NULL.
+func assertRetailerExists(ctx context.Context, q retailerLookup, id string) error {
+	if _, err := q.GetStoreByID(ctx, id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrValidationHeadline(FieldErrors{
+				"retailerId": {i18n.Text(ctx, "Cửa hàng không hợp lệ")},
+			})
+		}
+		return fmt.Errorf("get store: %w", err)
+	}
+	return nil
+}
+
+// resolveUpdateRetailerID applies the tri-state rule for PATCH:
+//
+//	in == nil  → keep the stored value (build-23 clients never send the key)
+//	*in == ""  → clear (NULL)
+//	otherwise  → set, after proving the Store is active
+func resolveUpdateRetailerID(ctx context.Context, q retailerLookup, in *string, stored *string) (*string, error) {
+	if in == nil {
+		return stored, nil
+	}
+	if strings.TrimSpace(*in) == "" {
+		return nil, nil
+	}
+	if err := assertRetailerExists(ctx, q, *in); err != nil {
+		return nil, err
+	}
+	return in, nil
+}
+
+// nilIfEmptyString maps the create-side "empty means absent" convention onto
+// the nullable column.
+func nilIfEmptyString(v *string) *string {
+	if v == nil || strings.TrimSpace(*v) == "" {
+		return nil
+	}
+	return v
 }
 
 // deviceQuotaCounter is the slice of store.Queries the shared quota rule needs.

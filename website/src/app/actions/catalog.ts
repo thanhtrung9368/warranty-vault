@@ -24,11 +24,12 @@ import type {
   CategoryOption,
   BrandOption,
   StoreOption,
+  RetailerOption,
   WarrantyProviderOption,
 } from '@/lib/api/catalog';
 import type { BrandServiceInfo } from '@/lib/service-directory';
 
-export type { CategoryOption, BrandOption, StoreOption, WarrantyProviderOption, BrandServiceInfo };
+export type { CategoryOption, BrandOption, StoreOption, RetailerOption, WarrantyProviderOption, BrandServiceInfo };
 
 const fetchCatalog = cache(async () => {
   const res = await api.catalog.get();
@@ -40,6 +41,7 @@ const fetchCatalog = cache(async () => {
       categories: [] as CategoryOption[],
       brands: [] as BrandOption[],
       stores: [] as StoreOption[],
+      retailers: [] as RetailerOption[],
       warrantyProviders: [] as WarrantyProviderOption[],
       brandServiceInfo: [] as BrandServiceInfo[],
     };

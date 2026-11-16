@@ -20,6 +20,13 @@ export const devices = defineMessages({
   'Tổng {count} thiết bị (đã lọc). Bấm vào từng cái để xem chi tiết.':
     { en: '{count} devices in total (filtered). Tap one to see its details.', enOne: '{count} device in total (filtered). Tap it to see its details.' },
   'Chi phí mỗi ngày': 'Cost per day',
+  // ── Retailer link + policy (migration 0030, §6.1 wave 2) ────────────────
+  'Cửa hàng (chính sách đã xác minh)': 'Retailer (verified policy)',
+  'Chưa gắn cửa hàng': 'No retailer linked',
+  'cam kết {days} ngày': 'promised {days} days',
+  'đổi trả {days} ngày': 'returns {days} days',
+  'Chỉ những cửa hàng có chính sách đã kiểm tra mới có countdown sửa chữa. Số liệu luôn hiện kèm ngày kiểm tra.':
+    'Only retailers with a checked policy get a repair countdown. Every figure is shown with the date it was checked.',
   'Dán bảng': 'Paste a table',
   'Không có gì khớp bộ lọc': 'Nothing matches the filter',
   'Chưa có thiết bị nào, mày': 'No devices yet',

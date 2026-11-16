@@ -55,6 +55,22 @@ func backupLeadDays(days []int32) []int32 {
 	return sorted
 }
 
+// backupRetailerID resolves an optional device retailer link against the ACTIVE
+// Store catalog. Unknown / retired ids become NULL, never an import failure —
+// the same "restore, do not reject" rule the currency and brand-warranty helpers
+// follow. A payload value is copied so the returned pointer does not alias the
+// payload struct.
+func backupRetailerID(id *string, known map[string]bool) *string {
+	if id == nil {
+		return nil
+	}
+	v := strings.TrimSpace(*id)
+	if v == "" || !known[v] {
+		return nil
+	}
+	return &v
+}
+
 // ---- Export shapes (BackupV1 = the canonical Vietnamese-named JSON the web
 //      client + mobile apps consume; numbered version: 5 to match TS).
 
@@ -359,6 +375,17 @@ type BackupDevice struct {
 	BrandWarrantyEnd    *string `json:"brandWarrantyEnd,omitempty"`
 	BrandCheckedAt      *string `json:"brandCheckedAt,omitempty"`
 	BrandLookupUrl      *string `json:"brandLookupUrl,omitempty"`
+	// RetailerID is the optional link to a RetailerPolicy (migration 0030,
+	// FEATURE_RESEARCH_2026-11 §6.1 wave 2). Additive and `omitempty`: a device
+	// with no link exports no key, so a pre-0030 payload is byte-identical to the
+	// new one for every user who never picked a retailer.
+	//
+	// Import resolves the id against the ACTIVE Store catalog and stores NULL
+	// when it is unknown or retired. That is deliberate: a restore is the user's
+	// recovery path, and a hand-edited / cross-version file must not be refused
+	// because one shop was removed from the catalog. The promise simply stays
+	// absent for that device until the user re-picks the retailer.
+	RetailerID *string `json:"retailerId,omitempty"`
 	// Exchange window (migration 0010, FEATURE_IDEAS #1). Additive and optional:
 	// a payload written before these existed decodes to nil, which reads as
 	// "unknown window" — the correct meaning — so the payload version stays at
@@ -717,6 +744,7 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 			BrandWarrantyEnd:    tsPtr(d.BrandWarrantyEnd.Instant()),
 			BrandCheckedAt:      tsPtr(d.BrandCheckedAt),
 			BrandLookupUrl:      d.BrandLookupUrl,
+			RetailerID:          d.RetailerId,
 
 			ReturnWindowDays:       d.ReturnWindowDays,
 			ReceivedAt:             tsPtr(d.ReceivedAt.Instant()),
@@ -1321,6 +1349,19 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := store.New(tx)
 
+	// Retailer links are resolved against the ACTIVE Store catalog (migration
+	// 0030). Loaded once for the whole import; a device whose id is absent from
+	// the map (unknown, or a store retired since the export) gets NULL rather
+	// than failing the restore.
+	knownStores := map[string]bool{}
+	storeRows, err := q.ListStores(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list stores: %w", err)
+	}
+	for _, sr := range storeRows {
+		knownStores[sr.ID] = true
+	}
+
 	if mode == ImportReplace {
 		// Order matters: child rows first to satisfy FK in the absence of
 		// CASCADE delete (some FKs use CASCADE, but a single pass is safer).
@@ -1450,6 +1491,7 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			BrandWarrantyEnd:    brandWarranty.End,
 			BrandCheckedAt:      brandWarranty.CheckedAt,
 			BrandLookupUrl:      brandWarranty.LookupURL,
+			RetailerId:          backupRetailerID(d.RetailerID, knownStores),
 
 			ReturnWindowDays:             d.ReturnWindowDays,
 			ReceivedAt:                   pgtsPtr(d.ReceivedAt).Day(),

@@ -2,6 +2,7 @@ package com.warrly.network
 
 import androidx.annotation.StringRes
 import com.warrly.R
+import java.time.LocalDate
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -440,6 +441,8 @@ data class Device(
      */
     val purchasePriceVnd: Long? = null,
     val purchasePlace: String? = null,
+    /** Optional retailer chain link (migration 0030); see [Claim.repairPromise]. */
+    val retailerId: String? = null,
     val status: DeviceStatus = DeviceStatus.ACTIVE,
     val notes: String? = null,
     /**
@@ -1173,6 +1176,14 @@ data class Claim(
     /** `null` = unknown, which is different from an explicit "No". */
     val coveredByWarranty: Boolean? = null,
     /**
+     * Shop's repair promise (migration 0030, §6.1 wave 2), derived by the
+     * server. `null` when the device has no retailer link, the retailer has no
+     * verified policy, the policy has no calendar-day ceiling, or the claim is
+     * terminal with no close stamp. `null` is **not** "on track" and must never
+     * be rendered as a countdown.
+     */
+    val repairPromise: RepairPromise? = null,
+    /**
      * Server bookkeeping (`createdAt` / `updatedAt` in the response; the frozen
      * field table in the brief lists only the user-facing fields). The app does
      * not display them today, but they are part of the payload the server always
@@ -1182,6 +1193,46 @@ data class Claim(
     val createdAt: String? = null,
     val updatedAt: String? = null,
 )
+
+/**
+ * The shop's repair promise for one claim (openapi `RepairPromise`, migration
+ * 0030, FEATURE_RESEARCH_2026-11 §6.1 wave 2).
+ *
+ * ONE server function (`services.RepairPromiseClock`) computes it for both this
+ * payload and the cron, so the chip and the push cannot disagree. Dates are
+ * `YYYY-MM-DD` calendar days; read them with `vietnamDate`, never as instants.
+ */
+@Serializable
+data class RepairPromise(
+    val days: Int,
+    val dueAt: String,
+    /** Signed: positive = days early, negative = days late. */
+    val daysLeft: Int,
+    /** ON_TRACK | DUE_SOON | OVERDUE | MET | MISSED (server enum). */
+    val state: String,
+    val sourceUrl: String,
+    val checkedAt: String,
+    val retailerId: String,
+    val retailerName: String,
+    val note: String? = null,
+) {
+    enum class State { ON_TRACK, DUE_SOON, OVERDUE, MET, MISSED }
+
+    val promiseState: State? = State.entries.firstOrNull { it.name == state }
+
+    /** True for the three states of an OPEN claim (a countdown makes sense). */
+    val isOpen: Boolean
+        get() = promiseState == State.ON_TRACK ||
+            promiseState == State.DUE_SOON ||
+            promiseState == State.OVERDUE
+
+    /** Older than 180 days: dim the row and say the figure may be out of date. */
+    fun isStale(today: LocalDate = LocalDate.now()): Boolean {
+        val checked = runCatching { LocalDate.parse(checkedAt.take(10)) }.getOrNull()
+            ?: return false
+        return today.toEpochDay() - checked.toEpochDay() > 180
+    }
+}
 
 /** `GET /api/v1/claims` (optional `?deviceId=` / `?status=` filters). */
 @Serializable
@@ -1394,6 +1445,31 @@ data class Catalog(
      * that owns that rule. Nothing on the device form may offer these as choices.
      */
     val brandServiceInfo: List<BrandServiceInfo> = emptyList(),
+    /**
+     * Store + RetailerPolicy (migration 0030). **Additive and defaulted**: an
+     * older server omits the key and every existing consumer still decodes.
+     * Android shows no retailer picker in this pass; the array is here so the
+     * claim chip's attribution and a future picker have one source.
+     */
+    val retailers: List<RetailerOption> = emptyList(),
+)
+
+/**
+ * A Store plus its (optional) verified retailer policy (openapi `Retailer`,
+ * migration 0030). A store with no policy has all policy fields `null`; `null`
+ * means "not verified", never 0, and a null [repairCeilingDays] means no
+ * countdown for that shop.
+ */
+@Serializable
+data class RetailerOption(
+    val id: String,
+    val name: String,
+    val returnWindowDays: Int? = null,
+    val repairCeilingDays: Int? = null,
+    val repairCeilingNote: String? = null,
+    val exchangeNote: String? = null,
+    val sourceUrl: String? = null,
+    val checkedAt: String? = null,
 )
 
 @Serializable

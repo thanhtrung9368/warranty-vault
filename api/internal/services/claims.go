@@ -298,22 +298,22 @@ func resolveClaimClosedAt(current *store.Claim, status string, now time.Time) wi
 
 // GetClaim fetches one claim with the ownership chain. A claim owned by someone
 // else matches no row and is a 404, never a 403.
-func GetClaim(ctx context.Context, db *pgxpool.Pool, userID, id string) (store.Claim, error) {
+func GetClaim(ctx context.Context, db *pgxpool.Pool, userID, id string) (ClaimWithPromise, error) {
 	q := store.New(db)
 	row, err := q.GetClaimByID(ctx, store.GetClaimByIDParams{ID: id, UserId: userID})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.Claim{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy yêu cầu bảo hành"))
+			return ClaimWithPromise{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy yêu cầu bảo hành"))
 		}
-		return store.Claim{}, fmt.Errorf("get claim: %w", err)
+		return ClaimWithPromise{}, fmt.Errorf("get claim: %w", err)
 	}
-	return row, nil
+	return claimWithPromise(ctx, q, userID, row, time.Now())
 }
 
 // ListClaims returns the caller's claims newest-opened first. Filters mirror the
 // device list: an empty value (or "ALL") means "no filter", and an unknown
 // status simply matches nothing rather than erroring.
-func ListClaims(ctx context.Context, db *pgxpool.Pool, userID string, f ClaimFilter) ([]store.Claim, error) {
+func ListClaims(ctx context.Context, db *pgxpool.Pool, userID string, f ClaimFilter) ([]ClaimWithPromise, error) {
 	status := strings.TrimSpace(f.Status)
 	if status == "ALL" {
 		status = ""
@@ -332,20 +332,17 @@ func ListClaims(ctx context.Context, db *pgxpool.Pool, userID string, f ClaimFil
 	if err != nil {
 		return nil, fmt.Errorf("list claims: %w", err)
 	}
-	if rows == nil {
-		rows = []store.Claim{}
-	}
-	return rows, nil
+	return claimsWithPromises(ctx, q, userID, rows, time.Now())
 }
 
 // CreateClaim records a new claim. See the file header for the rule split.
-func CreateClaim(ctx context.Context, db *pgxpool.Pool, userID string, in ClaimInput) (store.Claim, error) {
+func CreateClaim(ctx context.Context, db *pgxpool.Pool, userID string, in ClaimInput) (ClaimWithPromise, error) {
 	normalizeClaimInput(&in)
 	if in.Status == "" {
 		in.Status = ClaimStatusOpen
 	}
 	if err := validateClaimFields(ctx, &in); err != nil {
-		return store.Claim{}, err
+		return ClaimWithPromise{}, err
 	}
 
 	q := store.New(db)
@@ -353,21 +350,21 @@ func CreateClaim(ctx context.Context, db *pgxpool.Pool, userID string, in ClaimI
 		ID: in.DeviceID, UserId: userID,
 	}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.Claim{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
+			return ClaimWithPromise{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
 		}
-		return store.Claim{}, fmt.Errorf("get device: %w", err)
+		return ClaimWithPromise{}, fmt.Errorf("get device: %w", err)
 	}
 	warrantyID, err := resolveClaimWarranty(ctx, q, userID, in.DeviceID, in.WarrantyID)
 	if err != nil {
-		return store.Claim{}, err
+		return ClaimWithPromise{}, err
 	}
 
 	count, err := q.CountClaimsByUser(ctx, userID)
 	if err != nil {
-		return store.Claim{}, fmt.Errorf("count claims: %w", err)
+		return ClaimWithPromise{}, fmt.Errorf("count claims: %w", err)
 	}
 	if count >= MaxClaimsPerUser {
-		return store.Claim{}, ErrLimit(i18n.T(ctx,
+		return ClaimWithPromise{}, ErrLimit(i18n.T(ctx,
 			"Đã đạt giới hạn %d yêu cầu bảo hành.", MaxClaimsPerUser))
 	}
 
@@ -380,22 +377,22 @@ func CreateClaim(ctx context.Context, db *pgxpool.Pool, userID string, in ClaimI
 			ID:       "",
 		})
 		if err != nil {
-			return store.Claim{}, fmt.Errorf("count open claims: %w", err)
+			return ClaimWithPromise{}, fmt.Errorf("count open claims: %w", err)
 		}
 		if other > 0 {
-			return store.Claim{}, ErrLimit(i18n.Text(ctx, ClaimOpenConflictMessage))
+			return ClaimWithPromise{}, ErrLimit(i18n.Text(ctx, ClaimOpenConflictMessage))
 		}
 	}
 
 	now := time.Now().UTC()
 	openedAt, err := parseClaimOpenedAt(ctx, in.OpenedAt, time.Time{})
 	if err != nil {
-		return store.Claim{}, err
+		return ClaimWithPromise{}, err
 	}
 	expectedReturnAt, err := parseClaimNullableTimestamp(ctx, "expectedReturnAt",
 		"Ngày trả dự kiến không hợp lệ", in.ExpectedReturnAt)
 	if err != nil {
-		return store.Claim{}, err
+		return ClaimWithPromise{}, err
 	}
 	closedAt := resolveClaimClosedAt(nil, in.Status, now)
 
@@ -417,25 +414,25 @@ func CreateClaim(ctx context.Context, db *pgxpool.Pool, userID string, in ClaimI
 	})
 	if err != nil {
 		if isClaimOpenUniqueViolation(err) {
-			return store.Claim{}, ErrLimit(i18n.Text(ctx, ClaimOpenConflictMessage))
+			return ClaimWithPromise{}, ErrLimit(i18n.Text(ctx, ClaimOpenConflictMessage))
 		}
-		return store.Claim{}, fmt.Errorf("create claim: %w", err)
+		return ClaimWithPromise{}, fmt.Errorf("create claim: %w", err)
 	}
-	return row, nil
+	return claimWithPromise(ctx, q, userID, row, time.Now())
 }
 
 // UpdateClaim replaces a claim. The stored row is read first so "status /
 // openedAt omitted means keep" can be applied against the state the write will
 // actually produce (see the file header).
-func UpdateClaim(ctx context.Context, db *pgxpool.Pool, userID, id string, in ClaimInput) (store.Claim, error) {
+func UpdateClaim(ctx context.Context, db *pgxpool.Pool, userID, id string, in ClaimInput) (ClaimWithPromise, error) {
 	q := store.New(db)
 
 	current, err := q.GetClaimByID(ctx, store.GetClaimByIDParams{ID: id, UserId: userID})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.Claim{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy yêu cầu bảo hành"))
+			return ClaimWithPromise{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy yêu cầu bảo hành"))
 		}
-		return store.Claim{}, fmt.Errorf("get claim: %w", err)
+		return ClaimWithPromise{}, fmt.Errorf("get claim: %w", err)
 	}
 
 	normalizeClaimInput(&in)
@@ -443,7 +440,7 @@ func UpdateClaim(ctx context.Context, db *pgxpool.Pool, userID, id string, in Cl
 		in.Status = current.Status
 	}
 	if err := validateClaimFields(ctx, &in); err != nil {
-		return store.Claim{}, err
+		return ClaimWithPromise{}, err
 	}
 
 	// The NEW device must belong to the caller. The UPDATE query separately
@@ -452,13 +449,13 @@ func UpdateClaim(ctx context.Context, db *pgxpool.Pool, userID, id string, in Cl
 		ID: in.DeviceID, UserId: userID,
 	}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.Claim{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
+			return ClaimWithPromise{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
 		}
-		return store.Claim{}, fmt.Errorf("get device: %w", err)
+		return ClaimWithPromise{}, fmt.Errorf("get device: %w", err)
 	}
 	warrantyID, err := resolveClaimWarranty(ctx, q, userID, in.DeviceID, in.WarrantyID)
 	if err != nil {
-		return store.Claim{}, err
+		return ClaimWithPromise{}, err
 	}
 
 	// Re-check the single-open rule only when the row will be open. excludeId is
@@ -469,10 +466,10 @@ func UpdateClaim(ctx context.Context, db *pgxpool.Pool, userID, id string, in Cl
 			ID:       id,
 		})
 		if err != nil {
-			return store.Claim{}, fmt.Errorf("count open claims: %w", err)
+			return ClaimWithPromise{}, fmt.Errorf("count open claims: %w", err)
 		}
 		if other > 0 {
-			return store.Claim{}, ErrLimit(i18n.Text(ctx, ClaimOpenConflictMessage))
+			return ClaimWithPromise{}, ErrLimit(i18n.Text(ctx, ClaimOpenConflictMessage))
 		}
 	}
 
@@ -482,12 +479,12 @@ func UpdateClaim(ctx context.Context, db *pgxpool.Pool, userID, id string, in Cl
 	}
 	openedAt, err := parseClaimOpenedAt(ctx, in.OpenedAt, openedFallback)
 	if err != nil {
-		return store.Claim{}, err
+		return ClaimWithPromise{}, err
 	}
 	expectedReturnAt, err := parseClaimNullableTimestamp(ctx, "expectedReturnAt",
 		"Ngày trả dự kiến không hợp lệ", in.ExpectedReturnAt)
 	if err != nil {
-		return store.Claim{}, err
+		return ClaimWithPromise{}, err
 	}
 	closedAt := resolveClaimClosedAt(&current, in.Status, time.Now().UTC())
 
@@ -510,14 +507,14 @@ func UpdateClaim(ctx context.Context, db *pgxpool.Pool, userID, id string, in Cl
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.Claim{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy yêu cầu bảo hành"))
+			return ClaimWithPromise{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy yêu cầu bảo hành"))
 		}
 		if isClaimOpenUniqueViolation(err) {
-			return store.Claim{}, ErrLimit(i18n.Text(ctx, ClaimOpenConflictMessage))
+			return ClaimWithPromise{}, ErrLimit(i18n.Text(ctx, ClaimOpenConflictMessage))
 		}
-		return store.Claim{}, fmt.Errorf("update claim: %w", err)
+		return ClaimWithPromise{}, fmt.Errorf("update claim: %w", err)
 	}
-	return row, nil
+	return claimWithPromise(ctx, q, userID, row, time.Now())
 }
 
 // DeleteClaim removes a claim after enforcing the ownership chain.

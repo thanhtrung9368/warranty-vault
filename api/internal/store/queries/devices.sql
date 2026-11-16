@@ -110,6 +110,7 @@ INSERT INTO "Device" (
     "brandWarrantyEnd",
     "brandCheckedAt",
     "brandLookupUrl",
+    "retailerId",
     "createdAt",
     "updatedAt"
 ) VALUES (
@@ -125,6 +126,7 @@ INSERT INTO "Device" (
     sqlc.narg('brandWarrantyEnd'),
     sqlc.narg('brandCheckedAt')::timestamp,
     sqlc.narg('brandLookupUrl')::text,
+    sqlc.narg('retailerId')::text,
     NOW(),
     NOW()
 )
@@ -160,6 +162,7 @@ UPDATE "Device" SET
     "brandWarrantyEnd" = sqlc.narg('brandWarrantyEnd'),
     "brandCheckedAt" = sqlc.narg('brandCheckedAt')::timestamp,
     "brandLookupUrl" = sqlc.narg('brandLookupUrl')::text,
+    "retailerId" = sqlc.narg('retailerId')::text,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
 RETURNING *;

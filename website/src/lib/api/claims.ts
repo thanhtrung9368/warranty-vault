@@ -29,6 +29,28 @@ import type { ClaimStatus } from '@/lib/claims';
 
 export type { ClaimStatus };
 
+/**
+ * The shop's repair promise for one claim (migration 0030,
+ * FEATURE_RESEARCH_2026-11 §6.1 wave 2). Derived server-side; absent (`null`)
+ * when the device has no linked retailer, the retailer has no verified policy,
+ * or the policy has no calendar-day repair ceiling. The app must not invent a
+ * countdown for that case.
+ */
+export type RepairPromise = {
+  days: number;
+  /** `YYYY-MM-DD`. */
+  dueAt: string;
+  /** Signed: positive = days early, negative = days late. */
+  daysLeft: number;
+  state: 'ON_TRACK' | 'DUE_SOON' | 'OVERDUE' | 'MET' | 'MISSED';
+  sourceUrl: string;
+  /** Calendar day the policy was read, `YYYY-MM-DD`. */
+  checkedAt: string;
+  retailerId: string;
+  retailerName: string;
+  note: string | null;
+};
+
 // Mirrors the frozen `WarrantyClaim` schema. Timestamps are ISO strings; Go
 // serialises them without a `Z` (the DB columns are `timestamp without time
 // zone`), so callers must not round-trip them through UTC — `formatDate` and
@@ -52,6 +74,8 @@ export type Claim = {
   cost: number | null;
   /** Tri-state: true / false / null (not known yet). */
   coveredByWarranty: boolean | null;
+  /** Derived shop promise; `null` = no verified policy / no countdown. */
+  repairPromise?: RepairPromise | null;
   createdAt: string;
   updatedAt: string;
 };

@@ -230,6 +230,28 @@ var messages = map[string]message{
 		vi: "Hết hạn (đã tính ngày sửa): %s • Hạn trên giấy: %s • %s",
 		en: "Expires (repair time included): %s • Paper expiry: %s • %s",
 	},
+	// Repair-promise pushes (FEATURE_RESEARCH_2026-11 §6.1 wave 2, migration
+	// 0030). Artifacts like every cron string: resolved in the recipient's
+	// stored language. Every body names the retailer AND the date the policy was
+	// checked, because the research document's risk 3 is that a retailer's
+	// policy is a legal assertion — the push must present it as "theo chính
+	// sách của <retailer>", never as a term Warrly guarantees.
+	`⏳ Còn 2 ngày tới hạn sửa "%s"`: {
+		vi: `⏳ Còn 2 ngày tới hạn sửa "%s"`,
+		en: `⏳ Repair deadline in 2 days for "%s"`,
+	},
+	`⚠️ Đã quá hạn sửa "%s"`: {
+		vi: `⚠️ Đã quá hạn sửa "%s"`,
+		en: `⚠️ Repair is overdue for "%s"`,
+	},
+	`Máy "%s" đang sửa tại %s. Cam kết %d ngày, hạn %s. Theo chính sách %s, kiểm tra %s.`: {
+		vi: `Máy "%s" đang sửa tại %s. Cam kết %d ngày, hạn %s. Theo chính sách %s, kiểm tra %s.`,
+		en: `"%s" is being repaired at %s. Promised %d days, due %s. According to %s's policy, checked %s.`,
+	},
+	`Máy "%s" đang sửa tại %s. Cam kết %d ngày, hạn %s — đã quá 1 ngày. Theo chính sách %s, kiểm tra %s.`: {
+		vi: `Máy "%s" đang sửa tại %s. Cam kết %d ngày, hạn %s — đã quá 1 ngày. Theo chính sách %s, kiểm tra %s.`,
+		en: `"%s" is being repaired at %s. Promised %d days, due %s — 1 day overdue. According to %s's policy, checked %s.`,
+	},
 	"🛍️ Hôm nay là ngày dự kiến mua \"%s\"": {
 		vi: "🛍️ Hôm nay là ngày dự kiến mua \"%s\"",
 		en: "🛍️ Today is the day you planned to buy \"%s\"",
@@ -478,6 +500,10 @@ var messages = map[string]message{
 		en: "Exchange rate must be a positive integer",
 	},
 	"Trạng thái không hợp lệ": {vi: "Trạng thái không hợp lệ", en: "Invalid status"},
+	// Retailer link (migration 0030): the id supplied by the device form must
+	// name an ACTIVE Store. A dangling id would silently erase the repair
+	// promise, so it is a field error, not a quiet NULL.
+	"Cửa hàng không hợp lệ": {vi: "Cửa hàng không hợp lệ", en: "Invalid retailer"},
 	// Brand warranty lookup (migration 0023, gap #11). These are field-level
 	// refusals: the values are the user's record of what the BRAND's page said,
 	// so the server checks shape and internal consistency and never fetches the

@@ -36,6 +36,7 @@ import {
   type ClaimWarrantyOption,
 } from '@/components/claim-form';
 import { ClaimAssessmentPanel } from '@/components/claim-assessment';
+import { RepairPromiseChip } from '@/components/repair-promise-chip';
 import type { Claim } from '@/lib/api/claims';
 import {
   CLAIM_STATUS_TONE,
@@ -184,6 +185,13 @@ function ClaimCard({
           {claimCoverageLabel(claim.coveredByWarranty, locale)}
         </span>
       </div>
+
+      {/* The shop's repair promise (migration 0030): a chip + countdown on the
+          claim the user is tracking, with the mandatory "theo chính sách của
+          <retailer> · kiểm tra <date>" attribution. */}
+      {claim.repairPromise && (
+        <RepairPromiseChip promise={claim.repairPromise} locale={locale} t={t} />
+      )}
 
       {(claim.diagnosis || claim.outcome) && (
         <div className="mt-3 grid gap-2 border-t border-dashed border-border pt-3 text-sm sm:grid-cols-2">

@@ -91,6 +91,27 @@ export const claims = defineMessages({
   'Bị từ chối': 'Rejected',
   'Đã huỷ': 'Cancelled',
 
+  // ── Repair promise (migration 0030, §6.1 wave 2) ─────────────────────────
+  // The state vocabulary is the wire enum rendered in the reader's language.
+  // The attribution line is mandatory legal-risk mitigation: every surface that
+  // shows the promise prints the retailer and the date the policy was checked
+  // (the policy belongs to the shop, not to Warrly).
+  'Đang trong hạn': 'Within the promise',
+  'Sắp tới hạn': 'Due soon',
+  'Đã quá hạn sửa chữa': 'Overdue',
+  'Đúng hạn': 'Met',
+  'Trễ hạn': 'Missed',
+  'Cam kết {days} ngày · hạn {due}': 'Promised {days} days · due {due}',
+  'Còn {count} ngày': { en: '{count} days left', enOne: '1 day left' },
+  'Đến hạn hôm nay': 'Due today',
+  'Quá hạn {count} ngày': {
+    en: '{count} days overdue',
+    enOne: '1 day overdue',
+  },
+  'Theo chính sách {retailer} · kiểm tra {checked}':
+    'Per {retailer} policy · checked {checked}',
+  'Số liệu có thể đã cũ.': 'This figure may be out of date.',
+
   // ── 409 / server-action copy (`app/actions/claims.ts`) ──────────────────
   'Thiết bị này đang có một phiếu sửa chữa chưa đóng.':
     'This device already has an open claim.',

@@ -110,7 +110,7 @@ func (e *claimEnv) addWarranty(t *testing.T, deviceID string) string {
 	return id
 }
 
-func mustCreateClaim(t *testing.T, e *claimEnv, in ClaimInput) store.Claim {
+func mustCreateClaim(t *testing.T, e *claimEnv, in ClaimInput) ClaimWithPromise {
 	t.Helper()
 	row, err := CreateClaim(viCtx(), e.pool, e.userID, in)
 	if err != nil {

@@ -30,6 +30,30 @@ func (q *Queries) GetCategoryByCode(ctx context.Context, code string) (Category,
 	return i, err
 }
 
+const getStoreByID = `-- name: GetStoreByID :one
+SELECT id, name, slug, type, "isActive"
+FROM "Store"
+WHERE id = $1 AND "isActive" = true
+LIMIT 1
+`
+
+// Used by the device write path to prove a "retailerId" names a real, active
+// Store before it is stored (migration 0030). The catalog list is cached and
+// may be a minute stale, so validation reads the row directly: a store retired
+// one second ago must not be accepted just because the cache still lists it.
+func (q *Queries) GetStoreByID(ctx context.Context, id string) (Store, error) {
+	row := q.db.QueryRow(ctx, getStoreByID, id)
+	var i Store
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Type,
+		&i.IsActive,
+	)
+	return i, err
+}
+
 const listAllBrandCategories = `-- name: ListAllBrandCategories :many
 SELECT "brandId", "categoryCode"
 FROM "BrandCategory"

@@ -70,3 +70,13 @@ JOIN "Brand" b ON b.id = bsi."brandId"
 WHERE bsi."isActive" = true
   AND b."isActive" = true
 ORDER BY bsi."brandId" ASC;
+
+-- name: GetStoreByID :one
+-- Used by the device write path to prove a "retailerId" names a real, active
+-- Store before it is stored (migration 0030). The catalog list is cached and
+-- may be a minute stale, so validation reads the row directly: a store retired
+-- one second ago must not be accepted just because the cache still lists it.
+SELECT id, name, slug, type, "isActive"
+FROM "Store"
+WHERE id = $1 AND "isActive" = true
+LIMIT 1;

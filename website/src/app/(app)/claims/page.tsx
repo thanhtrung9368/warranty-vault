@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { EmptyState } from '@/components/empty-state';
 import { ClaimAssessmentPanel } from '@/components/claim-assessment';
+import { RepairPromiseChip } from '@/components/repair-promise-chip';
 import { api } from '@/lib/api';
 import type { Claim } from '@/lib/api/claims';
 import type { DeviceListItem } from '@/lib/api/devices';
@@ -137,6 +138,17 @@ function ClaimRow({
             )}
             <span>{claimCoverageLabel(claim.coveredByWarranty, locale)}</span>
           </div>
+
+          {/* The shop's repair promise (migration 0030). Inside the row link on
+              purpose: it is information about this claim, and the chip itself
+              contains no interactive element. */}
+          {claim.repairPromise && (
+            <RepairPromiseChip
+              promise={claim.repairPromise}
+              locale={locale}
+              t={t}
+            />
+          )}
         </Link>
 
         {/* The same advice panel as the device card, on the cross-device list:

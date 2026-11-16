@@ -126,4 +126,16 @@
     <string name="claim_assess_error_title">Could not get an assessment</string>
     <string name="claim_assess_error_body">The claim is unchanged. Check the connection and try again.</string>
 
+    <!-- ===== Repair promise (migration 0030, §6.1 wave 2). ===== -->
+    <string name="claim_promise_state_on_track">Within the promise</string>
+    <string name="claim_promise_state_due_soon">Due soon</string>
+    <string name="claim_promise_state_overdue">Overdue</string>
+    <string name="claim_promise_state_met">Met on time</string>
+    <string name="claim_promise_state_missed">Missed the promise</string>
+    <string name="claim_promise_terms">Promised %1$d days · due %2$s</string>
+    <string name="claim_promise_attribution">Per %1$s policy · checked %2$s</string>
+    <string name="claim_promise_days_left">%1$d days left</string>
+    <string name="claim_promise_due_today">Due today</string>
+    <string name="claim_promise_days_overdue">%1$d days overdue</string>
+    <string name="claim_promise_stale">This figure may be out of date.</string>
 </resources>

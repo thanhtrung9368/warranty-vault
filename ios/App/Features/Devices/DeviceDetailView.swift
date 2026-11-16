@@ -1106,6 +1106,11 @@ struct DeviceDetailView: View {
         input.model = d.model
         input.serialNumber = d.serialNumber
         input.purchasePlace = d.purchasePlace
+        // The retailer link (migration 0030) is full-replacement-shaped too, but
+        // nil is omitted by the encoder and therefore means "keep": a status tap
+        // or a brand answer can never erase it. No "" is sent here on purpose —
+        // only the device form's explicit picker selection clears it.
+        input.retailerId = d.retailerId
         input.purchasePrice = d.purchasePrice
         // The currency trio is full-replacement too. A status tap must never
         // re-denominate the stored price: without these two the server would

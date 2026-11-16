@@ -534,7 +534,7 @@ INSERT INTO "Device" (
     "activationNotifiedAt", "extendedCoverNotifiedAt",
     "extendedCoverNotifiedLeadDay", "leadDays", currency, "fxRate",
     "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd",
-    "brandCheckedAt", "brandLookupUrl"
+    "brandCheckedAt", "brandLookupUrl", "retailerId"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
     $17, $18, $19, $20, $21, $22, $23, $24, $25,
@@ -544,7 +544,8 @@ INSERT INTO "Device" (
     $30,
     $31,
     $32::timestamp,
-    $33::text
+    $33::text,
+    $34::text
 )
 `
 
@@ -582,6 +583,7 @@ type BackupInsertDeviceParams struct {
 	BrandWarrantyEnd             wire.Day     `json:"brandWarrantyEnd"`
 	BrandCheckedAt               wire.Instant `json:"brandCheckedAt"`
 	BrandLookupUrl               *string      `json:"brandLookupUrl"`
+	RetailerId                   *string      `json:"retailerId"`
 }
 
 // ─── Import inserts (preserve ids + timestamps) ──────────────────────────
@@ -658,6 +660,7 @@ func (q *Queries) BackupInsertDevice(ctx context.Context, arg BackupInsertDevice
 		arg.BrandWarrantyEnd,
 		arg.BrandCheckedAt,
 		arg.BrandLookupUrl,
+		arg.RetailerId,
 	)
 	return err
 }
@@ -1015,7 +1018,7 @@ func (q *Queries) BackupListAttachmentsForUser(ctx context.Context, userid strin
 }
 
 const backupListClaimsForUser = `-- name: BackupListClaimsForUser :many
-SELECT c.id, c."deviceId", c."warrantyId", c.status, c."openedAt", c."expectedReturnAt", c."closedAt", c."ticketNumber", c."serviceCenter", c.issue, c.diagnosis, c.outcome, c.cost, c."coveredByWarranty", c."createdAt", c."updatedAt"
+SELECT c.id, c."deviceId", c."warrantyId", c.status, c."openedAt", c."expectedReturnAt", c."closedAt", c."ticketNumber", c."serviceCenter", c.issue, c.diagnosis, c.outcome, c.cost, c."coveredByWarranty", c."createdAt", c."updatedAt", c."promiseNotifiedAt", c."promiseNotifiedKind"
 FROM "Claim" c
 JOIN "Device" d ON d.id = c."deviceId"
 WHERE d."userId" = $1
@@ -1055,6 +1058,8 @@ func (q *Queries) BackupListClaimsForUser(ctx context.Context, userid string) ([
 			&i.CoveredByWarranty,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PromiseNotifiedAt,
+			&i.PromiseNotifiedKind,
 		); err != nil {
 			return nil, err
 		}
@@ -1069,7 +1074,7 @@ func (q *Queries) BackupListClaimsForUser(ctx context.Context, userid string) ([
 const backupListDevices = `-- name: BackupListDevices :many
 
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl", "retailerId"
 FROM "Device"
 WHERE "userId" = $1
 ORDER BY "createdAt" ASC
@@ -1130,6 +1135,7 @@ func (q *Queries) BackupListDevices(ctx context.Context, userid string) ([]Devic
 			&i.BrandWarrantyEnd,
 			&i.BrandCheckedAt,
 			&i.BrandLookupUrl,
+			&i.RetailerId,
 		); err != nil {
 			return nil, err
 		}

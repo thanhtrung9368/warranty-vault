@@ -338,12 +338,73 @@ struct ClaimRow: View {
                     .lineLimit(isAX ? nil : 1)
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            // The shop's repair promise (migration 0030, §6.1 wave 2). Derived
+            // server-side from the device's retailer policy. `nil` = no verified
+            // policy / no calendar-day ceiling, and this row then shows nothing
+            // at all — the absence is not "on track".
+            if let promise = claim.repairPromise {
+                promiseView(promise)
+            }
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 44)
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+    }
+
+    /// The promise chip + countdown + the mandatory attribution line.
+    ///
+    /// Every surface that prints a number from the policy also prints the
+    /// retailer and the date it was checked ("theo chính sách của …"). The
+    /// policy is the shop's, not a term Warrly guarantees
+    /// (FEATURE_RESEARCH_2026-11 §6.1 risk 3).
+    private func promiseView(_ promise: RepairPromise) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                WVChip(promise.label, tone: promiseTone(promise))
+                if promise.isOpen {
+                    Text(promiseCountdown(promise))
+                        .wvFont(.captionEmphasis)
+                        .foregroundStyle(
+                            promise.promiseState == .overdue ? WVColor.red : WVColor.label2
+                        )
+                }
+            }
+            Text(L.t("Cam kết %d ngày · hạn %@",
+                     promise.days,
+                     ClaimRules.dayLabel(promise.dueAt) ?? promise.dueAt))
+                .wvFont(.caption)
+                .foregroundStyle(WVColor.label3)
+            Text(L.t("Theo chính sách %@ · kiểm tra %@",
+                     promise.retailerName,
+                     ClaimRules.dayLabel(promise.checkedAt) ?? promise.checkedAt))
+                .wvFont(.caption)
+                .foregroundStyle(WVColor.label3)
+                .fixedSize(horizontal: false, vertical: true)
+            if promise.isStale {
+                Text(L.t("Số liệu có thể đã cũ."))
+                    .wvFont(.caption)
+                    .foregroundStyle(WVColor.orange)
+            }
+        }
+        .padding(.top, 2)
+    }
+
+    private func promiseTone(_ promise: RepairPromise) -> WVChipTone {
+        switch promise.promiseState {
+        case .overdue, .missed: return .red
+        case .dueSoon:          return .orange
+        case .met, .onTrack:    return .green
+        default:                return .gray
+        }
+    }
+
+    private func promiseCountdown(_ promise: RepairPromise) -> String {
+        if promise.daysLeft > 0 { return L.p("Còn %d ngày", promise.daysLeft) }
+        if promise.daysLeft == 0 { return L.t("Đến hạn hôm nay") }
+        return L.p("Quá hạn %d ngày", abs(promise.daysLeft))
     }
 
     private func filled(_ value: String?) -> String? {
