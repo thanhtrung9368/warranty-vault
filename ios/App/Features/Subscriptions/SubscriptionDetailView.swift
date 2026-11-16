@@ -13,6 +13,10 @@ struct SubscriptionDetailView: View {
 
     @State private var subscription: Subscription?
     @State private var payments: [Payment]      = []
+    /// The derived post-conversion object (FEATURE_RESEARCH_2026-11 §6.6).
+    /// `nil` outside the 14-day window — the server omits it, so the card below
+    /// is either the whole thing or absent, never a placeholder.
+    @State private var renewalWindow: RenewalWindow?
     @State private var isLoading                = false
     @State private var errorMsg: String?
     @State private var showLogPayment           = false
@@ -24,6 +28,10 @@ struct SubscriptionDetailView: View {
     /// detail's job is "what is this, when is it due, what can I do", not a
     /// second list of every recorded field.
     @State private var infoExpanded             = false
+    /// The post-trial walkthrough (5 steps + the store rules). Collapsed by
+    /// default: the card answers "when did the money move, how much was
+    /// recorded"; the walkthrough is the "what now" that only some readers need.
+    @State private var renewalHelpExpanded      = false
 
     // MARK: Body
 
@@ -105,6 +113,12 @@ struct SubscriptionDetailView: View {
                 // when the user has not stated one.
                 if sub.trialEndsAt != nil {
                     trialSection(sub)
+                }
+                // Post-conversion card (§6.6). Only while the server sends
+                // `renewalWindow`: the trial converted within 14 days. Renders
+                // nothing outside that window rather than a stale shell.
+                if let win = renewalWindow {
+                    renewalSection(win)
                 }
                 // Per-subscription reminder schedule ("Nhắc trước 30 và 7
                 // ngày"). Hidden when the payload has no `leadDays` rather than
@@ -290,6 +304,169 @@ struct SubscriptionDetailView: View {
             }
         }
         .padding(.top, WVSpacing.sm)
+    }
+
+    // MARK: - Renewal window (post-conversion)
+
+    /// "Sau dùng thử" — the two weeks after a trial turned into a charge.
+    ///
+    /// Every number here is one the server derived from data the user already
+    /// has: the conversion day (`trialEndsAt`), the earliest recorded payment,
+    /// and `convertsToPrice` as the EXPECTED price (never labelled as money
+    /// taken). "Còn ~N ngày" is a `CalendarDay` count, and the store sentences
+    /// are the API's own copy, rendered verbatim — Apple has no fixed refund
+    /// window, so nothing here may read like a refund deadline.
+    ///
+    /// "Ghi nhận khoản đã trừ" opens the EXISTING `SubLogPaymentSheet` (the same
+    /// one the toolbar and quick actions use); there is no second payment form.
+    private func renewalSection(_ win: RenewalWindow) -> some View {
+        let converted = RenewalWindowRules.convertedLabel(win) ?? "—"
+        let recognised = RenewalWindowRules.recognisedAmountLabel(win)
+        let recognisedDay = RenewalWindowRules.recognisedDayLabel(win)
+        let expected = RenewalWindowRules.expectedAmountLabel(win)
+        let daysLeft = RenewalWindowRules.daysLeftLabel(win)
+
+        return VStack(spacing: 0) {
+            WVSectionHeader(L.t("Sau dùng thử"))
+            WVGroup {
+                WVRow(icon: "calendar", iconColor: WVColor.orange,
+                      title: L.t("Ngày chuyển đổi"),
+                      detail: converted)
+                WVDivider(inset: 56)
+                if let recognised {
+                    // The recorded amount, plus the day it was recorded. Both
+                    // come from a `SubscriptionPayment` row the user or the
+                    // renewal cron wrote — never from `convertsToPrice`.
+                    WVRow(icon: "wallet", iconColor: WVColor.green,
+                          title: L.t("Đã ghi nhận"),
+                          detail: recognisedDay.map { "\(recognised) · \($0)" } ?? recognised)
+                } else {
+                    WVRow(icon: "wallet", iconColor: WVColor.gray,
+                          title: L.t("Đã ghi nhận"),
+                          subtitle: L.t("Chưa ghi nhận khoản nào"),
+                          subtitleLineLimit: 2)
+                }
+                if let expected {
+                    WVDivider(inset: 56)
+                    WVRow(icon: "tag", iconColor: WVColor.blue,
+                          title: L.t("Giá sau dùng thử"),
+                          detail: expected)
+                }
+                WVDivider(inset: 56)
+                WVRow(icon: "clock", iconColor: WVColor.purple,
+                      title: L.t("Còn lại"),
+                      subtitle: L.t("Đếm theo ngày lịch."),
+                      detail: daysLeft)
+            }
+
+            WVButton(L.t("Ghi nhận khoản đã trừ"), icon: "wallet", kind: .secondary,
+                     size: .small, fullWidth: true) {
+                showLogPayment = true
+            }
+            .padding(.horizontal, WVSpacing.gutter)
+            .padding(.top, WVSpacing.sm)
+
+            WVDisclosure(
+                title: L.t("Hướng dẫn sau khi bị trừ tiền"),
+                subtitle: L.t("5 bước và quy tắc cửa hàng — không hứa hạn hoàn tiền."),
+                icon: "info",
+                iconColor: WVColor.purple,
+                isExpanded: $renewalHelpExpanded
+            ) {
+                renewalWalkthrough(win)
+            }
+            .padding(.top, WVSpacing.sm)
+
+            WVSectionFooter(L.t("Cửa sổ 14 ngày này chỉ để xem lại, không phải hạn chót nào."))
+        }
+        .padding(.top, WVSpacing.sm)
+    }
+
+    /// The 5-step walkthrough. Step 3 is the verified store-rule table, rendered
+    /// from the server's own sentences plus a link to the page each claim was
+    /// read from. The links are POLICY pages, not a checkout: there is no
+    /// purchase link on this card by design.
+    private func renewalWalkthrough(_ win: RenewalWindow) -> some View {
+        VStack(alignment: .leading, spacing: WVSpacing.sm) {
+            renewalStep(1,
+                        title: L.t("Kiểm tra khoản vừa bị trừ"),
+                        body: L.t("Xem ngày chuyển đổi và khoản đã ghi nhận ở trên. Nếu cửa hàng đã trừ tiền mà app chưa có, bấm «Ghi nhận khoản đã trừ» để lưu vào lịch sử thanh toán."))
+            renewalStep(2,
+                        title: L.t("Mở phần quản lý đăng ký của cửa hàng"),
+                        body: L.t("App Store hoặc Google Play cho bạn thấy gói đang ở giá nào và lần trừ kế tiếp là khi nào. App không mở được hộ tài khoản của bạn."))
+            VStack(alignment: .leading, spacing: 6) {
+                Text("3. " + L.t("Biết quyền của mình theo quy tắc cửa hàng"))
+                    .wvFont(.footnoteEmphasis)
+                    .foregroundStyle(WVColor.label)
+                Text(L.t("Quy tắc áp dụng tuỳ nơi bạn mua gói — app không lưu nơi mua."))
+                    .wvFont(.caption2)
+                    .foregroundStyle(WVColor.label3)
+                    .fixedSize(horizontal: false, vertical: true)
+                ForEach(win.storeRules) { rule in
+                    storeRuleView(rule)
+                }
+            }
+            renewalStep(4,
+                        title: L.t("Dừng bị trừ tiếp thì huỷ ở cửa hàng"),
+                        body: L.t("Huỷ gói trong phần quản lý đăng ký của cửa hàng trước ngày gia hạn kế tiếp. App không tự huỷ gói và không gửi yêu cầu hoàn tiền thay bạn."))
+            renewalStep(5,
+                        title: L.t("App chỉ ghi lại những gì bạn nhập"),
+                        body: L.t("App không trừ tiền và không đọc được giao dịch của cửa hàng, nên không hứa hạn hoàn tiền: hạn mức là của cửa hàng, xem câu ở bước 3."))
+        }
+        .padding(.horizontal, WVSpacing.gutter)
+        .padding(.vertical, WVSpacing.sm)
+    }
+
+    private func renewalStep(_ number: Int, title: String, body: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(number). \(title)")
+                .wvFont(.footnoteEmphasis)
+                .foregroundStyle(WVColor.label)
+            Text(body)
+                .wvFont(.footnote)
+                .foregroundStyle(WVColor.label3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// One verified store rule: the server's two sentences verbatim, the day the
+    /// row was checked, and the two policy pages it was checked against.
+    private func storeRuleView(_ rule: StoreRule) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(rule.name)
+                    .wvFont(.footnoteEmphasis)
+                    .foregroundStyle(WVColor.label2)
+                if let checked = RenewalWindowRules.checkedOnLabel(rule) {
+                    Text(L.t("đã kiểm tra %@", checked))
+                        .wvFont(.caption2)
+                        .foregroundStyle(WVColor.label3)
+                }
+            }
+            Text(rule.consentCopy)
+                .wvFont(.footnote)
+                .foregroundStyle(WVColor.label2)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(rule.refundCopy)
+                .wvFont(.footnote)
+                .foregroundStyle(WVColor.label2)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 14) {
+                if let url = URL(string: rule.sourceUrl) {
+                    Link(L.t("Nguồn"), destination: url)
+                }
+                if let url = URL(string: rule.refundSourceUrl) {
+                    Link(L.t("Chính sách hoàn tiền"), destination: url)
+                }
+            }
+            .wvFont(.caption2)
+            .foregroundStyle(WVColor.tint)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(WVColor.bg2)
+        .clipShape(RoundedRectangle(cornerRadius: WVRadius.list, style: .continuous))
     }
 
     // MARK: - Reminder schedule
@@ -496,10 +673,11 @@ struct SubscriptionDetailView: View {
         isLoading = true
         defer { isLoading = false }
         do {
-            let (sub, ps) = try await client.getSubscription(id: subscriptionId)
-            subscription = sub
-            payments = ps.sorted { $0.paidAt > $1.paidAt }
-            status = sub.status
+            let detail = try await client.getSubscriptionDetail(id: subscriptionId)
+            subscription = detail.subscription
+            payments = detail.payments.sorted { $0.paidAt > $1.paidAt }
+            renewalWindow = detail.renewalWindow
+            status = detail.subscription.status
             errorMsg = nil
         } catch {
             errorMsg = (error as? APIError)?.localizedDescription ?? error.localizedDescription

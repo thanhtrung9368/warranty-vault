@@ -780,6 +780,37 @@ var messages = map[string]message{
 		en: "\"%s\" and \"%s\" are both active, from the same brand and in the same category. Check whether you are paying twice for the same service.",
 	},
 
+	// ── Renewal windows (FEATURE_RESEARCH_2026-11 §6.6,
+	// internal/services/renewal_window.go).
+	//
+	// These four sentences are the verified STORE RULES, rendered on the server
+	// from the numbers in the table next to them. They are returned verbatim by
+	// `GET /api/v1/subscriptions/{id}` (`renewalWindow.storeRules[].consentCopy` /
+	// `.refundCopy`) so the web and iOS cards cannot disagree about a store
+	// policy, and so no client can turn one into a refund promise.
+	//
+	// The 60/27 pair is Apple's OWN notice window for annual vs monthly billing
+	// (2-, 3-, 6-month and annual: 60 days; monthly: 27 days). Apple's 7-day row
+	// in that table is for WEEKLY subscriptions, which this app does not bill, so
+	// 7 days must never appear here. Apple also publishes no fixed refund window —
+	// that absence is the fact, not an omission to fill in later.
+	"App Store xin ý kiến trước %d ngày với gói năm và %d ngày với gói tháng trước ngày gia hạn; giá mới chỉ áp dụng khi bạn đồng ý.": {
+		vi: "App Store xin ý kiến trước %d ngày với gói năm và %d ngày với gói tháng trước ngày gia hạn; giá mới chỉ áp dụng khi bạn đồng ý.",
+		en: "The App Store asks for your consent %d days before a yearly plan renews and %d days before a monthly one; the new price only applies if you agree.",
+	},
+	"Apple không công bố cửa sổ hoàn tiền cố định: mỗi yêu cầu được xem xét riêng, nên app không hứa hạn hoàn tiền.": {
+		vi: "Apple không công bố cửa sổ hoàn tiền cố định: mỗi yêu cầu được xem xét riêng, nên app không hứa hạn hoàn tiền.",
+		en: "Apple publishes no fixed refund window: each request is reviewed individually, so the app does not promise a refund deadline.",
+	},
+	"Google Play cho bạn ít nhất %d ngày để đồng ý giá mới; không đồng ý thì gói tự huỷ trước lần trừ tiền đầu tiên ở giá mới.": {
+		vi: "Google Play cho bạn ít nhất %d ngày để đồng ý giá mới; không đồng ý thì gói tự huỷ trước lần trừ tiền đầu tiên ở giá mới.",
+		en: "Google Play gives you at least %d days to accept the new price; if you do not, the subscription is cancelled automatically before the first charge at the new price.",
+	},
+	"Google Play cho yêu cầu hoàn tiền trong vòng %d giờ sau khi mua.": {
+		vi: "Google Play cho yêu cầu hoàn tiền trong vòng %d giờ sau khi mua.",
+		en: "Google Play accepts refund requests within %d hours of purchase.",
+	},
+
 	// ── Wave 3: backup, attachments and files (docs/I18N_PLAN.md §3.1).
 	//
 	// The two honesty notes come first because they are the reason this domain

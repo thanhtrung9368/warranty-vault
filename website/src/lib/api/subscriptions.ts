@@ -52,8 +52,48 @@ export type Payment = {
   note: string | null;
 };
 
+// ── Renewal window (FEATURE_RESEARCH 2026-11 §6.6) ─────────────────────────
+//
+// The 14-day post-conversion card. Every field is DERIVED server-side from rows
+// that already exist — `trialEndsAt` (the conversion day), `convertsToPrice`
+// (expected) and `SubscriptionPayment` (recognised) — so there is no column, no
+// endpoint and no queue kind behind it. The dates are `format: date` calendar
+// days (`YYYY-MM-DD`), never instants: "~2 ngày" is counted on the reader's
+// calendar and `new Date(day)` would move it by one west of UTC.
+export type StoreRule = {
+  store: 'APPLE' | 'GOOGLE';
+  name: string;
+  annualConsentNoticeDays: number;
+  monthlyConsentNoticeDays: number;
+  autoCancelWithoutConsent: boolean;
+  // `null` is the FINDING for Apple: no published fixed refund window. Do not
+  // replace it with a number — §6.6 forbids inventing one.
+  refundWindowHours: number | null;
+  // Server-rendered sentences, shown VERBATIM so a store-policy claim cannot
+  // disagree with the numbers next to it.
+  consentCopy: string;
+  refundCopy: string;
+  sourceUrl: string;
+  refundSourceUrl: string;
+  checkedOn: string;
+};
+
+export type RenewalWindow = {
+  convertedOn: string;
+  windowEndsAt: string;
+  // The earliest recorded payment on/after `convertedOn`; `null` when the user
+  // recorded nothing (the app cannot see a store charge it was not told about).
+  amountRecognisedVnd: number | null;
+  recognisedPaidOn: string | null;
+  // `convertsToPrice`: what the trial was supposed to become. NOT a charge.
+  expectedAmountVnd: number | null;
+  storeRules: StoreRule[];
+};
+
 export type SubscriptionDetail = Subscription & {
   payments: Payment[];
+  // Absent (not null) unless a trial converted within the last 14 days.
+  renewalWindow?: RenewalWindow;
 };
 
 export type SubscriptionInput = {

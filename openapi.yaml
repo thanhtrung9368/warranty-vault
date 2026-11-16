@@ -1903,6 +1903,14 @@ paths:
       - { $ref: '#/components/parameters/Lang' }
     get:
       tags: [subscriptions]
+      summary: Chi tiết gói + lịch sử thanh toán (+ cửa sổ gia hạn sau dùng thử)
+      description: |
+        Trả về gói kèm toàn bộ `SubscriptionPayment` đã ghi.
+
+        Khi dùng thử đã chuyển sang trả phí trong vòng 14 ngày, response có thêm
+        `subscription.renewalWindow` (xem schema `RenewalWindow`) — suy ra từ dữ
+        liệu đã có, không endpoint riêng và không cột mới. Ngoài cửa sổ đó (hoặc
+        khi gói không có dùng thử) key này **vắng mặt**.
       responses:
         '200':
           description: Subscription detail with payment history
@@ -6088,6 +6096,117 @@ components:
             payments:
               type: array
               items: { $ref: '#/components/schemas/Payment' }
+            renewalWindow:
+              $ref: '#/components/schemas/RenewalWindow'
+
+    RenewalWindow:
+      type: object
+      description: |
+        Cửa sổ 14 ngày sau khi dùng thử chuyển sang trả phí — FEATURE_RESEARCH
+        2026-11 §6.6, phần copy + quy tắc cửa hàng. **Chỉ đọc**, suy ra từ dữ liệu
+        đã có: `Subscription.trialEndsAt` (ngày chuyển đổi),
+        `Subscription.convertsToPrice` (giá dự kiến) và `SubscriptionPayment`
+        (khoản đã ghi nhận). Không cột mới, không endpoint riêng, không queue
+        kind mới — object này chỉ đi kèm `GET /api/v1/subscriptions/{id}`.
+
+        **Vắng mặt hẳn** (không phải `null`) khỏi response khi gói không có dùng
+        thử, khi dùng thử chưa kết thúc (ngày `trialEndsAt` vẫn còn đang miễn
+        phí), hoặc khi đã quá 14 ngày kể từ ngày chuyển đổi.
+
+        Đây là **cửa sổ hiển thị**, không phải hạn chót của bất cứ việc gì: app
+        không trừ tiền, không huỷ gói, không gửi yêu cầu hoàn tiền thay người
+        dùng, và không hứa hạn hoàn tiền.
+      required: [convertedOn, windowEndsAt, storeRules]
+      properties:
+        convertedOn:
+          type: string
+          format: date
+          description: 'Ngày dùng thử kết thúc và bắt đầu tính phí — chính là `Subscription.trialEndsAt`, **ngày lịch**.'
+        windowEndsAt:
+          type: string
+          format: date
+          description: |
+            Ngày cuối cùng cửa sổ còn hiển thị (`convertedOn` + 14 ngày), **ngày
+            lịch**. Client đếm "~2 ngày" trên lịch của người đọc (đếm ngày, không
+            trừ instant), nên đừng biến nó thành một mốc thời gian.
+        amountRecognisedVnd:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            Số tiền của **khoản đã ghi nhận sớm nhất** kể từ ngày chuyển đổi
+            (`SubscriptionPayment`), hoặc `null` khi chưa ghi khoản nào. App không
+            đọc được giao dịch của cửa hàng nên không bao giờ tự điền con số này:
+            "đã ghi nhận" nghĩa là người dùng (hoặc cron gia hạn) đã ghi.
+        recognisedPaidOn:
+          type: string
+          format: date
+          nullable: true
+          description: 'Ngày lịch của khoản đã ghi nhận đó; `null` cùng điều kiện với `amountRecognisedVnd`.'
+        expectedAmountVnd:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            `Subscription.convertsToPrice` — giá **dự kiến** sau dùng thử, **không
+            phải** một khoản đã bị trừ. `null` khi người dùng chưa ghi giá. Client
+            phải phân biệt hai trường này: chỉ `amountRecognisedVnd` mới là tiền
+            đã ghi nhận.
+        storeRules:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/StoreRule' }
+
+    StoreRule:
+      type: object
+      description: |
+        Một dòng của bảng hằng số `storeRules` (`api/internal/services/renewal_window.go`)
+        đã đối chiếu nguồn, kèm `sourceUrl` + `checkedOn`. Cả App Store và Google
+        Play đều được trả về vì schema không lưu nơi mua gói — client hiển thị cả
+        hai kèm tên cửa hàng thay vì đoán một cửa hàng.
+      required: [store, name, annualConsentNoticeDays, monthlyConsentNoticeDays, autoCancelWithoutConsent, consentCopy, refundCopy, sourceUrl, refundSourceUrl, checkedOn]
+      properties:
+        store: { type: string, enum: [APPLE, GOOGLE] }
+        name: { type: string, description: 'Tên hiển thị: "App Store" / "Google Play".' }
+        annualConsentNoticeDays:
+          type: integer
+          description: |
+            Số ngày cửa hàng báo trước khi giá tăng, với gói chu kỳ **năm**.
+            Apple: 60 (áp dụng cho gói 2, 3, 6 tháng và năm). Google Play: 30.
+            Con số "7 ngày" của Apple chỉ dành cho gói **tuần**, mà app không có
+            chu kỳ tuần — không được dùng ở đây.
+        monthlyConsentNoticeDays:
+          type: integer
+          description: 'Số ngày cửa hàng báo trước khi giá tăng, với gói chu kỳ **tháng**. Apple: 27. Google Play: 30.'
+        autoCancelWithoutConsent:
+          type: boolean
+          description: |
+            `true` với Google Play: không đồng ý giá mới thì gói **tự huỷ** trước
+            lần trừ tiền đầu tiên ở giá mới. Apple xin ý kiến và chỉ áp dụng giá
+            mới khi người dùng đồng ý, nên `false`.
+        refundWindowHours:
+          type: integer
+          nullable: true
+          description: |
+            Cửa sổ hoàn tiền **cố định** mà cửa hàng công bố. Google Play: 48 giờ.
+            Apple: `null` — Apple **không** công bố cửa sổ cố định (xem xét từng
+            trường hợp), nên đừng thay bằng một con số cho đẹp.
+        consentCopy:
+          type: string
+          description: 'Câu chữ đã render theo ngôn ngữ của request; client hiển thị NGUYÊN VĂN để câu chữ không mâu thuẫn với các con số ở trên.'
+        refundCopy:
+          type: string
+          description: 'Như `consentCopy`, cho phần hoàn tiền — và đây chính là câu không được hứa hạn hoàn tiền.'
+        sourceUrl:
+          type: string
+          description: 'Trang nguồn của quy tắc đồng ý giá mới / tự huỷ.'
+        refundSourceUrl:
+          type: string
+          description: 'Trang nguồn của chính sách hoàn tiền (khác trang trên, với cả hai cửa hàng).'
+        checkedOn:
+          type: string
+          format: date
+          description: 'Ngày bảng được đối chiếu nguồn lần cuối (2026-11-16).'
 
     SubscriptionInput:
       type: object

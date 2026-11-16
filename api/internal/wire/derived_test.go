@@ -60,6 +60,11 @@ var derivedResponses = []struct {
 	{"ActionItem", services.ActionItem{}},
 	{"ActionDetailParams", services.ActionDetailParams{}},
 	{"SubscriptionAuditFinding", services.AuditFinding{}},
+	// The post-conversion card (FEATURE_RESEARCH_2026-11 §6.6). It carries three
+	// calendar days — the conversion day, the window end and the recognised
+	// payment's day — so it belongs to the same day-vs-instant contract as the
+	// other derived responses.
+	{"RenewalWindow", services.RenewalWindow{}},
 	{"WarrantyCentre", services.WarrantyCentre{}},
 	{"SharedWarranty", services.SharedWarranty{}},
 	{"SharedCertificate", services.SharedCertificate{}},
