@@ -42,20 +42,43 @@ Xem [docs/I18N_PLAN.md](../docs/I18N_PLAN.md) §3 pha 3. Tóm tắt:
 - Scheme `ShareExtension` được khai báo tường minh trong `project.yml` để build được bằng
   `xcodebuild` (XcodeGen không tự tạo shared scheme cho extension).
 
-## Widget, Spotlight, App Intents
+## Widget, Control Center, Spotlight, App Intents
 
-- **Widget `WarrlyWidget`** (WidgetKit, chỉ `systemSmall` + `systemMedium`) hiển thị các
-  hạn bảo hành gần nhất. Widget **không có token và không gọi API**: app ghi snapshot vào
-  App Group `group.com.warrly` tại `Surface/deadline-snapshot.json`
+- **Widget `WarrlyWidget`** (WidgetKit) hiển thị các hạn bảo hành gần nhất trên màn hình
+  chính (`systemSmall` + `systemMedium`) **và màn hình khoá** (`accessoryCircular`,
+  `accessoryRectangular`, `accessoryInline`). Widget **không có token và không gọi API**:
+  app ghi snapshot vào App Group `group.com.warrly` tại `Surface/deadline-snapshot.json`
   (`DeadlineSnapshotStore` trong `Sources/WarrlyKit/DeadlineSnapshot.swift`).
 - App ghi lại snapshot khi foreground và sau mọi thao tác có thể đổi hạn (thiết bị, bảo
   hành, ẩn/hoàn tác nhắc nhở, nhập backup, wishlist → PURCHASED). Nguồn deadline là
   `GET /api/v1/reminders?withinDays=90` (cùng cửa sổ với màn Nhắc nhở); danh sách thiết bị
   lấy từ `GET /api/v1/devices`.
+- **Snapshot version 2 có `counts`.** `dueToday` / `within7` / `within30` đếm **distinct
+  deviceId** trên toàn bộ reminder đã lọc dismissed, **trước** khi cắt 12 dòng
+  (`DeadlineSnapshotBuilder`). Lock Screen không thể tự đếm từ 12 dòng đã cắt, nên số này
+  nằm trong file. Snapshot version 1 (build 23) không có key này: `readOutcome()` vẫn decode
+  và accessory tự suy số từ các dòng đã lưu cho tới lần foreground kế tiếp.
+- **`readOutcome()` phân biệt missing / unreadable / snapshot.** `missing` = chưa từng ghi
+  (mở app một lần); `unreadable` = file có nhưng process không đọc/parse được (ví dụ máy
+  khoá trước lần mở khoá đầu sau reboot). Widget **không** bịa "0 mốc" cho case thứ hai;
+  nó hiện "Chưa đọc được dữ liệu đã lưu. Mở Warrly để đồng bộ.".
 - **Tuổi snapshot được hiển thị.** Sau 6 giờ widget hiện "Tính đến …" / "As of …"; sau 48
   giờ thêm dòng "Mở Warrly để cập nhật". Timeline có entry tại nửa đêm (đổi "còn 1 ngày"
   → "hết hạn hôm nay"), tại mốc 6h/48h, và policy `.atEnd` — không wake mỗi giờ vì widget
-  không thể lấy dữ liệu mới, chỉ có thể đọc lại đúng file đó.
+  không thể lấy dữ liệu mới, chỉ có thể đọc lại đúng file đó. `accessoryRectangular` là
+  family duy nhất có chỗ cho dòng "Tính đến"; circle/inline không có.
+- **Control Center (iOS 18+)**: `ReceiptCaptureControl` (`WidgetExtension/`) là một
+  `ControlWidgetButton` dùng `OpenIntent` (`CaptureReceiptIntent`) mở Warrly thẳng vào
+  `InboxCaptureSheet(startWithCamera: true)`. Intent ghi cờ `wv.pendingCapture` vào App
+  Group trước khi app tồn tại; `AppRouter` đọc `warrly://capture`/cờ đó, còn `RootView` chỉ
+  présent sheet khi **đã đăng nhập và App Lock đã mở** — nên nếu bật Face ID, Face ID nằm
+  giữa tap control và sheet (copy trong Controls gallery nói đúng như vậy, không hứa "một
+  tap"). Cùng extension: control nằm sau `@available(iOSApplicationExtension 18.0, *)`,
+  deployment target của extension **vẫn là 17.0** để widget không biến mất trên iOS 17.
+- **Control mở camera, không chụp hộ.** Sheet tự mở camera khi được gọi từ control; nếu
+  quyền camera bị từ chối, sheet hiện lỗi + nút "Mở Cài đặt"; nếu upload gặp lỗi mạng, file
+  được đẩy vào queue App Group của Share Extension (offline capture queue) và tự upload ở
+  lần foreground sau; còn 429 thì hiện nguyên `message` của envelope.
 - **Spotlight** index `name`, `brand`, `model`, `serialNumber` qua `CSSearchableIndex`
   (`App/Core/Surface/DeviceSpotlightIndexer.swift`); không index notes, claim, OCR hay
   giá. Re-index khi foreground và sau mutation; xoá entry của thiết bị đã xoá và xoá sạch
@@ -64,11 +87,15 @@ Xem [docs/I18N_PLAN.md](../docs/I18N_PLAN.md) §3 pha 3. Tóm tắt:
   "khi nào X hết hạn" (đọc API, fallback snapshot có ghi rõ "as of"), `OpenDeviceIntent` mở
   app đúng thiết bị, `NextDeadlineIntent` đọc mốc kế tiếp từ snapshot. `WarrlyShortcuts`
   đăng ký App Shortcuts để ba intent xuất hiện trong Shortcuts/Siri.
-- **Riêng tư:** extension **không** khai báo family `.accessory*`, nên widget không bao giờ
-  render trên Lock Screen — tên thiết bị chỉ hiện sau khi mở khoá. Trong view vẫn có
-  `privacySensitive()` và nhánh thay tên bằng "Thiết bị" nếu hệ thống render ở chế độ
-  vibrant/luminance-reduced. Đăng xuất xoá snapshot, Spotlight và pending deep link.
-- Build extension: `xcodebuild build -project Warrly.xcodeproj -scheme WarrlyWidget ...`.
+- **Riêng tư:** family `.accessory*` render **trước khi mở khoá**, nên
+  `DeadlineAccessoryView`/`DeadlineAccessoryRules` chỉ nhận **số đếm và nhãn chung** —
+  `SnapshotDeadline.deviceName` không đi vào presentation của Lock Screen. View home-screen
+  vẫn có `privacySensitive()` và nhánh thay tên bằng "Thiết bị" nếu hệ thống render ở chế
+  độ vibrant/luminance-reduced. Đăng xuất xoá snapshot, Spotlight, pending deep link và cờ
+  capture.
+- Build: `xcodebuild build -project Warrly.xcodeproj -scheme WarrlyWidget ...` (extension,
+  gồm cả control) **và** `... -scheme Warrly`. CI chỉ build library nên hai lệnh này là
+  gate bắt buộc trước khi merge.
 
 ## Cấu trúc
 
@@ -78,8 +105,12 @@ ios/
 ├── ShareExtension/                # Share Extension target — App Group hand-off, no network/token
 │   ├── ShareViewController.swift
 │   └── Info.plist                 # generated by XcodeGen
-├── WidgetExtension/               # WidgetKit target — reads the App Group snapshot only
-│   ├── WarrlyDeadlineWidget.swift
+├── WidgetExtension/               # WidgetKit target — home-screen + Lock Screen widget, iOS 18 control
+│   ├── WarrlyDeadlineWidget.swift     # timeline provider + home-screen layout
+│   ├── DeadlineAccessoryViews.swift   # Lock Screen layouts (numbers only, no device names)
+│   ├── DeadlineWidgetBundle.swift     # @main bundle; control behind iOSApplicationExtension 18.0
+│   ├── ReceiptCaptureControl.swift    # ControlWidgetButton + OpenIntent (iOS 18+)
+│   ├── ReceiptCaptureIntent.swift     # intent membership: app + extension
 │   ├── Info.plist                 # generated by XcodeGen
 │   └── PrivacyInfo.xcprivacy
 ├── Sources/WarrlyKit/      # API client, models, auth — không phụ thuộc UIKit/SwiftUI

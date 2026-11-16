@@ -10,6 +10,9 @@ import WidgetKit
 struct DeadlineWidgetEntry: TimelineEntry {
     let date: Date
     let presentation: DeadlineWidgetPresentation
+    /// Lock Screen families only. Carries numbers and generic labels — never a
+    /// device name (see `DeadlineAccessoryRules`).
+    let accessory: DeadlineAccessoryPresentation
     let language: AppLanguage
     /// Tapping the widget opens the soonest device. `nil` when there is nothing
     /// to open (empty state, or the first run before the app synced).
@@ -25,7 +28,7 @@ struct DeadlineTimelineProvider: TimelineProvider {
         return entry(
             date: now,
             family: context.family,
-            snapshot: Self.sampleSnapshot(now: now, language: language),
+            outcome: .snapshot(Self.sampleSnapshot(now: now, language: language)),
             language: language
         )
     }
@@ -62,11 +65,16 @@ struct DeadlineTimelineProvider: TimelineProvider {
         completion: @escaping (Timeline<DeadlineWidgetEntry>) -> Void
     ) {
         let now = Date()
-        let snapshot = DeadlineSnapshotStore()?.read()
+        // `readOutcome` keeps "never captured" separate from "this process
+        // cannot read the file yet" (the Lock Screen before the first unlock
+        // after a reboot). Both are nil snapshots, but only the first may say
+        // "open the app once".
+        let outcome = DeadlineSnapshotStore()?.readOutcome() ?? .missing
+        let snapshot = outcome.snapshot
         let language = SharedInboxLanguage.resolved()
 
         var entries = [
-            entry(date: now, family: context.family, snapshot: snapshot, language: language),
+            entry(date: now, family: context.family, outcome: outcome, language: language),
         ]
 
         if let captured = snapshot?.capturedAt {
@@ -74,7 +82,7 @@ struct DeadlineTimelineProvider: TimelineProvider {
             if staleAt > now {
                 entries.append(entry(
                     date: staleAt, family: context.family,
-                    snapshot: snapshot, language: language
+                    outcome: outcome, language: language
                 ))
             }
             let severelyStaleAt = captured.addingTimeInterval(
@@ -83,7 +91,7 @@ struct DeadlineTimelineProvider: TimelineProvider {
             if severelyStaleAt > now {
                 entries.append(entry(
                     date: severelyStaleAt, family: context.family,
-                    snapshot: snapshot, language: language
+                    outcome: outcome, language: language
                 ))
             }
         }
@@ -96,7 +104,7 @@ struct DeadlineTimelineProvider: TimelineProvider {
             }
             entries.append(entry(
                 date: day, family: context.family,
-                snapshot: snapshot, language: language
+                outcome: outcome, language: language
             ))
         }
 
@@ -120,18 +128,25 @@ struct DeadlineTimelineProvider: TimelineProvider {
     private func entry(
         date: Date,
         family: WidgetFamily,
-        snapshot: DeadlineSnapshot? = nil,
+        outcome: DeadlineSnapshotReadOutcome? = nil,
         language: AppLanguage? = nil
     ) -> DeadlineWidgetEntry {
         let resolvedLanguage = language ?? SharedInboxLanguage.resolved()
         let limit = family == .systemSmall
             ? DeadlineWidgetRules.smallLimit
             : DeadlineWidgetRules.mediumLimit
-        let currentSnapshot = snapshot ?? DeadlineSnapshotStore()?.read()
+        let resolvedOutcome = outcome
+            ?? DeadlineSnapshotStore()?.readOutcome()
+            ?? .missing
         let presentation = DeadlineWidgetRules.presentation(
-            snapshot: currentSnapshot,
+            outcome: resolvedOutcome,
             now: date,
             limit: limit,
+            language: resolvedLanguage
+        )
+        let accessory = DeadlineAccessoryRules.presentation(
+            outcome: resolvedOutcome,
+            now: date,
             language: resolvedLanguage
         )
         let firstURL = presentation.rows.first.flatMap {
@@ -140,6 +155,7 @@ struct DeadlineTimelineProvider: TimelineProvider {
         return DeadlineWidgetEntry(
             date: date,
             presentation: presentation,
+            accessory: accessory,
             language: resolvedLanguage,
             firstDeviceURL: firstURL
         )
@@ -176,6 +192,9 @@ struct DeadlineTimelineProvider: TimelineProvider {
                     endDate: second
                 ),
             ],
+            // Gallery data: two devices, +2 and +9 days. Fixed numbers so the
+            // sample never depends on "today" crossing a bucket boundary.
+            counts: DeadlineSnapshotCounts(dueToday: 0, within7: 1, within30: 2),
             devices: []
         )
     }
@@ -192,25 +211,35 @@ struct DeadlineWidgetView: View {
 
     private var isSmall: Bool { family == .systemSmall }
 
-    /// Privacy decision: this extension declares no `.accessory*` family, so it
-    /// is a home-screen widget and is not rendered before unlock. The extra
-    /// check is defence in depth: if the system ever draws it in a
-    /// vibrant/luminance-reduced context, device names are replaced by a
-    /// generic label instead of leaking out of a locked phone.
+    /// Home-screen privacy defence in depth. The Lock Screen families never
+    /// reach this view at all: `DeadlineAccessoryView` shows counts only, so a
+    /// device name is not just hidden here, it is never in the entry's accessory
+    /// presentation. This check covers the system drawing a home-screen widget
+    /// in a vibrant/luminance-reduced context.
     private var hidesDeviceNames: Bool {
         renderingMode == .vibrant || luminanceReduced
     }
 
+    @ViewBuilder
     var body: some View {
+        switch family {
+        case .accessoryCircular, .accessoryRectangular, .accessoryInline:
+            DeadlineAccessoryView(entry: entry)
+        default:
+            homeScreen
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .containerBackground(for: .widget) { background }
+                .widgetURL(entry.firstDeviceURL)
+        }
+    }
+
+    private var homeScreen: some View {
         VStack(alignment: .leading, spacing: isSmall ? 5 : 6) {
             header
             content
             Spacer(minLength: 0)
             footer
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .containerBackground(for: .widget) { background }
-        .widgetURL(entry.firstDeviceURL)
     }
 
     private var header: some View {
@@ -230,7 +259,7 @@ struct DeadlineWidgetView: View {
     @ViewBuilder
     private var content: some View {
         switch entry.presentation.state {
-        case .notConfigured, .empty:
+        case .notConfigured, .unreadable, .empty:
             Text(entry.presentation.message ?? "")
                 .font(.system(size: isSmall ? 11 : 12, weight: .medium))
                 .foregroundStyle(.white.opacity(0.85))
@@ -330,7 +359,10 @@ struct DeadlineWidgetView: View {
 
 // MARK: - Widget
 
-@main
+/// The home-screen widget. `@main` lives on `DeadlineWidgetBundle` so the same
+/// extension can also host the iOS 18 Control Center control; this type is
+/// deliberately not annotated with any availability guard, or the widget would
+/// disappear on iOS 17.
 struct WarrlyDeadlineWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(
@@ -345,10 +377,17 @@ struct WarrlyDeadlineWidget: Widget {
         .description(
             DeadlineWidgetRules.galleryDescription(language: SharedInboxLanguage.resolved())
         )
-        // Home Screen only, on purpose. No `.accessoryRectangular` /
-        // `.accessoryInline` / `.accessoryCircular`: those render on the Lock
-        // Screen, where a device name would be readable by anyone holding the
-        // phone. The widget is therefore invisible before unlock.
-        .supportedFamilies([.systemSmall, .systemMedium])
+        // Home Screen **and Lock Screen**. The accessory families render before
+        // unlock, so their layout/entry (`DeadlineAccessoryView`) never touches
+        // `DeadlineWidgetRow`/`deviceName` — it shows the distinct-device counts
+        // from `DeadlineAccessoryRules` and generic labels only. The home-screen
+        // families keep the per-device rows and their `privacySensitive` mask.
+        .supportedFamilies([
+            .systemSmall,
+            .systemMedium,
+            .accessoryCircular,
+            .accessoryRectangular,
+            .accessoryInline,
+        ])
     }
 }

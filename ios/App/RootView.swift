@@ -15,6 +15,12 @@ struct RootView: View {
     @EnvironmentObject var router: AppRouter
     @Environment(\.scenePhase) private var scenePhase
 
+    /// Presented only when the Control Center control asked for capture AND
+    /// this view can prove the two gates are open: an authenticated session
+    /// (the upload needs a bearer token) and a down App Lock cover. The pending
+    /// request stays in `router` while either gate is closed.
+    @State private var showsCaptureSheet = false
+
     private var isAuthenticated: Bool {
         if case .authenticated = auth.status { return true }
         return false
@@ -29,6 +35,22 @@ struct RootView: View {
                     .zIndex(1)
             }
         }
+        .sheet(isPresented: $showsCaptureSheet) {
+            // `startWithCamera: true` is the whole point of the control: land
+            // on the camera, not on a list of ways to pick a file. The sheet
+            // still offers Photos/PDF, and explains a denied camera permission
+            // with a way into Settings.
+            InboxCaptureSheet(
+                client: auth.client,
+                onUploaded: { _ in
+                    // The tab shell owns the inbox badge and is not this
+                    // view's child, so announce the new row. Without this the
+                    // count would stay stale until the next foreground.
+                    NotificationCenter.default.post(name: .warrlyInboxChanged, object: nil)
+                },
+                startWithCamera: true
+            )
+        }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .background:
@@ -37,10 +59,12 @@ struct RootView: View {
                 // and locking there would prompt Face ID mid-gesture.
                 appLock.handleEnterBackground()
             case .active:
-                // An App Intent can queue a device while the app is suspended;
-                // pick it up on every activation, authenticated or not (the id
-                // waits in the router until the devices screen exists).
+                // An App Intent can queue a device (or the Control Center
+                // control a capture) while the app is suspended; pick it up on
+                // every activation, authenticated or not (the request waits in
+                // the router until it can be presented).
                 router.restorePendingFromSharedDefaults()
+                presentPendingCaptureIfPossible()
                 // Capabilities can change while we're away (Face ID removed,
                 // passcode deleted). Cheap, never prompts.
                 if isAuthenticated {
@@ -75,18 +99,51 @@ struct RootView: View {
             // Cold launch from a Spotlight hit or an App Intent: the id may
             // already be in the App Group before this view exists.
             router.restorePendingFromSharedDefaults()
+            presentPendingCaptureIfPossible()
+        }
+        // The control can land while the app is already running, while the
+        // session is still bootstrapping, or while the App Lock cover is up.
+        // Each of those has its own trigger; the flag is only consumed once all
+        // gates are open.
+        .onChange(of: router.pendingCapture) { _, _ in
+            presentPendingCaptureIfPossible()
+        }
+        .onChange(of: appLock.isLocked) { _, locked in
+            if locked {
+                // SwiftUI sheets sit above the lock cover, so a capture sheet
+                // left open when the app backgrounds would be readable over the
+                // lock screen. Close it as the cover comes up.
+                showsCaptureSheet = false
+            } else {
+                presentPendingCaptureIfPossible()
+            }
         }
         .onChange(of: auth.status) { _, status in
+            if case .authenticated = status {
+                presentPendingCaptureIfPossible()
+                return
+            }
             guard case .unauthenticated = status else { return }
             // Signing out (or bootstrap discovering a dead token) must drop
             // every out-of-app surface, including a destination queued before
             // the app knew who was signed in.
             appLock.clearLock()
             router.clear()
+            showsCaptureSheet = false
             // A widget and a Spotlight index are readable outside the app.
             // Neither may keep the previous account's device names.
             Task { await DeadlineSurface.shared.clear() }
         }
+    }
+
+    /// Opens the capture sheet for a pending Control Center request **only**
+    /// behind both gates: an authenticated session and a down App Lock cover.
+    /// Consuming the flag here (not on dismissal) means a presentation cannot
+    /// race a second trigger into two sheets.
+    private func presentPendingCaptureIfPossible() {
+        guard router.pendingCapture, isAuthenticated, !appLock.isLocked else { return }
+        router.consumeCapture()
+        showsCaptureSheet = true
     }
 
     @ViewBuilder
@@ -514,6 +571,11 @@ struct MainTabView: View {
             // And for a wishlist target-date / check-in notification: bring the
             // "Wishlist" tab forward and let its screen push the detail.
             if id != nil { selection = 3 }
+        }
+        // A capture performed from the Control Center sheet (presented by
+        // `RootView`, outside this view's tree) added a row; refresh the badge.
+        .onReceive(NotificationCenter.default.publisher(for: .warrlyInboxChanged)) { _ in
+            Task { await inboxStore.load() }
         }
     }
 }

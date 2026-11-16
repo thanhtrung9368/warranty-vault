@@ -50,6 +50,10 @@ public struct DeadlineWidgetPresentation: Equatable, Sendable {
         /// The app has never written a snapshot (fresh install, signed out, or
         /// the App Group entitlement is missing).
         case notConfigured
+        /// A snapshot file exists but this process cannot read it — typically
+        /// before the first unlock after a reboot. Must never be rendered as
+        /// an empty account.
+        case unreadable
         /// A real answer: nothing expires inside the window. Not an error.
         case empty
         case deadlines([DeadlineWidgetRow])
@@ -116,7 +120,8 @@ public enum DeadlineWidgetRules {
     }
 
     public static func galleryDescription(language: AppLanguage) -> String {
-        L.t("Bảo hành sắp hết hạn, ngay trên màn hình chính.", language: language)
+        L.t("Bảo hành sắp hết hạn, trên màn hình chính và màn hình khoá.",
+            language: language)
     }
 
     public static func emptyTitle(language: AppLanguage) -> String {
@@ -125,6 +130,12 @@ public enum DeadlineWidgetRules {
 
     public static func notConfiguredMessage(language: AppLanguage) -> String {
         L.t("Mở ứng dụng một lần để đồng bộ hạn bảo hành.", language: language)
+    }
+
+    /// The file exists but cannot be decoded/read right now. Saying "nothing is
+    /// due" here would be inventing an answer.
+    public static func unreadableMessage(language: AppLanguage) -> String {
+        L.t("Chưa đọc được dữ liệu đã lưu. Mở Warrly để đồng bộ.", language: language)
     }
 
     public static func emptyMessage(windowDays: Int, language: AppLanguage) -> String {
@@ -228,6 +239,44 @@ public enum DeadlineWidgetRules {
 
     // MARK: Presentation
 
+    /// Renders the whole state from the store's read outcome. This is the entry
+    /// point the widget extension uses: it is the only one that can tell "no
+    /// snapshot yet" from "the snapshot is unreadable on this Lock Screen".
+    public static func presentation(
+        outcome: DeadlineSnapshotReadOutcome,
+        now: Date,
+        limit: Int,
+        language: AppLanguage,
+        calendar: Calendar = .current
+    ) -> DeadlineWidgetPresentation {
+        switch outcome {
+        case .missing:
+            return DeadlineWidgetPresentation(
+                state: .notConfigured,
+                title: widgetTitle(language: language),
+                message: notConfiguredMessage(language: language),
+                asOfText: nil,
+                refreshHint: nil
+            )
+        case .unreadable:
+            return DeadlineWidgetPresentation(
+                state: .unreadable,
+                title: widgetTitle(language: language),
+                message: unreadableMessage(language: language),
+                asOfText: nil,
+                refreshHint: nil
+            )
+        case let .snapshot(snapshot):
+            return presentation(
+                snapshot: snapshot,
+                now: now,
+                limit: limit,
+                language: language,
+                calendar: calendar
+            )
+        }
+    }
+
     /// Renders the whole state. `limit` is family-dependent (3 for small, 4 for
     /// medium) and is applied here so the view cannot accidentally draw a fifth
     /// row into a small widget.
@@ -239,12 +288,12 @@ public enum DeadlineWidgetRules {
         calendar: Calendar = .current
     ) -> DeadlineWidgetPresentation {
         guard let snapshot else {
-            return DeadlineWidgetPresentation(
-                state: .notConfigured,
-                title: widgetTitle(language: language),
-                message: notConfiguredMessage(language: language),
-                asOfText: nil,
-                refreshHint: nil
+            return presentation(
+                outcome: .missing,
+                now: now,
+                limit: limit,
+                language: language,
+                calendar: calendar
             )
         }
 

@@ -52,6 +52,11 @@ targets:
       - path: App
         excludes:
           - Warrly.entitlements
+      # The Control Center control's intent. A control's App Intent can be run
+      # in the app's process as well as in the extension's, so the type must
+      # exist in BOTH binaries. It is not part of `App/` so the widget target
+      # can include the same file without copying it.
+      - path: WidgetExtension/ReceiptCaptureIntent.swift
     dependencies:
       - package: WarrlyKit
         product: WarrlyKit
@@ -307,14 +312,19 @@ targets:
         com.apple.security.application-groups:
           - group.com.warrly
 
-  # WidgetKit extension: small + medium home-screen widget fed by the App
-  # Group snapshot. It has no network client, no Keychain access group and no
-  # bearer token on purpose — the app writes what it needs, and the widget says
-  # "as of …" once that snapshot is old.
+  # WidgetKit extension: the deadline widget (home screen + Lock Screen) and the
+  # iOS 18+ Control Center control, fed by the App Group snapshot. It has no
+  # network client, no Keychain access group and no bearer token on purpose —
+  # the app writes what it needs, and the widget says "as of …" once that
+  # snapshot is old.
   #
-  # No `.accessory*` family is listed in the widget configuration, so this
-  # extension never renders on the Lock Screen. See the privacy note in
-  # `WidgetExtension/WarrlyDeadlineWidget.swift`.
+  # The deployment target stays 17.0. The Control Center control is iOS 18-only
+  # and lives behind `@available(iOSApplicationExtension 18.0, *)` inside this
+  # same extension (`ReceiptCaptureControl.swift`, `DeadlineWidgetBundle.swift`).
+  # Raising `IPHONEOS_DEPLOYMENT_TARGET` (or the top-level `deploymentTarget`)
+  # to 18.0 would remove the extension, and therefore EVERY widget, on iOS 17 —
+  # that is the known bug this arrangement avoids. Do not add a top-level
+  # `@available(iOS 18.0, *)` to the bundle or the deadline widget either.
   WarrlyWidget:
     type: app-extension
     platform: iOS
