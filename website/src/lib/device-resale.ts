@@ -154,7 +154,7 @@ export function hasSaleRecorded(device: {
 }
 
 export type SaleProfitLoss = {
-  /** soldPrice − purchasePrice, in the device's currency. Negative = loss. */
+  /** soldPrice − cost, in the device's currency. Negative = loss. */
   amount: number;
   tone: 'profit' | 'loss' | 'even';
   /** Already money-formatted in the request's locale and device currency. */
@@ -162,9 +162,19 @@ export type SaleProfitLoss = {
 };
 
 /**
- * Profit/loss of a resale versus the purchase price. The API never returns
- * this (openapi: "Lãi/lỗ = soldPrice − purchasePrice (client tự tính)"), so it
- * is computed here and unit-tested. `null` when there is no sale price.
+ * Profit/loss of a resale versus what the device COST its owner. The API never
+ * returns this ("Lãi/lỗ = soldPrice − cost (client tự tính)"), so it is computed
+ * here and unit-tested. `null` when there is no sale price.
+ *
+ * ## What `costBasis` is, and why it is not always `purchasePrice`
+ *
+ * For a device paid for outright it is `purchasePrice`. For one bought on
+ * instalments it is the plan's total — down payment + every monthly payment +
+ * the fees (`lib/installment.ts::ownershipCost`, which reads the server's
+ * `installment.totalCost`). Comparing a resale against the sticker price of a
+ * financed phone understates the cost by the fees and can flip a real loss into
+ * an apparent gain, which is the one arithmetic mistake §6.5 calls out. The
+ * caller decides; this function only subtracts.
  *
  * `currency` defaults to VND so existing callers stay correct, but a device
  * bought in USD must render `Lãi $100.00` — not `Lãi 100 ₫`. The subtraction is
@@ -172,13 +182,13 @@ export type SaleProfitLoss = {
  * device and the server's locked rate is deliberately not applied here.
  */
 export function saleProfitLoss(
-  purchasePrice: number | null | undefined,
+  costBasis: number | null | undefined,
   soldPrice: number | null | undefined,
   locale: Locale,
   currency: string = 'VND',
 ): SaleProfitLoss | null {
   if (soldPrice == null) return null;
-  const cost = purchasePrice ?? 0;
+  const cost = costBasis ?? 0;
   const amount = soldPrice - cost;
   if (amount > 0) {
     return {

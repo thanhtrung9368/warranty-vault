@@ -53,6 +53,8 @@ var calendarDays = map[string]bool{
 	"LastBoughtAt": true,
 	// Claim
 	"ExpectedReturnAt": true,
+	// InstallmentPlan (migration 0031)
+	"FirstDueAt": true,
 }
 
 // responseModels is every generated row that can reach a JSON response. Models
@@ -64,6 +66,7 @@ var responseModels = []any{
 	store.DecisionSnooze{},
 	store.Device{},
 	store.DeviceShare{},
+	store.InstallmentPlan{},
 	store.PasswordReset{},
 	store.PushSubscription{},
 	store.Reminder{},

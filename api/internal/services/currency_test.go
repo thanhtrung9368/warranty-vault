@@ -317,7 +317,7 @@ func TestWithVNDJSONShape(t *testing.T) {
 		PurchasePrice: 999,
 		SoldPrice:     &soldPrice,
 	}
-	raw, err := json.Marshal(withVND(dev))
+	raw, err := json.Marshal(withVND(dev, nil))
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
@@ -340,7 +340,7 @@ func TestWithVNDJSONShape(t *testing.T) {
 
 	// Not sold: soldPriceVnd is omitted (the contract says "when sold").
 	dev.SoldPrice = nil
-	raw, err = json.Marshal(withVND(dev))
+	raw, err = json.Marshal(withVND(dev, nil))
 	if err != nil {
 		t.Fatalf("marshal unsold: %v", err)
 	}
@@ -357,7 +357,7 @@ func TestWithVNDJSONShape(t *testing.T) {
 
 	// A VND device still gets purchasePriceVnd, and it equals purchasePrice.
 	vnd := store.Device{Currency: "VND", PurchasePrice: 25_000_000}
-	raw, err = json.Marshal(withVND(vnd))
+	raw, err = json.Marshal(withVND(vnd, nil))
 	if err != nil {
 		t.Fatalf("marshal vnd: %v", err)
 	}
@@ -374,7 +374,7 @@ func TestWithVNDJSONShape(t *testing.T) {
 
 	// A non-VND row with no rate must NOT report its face value as VND.
 	broken := store.Device{Currency: "EUR", PurchasePrice: 999}
-	raw, err = json.Marshal(withVND(broken))
+	raw, err = json.Marshal(withVND(broken, nil))
 	if err != nil {
 		t.Fatalf("marshal broken: %v", err)
 	}

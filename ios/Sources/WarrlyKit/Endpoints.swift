@@ -224,6 +224,38 @@ extension APIClient {
         let _: EmptyResponse = try await request("DELETE", "/api/v1/devices/\(id)")
     }
 
+    // MARK: - Installment plan (FEATURE_RESEARCH_2026-11 §6.5, migration 0031)
+
+    /// `PUT /api/v1/devices/{id}/installment` — save (or replace) the plan.
+    ///
+    /// **Idempotent**: the row is keyed by device id, so a repeated identical
+    /// call writes the same values. The response is the full device detail, so
+    /// the caller gets the recomputed `installment` and `ownershipCostVnd` back
+    /// without a second read.
+    ///
+    /// This is the ONLY write path for the plan. It is deliberately not part of
+    /// `DeviceInput` / `updateDevice`: that PATCH replaces the whole device, and
+    /// a build that does not know the plan would erase it on every edit — the
+    /// reason the field lives in its own table and its own endpoint.
+    ///
+    /// Server-side validation answers `400` with `fieldErrors` (`months`,
+    /// `monthlyAmount`, `paidCount`, `firstDueAt`, …) rendered in the request's
+    /// language; `APIError.fieldErrors` carries them straight to the form.
+    public func saveInstallment(deviceId: String,
+                                _ input: InstallmentInput) async throws -> DeviceDetail {
+        try await request("PUT", "/api/v1/devices/\(deviceId)/installment", body: input)
+    }
+
+    /// `DELETE /api/v1/devices/{id}/installment` — remove the plan.
+    ///
+    /// **Idempotent**: a device with no plan still answers `200` (the desired end
+    /// state holds). A device owned by another account is a `404`, never a
+    /// silent success. Returns the device read, so the money basis is already
+    /// back on `purchasePriceVnd`.
+    public func deleteInstallment(deviceId: String) async throws -> DeviceDetail {
+        try await request("DELETE", "/api/v1/devices/\(deviceId)/installment")
+    }
+
     /// `POST /api/v1/devices/bulk` — add several devices in one call, with
     /// **partial success**.
     ///

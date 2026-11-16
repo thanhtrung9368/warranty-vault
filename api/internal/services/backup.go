@@ -395,6 +395,42 @@ type BackupDevice struct {
 	UpdatedAt                    string             `json:"updatedAt"`
 	Warranties                   []BackupWarranty   `json:"warranties"`
 	Attachments                  []BackupAttachment `json:"attachments"`
+	// Installment plan (migration 0031, FEATURE_RESEARCH_2026-11 §6.5).
+	//
+	// Additive and `omitempty` in exactly the way currency/fxRate are: a payload
+	// written before 0031 has no `installment` key, decodes to nil and imports as
+	// "no plan", so the payload VERSION does not move. `omitempty` is also what
+	// keeps a device with no plan byte-identical to the pre-0031 format.
+	//
+	// Carrying it is not optional in spirit: the plan is the user's only record
+	// of what the device actually cost (down payment + N payments + fees). Losing
+	// it on restore would silently reset the money basis of cost-per-day, resale
+	// profit and /stats back to the sticker price.
+	Installment *BackupInstallment `json:"installment,omitempty"`
+}
+
+// BackupInstallment is one device's installment plan in the backup payload.
+//
+// Amounts are in the DEVICE's currency, the same unit `purchasePrice` uses — the
+// plan has no currency of its own by design (the device's currency is locked
+// while a plan exists, so the two can never disagree).
+//
+// The derived fields (total, paid, remaining, next due) are deliberately absent:
+// they are computed on read, and a stored copy in a backup would be able to
+// disagree with the schedule beside it.
+type BackupInstallment struct {
+	DownPayment     int32   `json:"downPayment"`
+	Months          int32   `json:"months"`
+	MonthlyAmount   int32   `json:"monthlyAmount"`
+	FirstDueAt      string  `json:"firstDueAt"`
+	FileFee         *int32  `json:"fileFee"`
+	MonthlyFee      *int32  `json:"monthlyFee"`
+	PaidCount       int32   `json:"paidCount"`
+	Lender          *string `json:"lender"`
+	NotifiedDueAt   *string `json:"notifiedDueAt"`
+	NotifiedLeadDay *int32  `json:"notifiedLeadDay"`
+	CreatedAt       string  `json:"createdAt"`
+	UpdatedAt       string  `json:"updatedAt"`
 }
 
 type BackupWarranty struct {
@@ -551,6 +587,10 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 	if err != nil {
 		return nil, fmt.Errorf("backup list devices: %w", err)
 	}
+	installments, err := q.ListInstallmentPlansForUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("backup list installment plans: %w", err)
+	}
 	warranties, err := q.BackupListWarrantiesForUser(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("backup list warranties: %w", err)
@@ -606,6 +646,10 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 	priceByItem := map[string][]store.WishlistPrice{}
 	for _, p := range prices {
 		priceByItem[p.ItemId] = append(priceByItem[p.ItemId], p)
+	}
+	planByDevice := map[string]store.InstallmentPlan{}
+	for _, p := range installments {
+		planByDevice[p.DeviceId] = p
 	}
 	payBySub := map[string][]store.SubscriptionPayment{}
 	for _, p := range payments {
@@ -733,6 +777,22 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 			UpdatedAt:                    ts(d.UpdatedAt),
 			Warranties:                   []BackupWarranty{},
 			Attachments:                  []BackupAttachment{},
+		}
+		if p, ok := planByDevice[d.ID]; ok {
+			bd.Installment = &BackupInstallment{
+				DownPayment:     p.DownPayment,
+				Months:          p.Months,
+				MonthlyAmount:   p.MonthlyAmount,
+				FirstDueAt:      ts(p.FirstDueAt.Instant()),
+				FileFee:         p.FileFee,
+				MonthlyFee:      p.MonthlyFee,
+				PaidCount:       p.PaidCount,
+				Lender:          p.Lender,
+				NotifiedDueAt:   tsPtr(p.NotifiedDueAt),
+				NotifiedLeadDay: p.NotifiedLeadDay,
+				CreatedAt:       ts(p.CreatedAt),
+				UpdatedAt:       ts(p.UpdatedAt),
+			}
 		}
 		for _, w := range warByDevice[d.ID] {
 			bw := BackupWarranty{
@@ -1015,6 +1075,40 @@ func backupBrandWarranty(ctx context.Context, d BackupDevice) (brandWarrantyValu
 	}
 }
 
+// backupInstallmentInput normalises and validates a payload device's optional
+// installment plan into the same InstallmentInput the live PUT uses. A restore
+// therefore cannot write a plan the API itself would refuse (months out of
+// range, paidCount > months, unreadable firstDueAt), which would otherwise
+// surface as a raw CHECK-constraint 500 halfway through an import.
+//
+// Absent key ⇒ nil, which is the pre-0031 payload and means "no plan".
+func backupInstallmentInput(ctx context.Context, d BackupDevice) (*InstallmentInput, error) {
+	bi := d.Installment
+	if bi == nil {
+		return nil, nil
+	}
+	in := InstallmentInput{
+		DownPayment:   bi.DownPayment,
+		Months:        bi.Months,
+		MonthlyAmount: bi.MonthlyAmount,
+		FirstDueAt:    bi.FirstDueAt,
+		FileFee:       bi.FileFee,
+		MonthlyFee:    bi.MonthlyFee,
+		PaidCount:     bi.PaidCount,
+		Lender:        bi.Lender,
+	}
+	if err := ValidateInstallmentInput(ctx, &in); err != nil {
+		var svc *Error
+		detail := ""
+		if errors.As(err, &svc) {
+			detail = svc.Message
+		}
+		return nil, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
+			"Kế hoạch trả góp của \"%s\" không hợp lệ: %s", d.Name, detail)}
+	}
+	return &in, nil
+}
+
 func validateBackupPayload(ctx context.Context, payload *BackupExport) error {
 	if payload == nil {
 		return &Error{Code: "VALIDATION", Message: i18n.Text(ctx, "File JSON không hợp lệ")}
@@ -1046,6 +1140,12 @@ func validateBackupPayload(ctx context.Context, payload *BackupExport) error {
 		// half a device and then abort.
 		if _, berr := backupBrandWarranty(ctx, d); berr != nil {
 			return berr
+		}
+		// Installment plan (migration 0031). Same rules as the live PUT, checked
+		// before the transaction for the same reason the pairs above are: a
+		// hand-edited file must not write half a device and then abort.
+		if _, ierr := backupInstallmentInput(ctx, d); ierr != nil {
+			return ierr
 		}
 		if len(d.Attachments) > MaxAttachmentsPerDevice {
 			// The upload path caps this (services/attachments.go). A backup cannot
@@ -1465,6 +1565,56 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			UpdatedAt:                    pgts(d.UpdatedAt),
 		}); err != nil {
 			return nil, fmt.Errorf("insert device: %w", err)
+		}
+		// Installment plan (migration 0031), restored right after its device so
+		// the FK exists. Validation ran before the transaction; this re-reads it
+		// because the helper is the single definition of the rule and a restore
+		// must not insert an unchecked value.
+		inst, ierr := backupInstallmentInput(ctx, d)
+		if ierr != nil {
+			return nil, ierr
+		}
+		if inst != nil {
+			firstDue, derr := parseDate(inst.FirstDueAt)
+			if derr != nil {
+				// Unreachable after validation; same guard shape as the currency
+				// and brand-warranty pairs above.
+				return nil, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
+					"Kế hoạch trả góp của \"%s\" không hợp lệ: %s", d.Name, "firstDueAt")}
+			}
+			notifiedDueAt := wire.Instant{}
+			if d.Installment.NotifiedDueAt != nil {
+				notifiedDueAt = pgtsPtr(d.Installment.NotifiedDueAt)
+			}
+			// createdAt/updatedAt are NOT NULL in the table, and a hand-edited
+			// payload may omit them. Only the DERIVED money fields must not be
+			// invented; a bookkeeping timestamp defaults to now, exactly like the
+			// column default it replaces.
+			createdAt := pgts(d.Installment.CreatedAt)
+			if !createdAt.Valid {
+				createdAt = wire.At(time.Now().UTC())
+			}
+			updatedAt := pgts(d.Installment.UpdatedAt)
+			if !updatedAt.Valid {
+				updatedAt = createdAt
+			}
+			if err := q.BackupInsertInstallmentPlan(ctx, store.BackupInsertInstallmentPlanParams{
+				DeviceId:        d.ID,
+				DownPayment:     inst.DownPayment,
+				Months:          inst.Months,
+				MonthlyAmount:   inst.MonthlyAmount,
+				FirstDueAt:      wire.Date(firstDue),
+				FileFee:         inst.FileFee,
+				MonthlyFee:      inst.MonthlyFee,
+				PaidCount:       inst.PaidCount,
+				Lender:          inst.Lender,
+				NotifiedDueAt:   notifiedDueAt,
+				NotifiedLeadDay: d.Installment.NotifiedLeadDay,
+				CreatedAt:       createdAt,
+				UpdatedAt:       updatedAt,
+			}); err != nil {
+				return nil, fmt.Errorf("insert installment plan: %w", err)
+			}
 		}
 		for _, w := range d.Warranties {
 			if !safeIDRE.MatchString(w.ID) {

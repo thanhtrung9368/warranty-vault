@@ -19,12 +19,20 @@ var statsWishlistStatuses = []string{"WATCHING", "DECIDED", "SKIPPED", "PURCHASE
 type DeviceStats struct {
 	Total    int64            `json:"total"`
 	ByStatus map[string]int64 `json:"byStatus"`
-	// TotalPurchasePrice is the sum of every device's purchase price converted
-	// to VND at the rate LOCKED on that device (migration 0022). For a VND-only
-	// account it is exactly SUM(purchasePrice) — the pre-0022 value, unchanged —
-	// because a VND device has no rate and converts 1:1. A non-VND device with no
-	// usable rate contributes nothing (its VND value is unknown); it is never
-	// added at par, which is the bug this field used to have.
+	// TotalPurchasePrice is the sum of every device's OWNERSHIP cost converted
+	// to VND at the rate LOCKED on that device (migration 0022). For a device
+	// bought on instalments that is the plan's total (down payment + N monthly
+	// payments + fees, migration 0031 / §6.5), not the sticker price: the two
+	// differ, and summing the sticker made this aggregate disagree with the
+	// per-device `ownershipCostVnd` the same server returns (and with the web/iOS
+	// rollups). The field keeps its name because the contract's shape must not
+	// move for clients that already read it.
+	//
+	// For a VND-only account with no plans it is exactly SUM(purchasePrice) — the
+	// pre-0022 value, unchanged — because a VND device has no rate and converts
+	// 1:1. A non-VND device with no usable rate contributes nothing (its VND
+	// value is unknown); it is never added at par, which is the bug this field
+	// used to have.
 	TotalPurchasePrice int64 `json:"totalPurchasePrice"`
 	// TotalWarrantyCost is the sum of Warranty.cost across every package on the
 	// user's devices. The Android stats screen already reads exactly

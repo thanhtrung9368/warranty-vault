@@ -446,18 +446,18 @@ final class DeviceResaleTests: KitTestCase {
     // MARK: - The derived profit/loss
 
     func testProfitLossUsesTheSameWordingAndMoneyFormatAsWebAndAndroid() {
-        XCTAssertEqual(DeviceResale.profitLoss(purchasePrice: 30_000_000, soldPrice: 35_000_000),
+        XCTAssertEqual(DeviceResale.profitLoss(costBasis: 30_000_000, soldPrice: 35_000_000),
                        SaleProfitLoss(amount: 5_000_000, tone: .profit, label: "Lãi 5.000.000 ₫"))
-        XCTAssertEqual(DeviceResale.profitLoss(purchasePrice: 30_000_000, soldPrice: 25_000_000),
+        XCTAssertEqual(DeviceResale.profitLoss(costBasis: 30_000_000, soldPrice: 25_000_000),
                        SaleProfitLoss(amount: -5_000_000, tone: .loss, label: "Lỗ 5.000.000 ₫"))
-        XCTAssertEqual(DeviceResale.profitLoss(purchasePrice: 30_000_000, soldPrice: 30_000_000),
+        XCTAssertEqual(DeviceResale.profitLoss(costBasis: 30_000_000, soldPrice: 30_000_000),
                        SaleProfitLoss(amount: 0, tone: .even, label: "Hoà vốn"))
     }
 
     func testProfitLossShowsNothingWithoutASaleAndAFullLossForAGiveAway() {
-        XCTAssertNil(DeviceResale.profitLoss(purchasePrice: 30_000_000, soldPrice: nil))
+        XCTAssertNil(DeviceResale.profitLoss(costBasis: 30_000_000, soldPrice: nil))
         // 0đ for a device bought at 30.000.000đ is the worst case, not "no data".
-        XCTAssertEqual(DeviceResale.profitLoss(purchasePrice: 30_000_000, soldPrice: 0)?.label,
+        XCTAssertEqual(DeviceResale.profitLoss(costBasis: 30_000_000, soldPrice: 0)?.label,
                        "Lỗ 30.000.000 ₫")
     }
 

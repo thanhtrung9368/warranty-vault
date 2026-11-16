@@ -219,8 +219,96 @@ export type Device = {
   // Cron de-duplication stamp for the "sắp hết hạn đổi trả" push. Operational
   // detail with no web surface, so it is optional here.
   returnWindowNotifiedAt?: string | null;
+  // ── Installment plan (FEATURE_RESEARCH_2026-11 §6.5, migration 0031) ───
+  //
+  // READ-ONLY on this type. The plan is written exclusively through
+  // `PUT /v1/devices/{id}/installment` (`api.saveInstallment`), never through
+  // the device PATCH — that endpoint replaces the whole device and would erase
+  // a field it does not know about.
+  //
+  // Optional so a hand-built fixture, a cached payload or a pre-1.2 API still
+  // type checks; absent/`null` both mean "no plan". Always read the prepared
+  // helpers in `@/lib/installment` instead of the raw shape.
+  installment?: InstallmentPlan | null;
+  // The money basis every rollup must use, in VND, computed by the server: the
+  // instalment total when a plan exists, `purchasePriceVnd` otherwise. Null in
+  // exactly the case `purchasePriceVnd` is null (a foreign row with no locked
+  // rate). Optional so older payloads keep working — `ownershipCostVnd` falls
+  // back to `purchasePriceVnd`.
+  ownershipCostVnd?: number | null;
   createdAt: string;
   updatedAt: string;
+};
+
+// `InstallmentPlan` — the server's response shape (openapi `InstallmentPlan`).
+//
+// The plan is the USER'S OWN declaration of a financing schedule, not a bank
+// ledger: the app cannot see a transaction, so `paidCount` is self-reported and
+// there is deliberately no "overdue" flag anywhere. Wave 1 has no reminder.
+//
+// Every `…Amount`/`…Cost` below is **money in the device's currency**
+// (`Device.currency`), the same unit as `purchasePrice`. The only VND figure is
+// `Device.ownershipCostVnd`.
+export type InstallmentPlan = {
+  deviceId: string;
+  /** Paid at signing, in the device's currency. `0` is a real answer. */
+  downPayment: number;
+  /** Number of monthly payments, 1–60. */
+  months: number;
+  /** Scheduled payment per month, > 0. */
+  monthlyAmount: number;
+  /** Day the FIRST payment is due (`YYYY-MM-DD`), never an instant. */
+  firstDueAt: string;
+  /**
+   * Optional fee. `null` means "the user did not say", NOT zero — an unknown
+   * fee makes `totalCost` a lower bound (`hasUnknownFees`).
+   */
+  fileFee: number | null;
+  /** Optional per-payment fee; same `null` rule as `fileFee`. */
+  monthlyFee: number | null;
+  /** Payments the user says they have made, 0…`months`. */
+  paidCount: number;
+  /** Who financed it, free text. */
+  lender: string | null;
+  /** Reminder dedup stamp for a later wave; always `null` in 1.2. */
+  notifiedDueAt?: string | null;
+  /** The lead day `notifiedDueAt` belongs to; always `null` in 1.2. */
+  notifiedLeadDay?: number | null;
+  /** Derived: total ownership cost in the device's currency (lower bound if fees unknown). */
+  totalCost: number;
+  /** Derived: part of `totalCost` already paid. */
+  paidAmount: number;
+  /** Derived: `totalCost - paidAmount` — money still owed in instalments. */
+  remainingAmount: number;
+  /**
+   * Derived: `firstDueAt + paidCount` months, day-of-month clamped (31 Jan + 1
+   * month = 28/29 Feb). `null` when complete.
+   */
+  nextDueAt: string | null;
+  /** Derived: `paidCount == months`. */
+  completed: boolean;
+  /** Derived: `fileFee` or `monthlyFee` is null, so every total is a lower bound. */
+  hasUnknownFees: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+// Mirrors services.InstallmentInput / openapi `InstallmentInput` — the body of
+// `PUT /v1/devices/{id}/installment`.
+//
+// Amounts are in the DEVICE's currency. `fileFee`/`monthlyFee` are `null` when
+// the user does not know them (that is a lower bound, not a zero), and
+// `firstDueAt` is a calendar day from `<input type="date">`.
+export type InstallmentInput = {
+  downPayment: number;
+  months: number;
+  monthlyAmount: number;
+  /** `YYYY-MM-DD`. */
+  firstDueAt: string;
+  fileFee: number | null;
+  monthlyFee: number | null;
+  paidCount: number;
+  lender: string | null;
 };
 
 // `GET /v1/devices` row — Device + `attachmentCount` + `effectiveWarrantyEnd`.
@@ -492,4 +580,44 @@ export async function update(
 
 export async function remove(id: string): Promise<ApiResult<{ ok: true }>> {
   return apiFetch<{ ok: true }>('DELETE', `/v1/devices/${encodeURIComponent(id)}`);
+}
+
+/**
+ * `PUT /v1/devices/{id}/installment` — save (or replace) the device's
+ * installment plan.
+ *
+ * Idempotent: a repeated identical call writes the same row. The response is the
+ * full device detail, so the caller gets the recomputed `installment` and
+ * `ownershipCostVnd` back without a second read.
+ *
+ * Validation failures surface as Go's `fieldErrors` (`months`,
+ * `monthlyAmount`, `paidCount`, `firstDueAt`, …), rendered in the request's
+ * language — the form shows them verbatim, exactly like the device form.
+ */
+export async function saveInstallment(
+  id: string,
+  input: InstallmentInput,
+): Promise<ApiResult<DeviceDetail>> {
+  const res = await apiFetch<{ device: DeviceDetail }>(
+    'PUT',
+    `/v1/devices/${encodeURIComponent(id)}/installment`,
+    input,
+  );
+  if (!res.ok) return res;
+  return { ok: true, data: res.data.device };
+}
+
+/**
+ * `DELETE /v1/devices/{id}/installment` — remove the plan.
+ *
+ * Idempotent: removing a plan that is already absent is a 200. Returns the
+ * device read, so the money basis is already back on `purchasePriceVnd`.
+ */
+export async function removeInstallment(id: string): Promise<ApiResult<DeviceDetail>> {
+  const res = await apiFetch<{ device: DeviceDetail }>(
+    'DELETE',
+    `/v1/devices/${encodeURIComponent(id)}/installment`,
+  );
+  if (!res.ok) return res;
+  return { ok: true, data: res.data.device };
 }

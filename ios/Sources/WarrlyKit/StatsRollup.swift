@@ -244,6 +244,12 @@ public enum StatsRollup {
     /// therefore uses `device.purchasePriceInVnd` (the server's locked VND
     /// value) and skips a foreign device whose VND value the read did not carry
     /// rather than comparing dong with dollars.
+    ///
+    /// Deliberately the STICKER price, not the installment-aware
+    /// `ownershipCostInVnd` (§6.5): the question here is "repair it or replace
+    /// it", and replacing means buying another one at today's price — not paying
+    /// off the plan you already signed. The money ledger and cost-per-day do use
+    /// the ownership basis; this one comparison is about a future purchase.
     public static func repairSpend(
         claims: [Claim],
         devices: [Device]
@@ -303,9 +309,10 @@ public enum StatsRollup {
     /// added raw: a $999 phone and a 25,000,000 ₫ phone would sum as 999 +
     /// 25,000,000. Each amount is resolved through the totals rule instead:
     ///
-    ///   - the device uses the server's `purchasePriceVnd` (the contract's
-    ///     computed value) and falls back to the native amount only when the
-    ///     device is VND (already dong);
+    ///   - the device uses the server's OWNERSHIP cost in VND
+    ///     (`ownershipCostInVnd`: the installment plan's total when it has one,
+    ///     `purchasePriceVnd` otherwise — §6.5) and falls back to the native
+    ///     amount only when the device is VND (already dong);
     ///   - each `Warranty.cost` is in the device's currency and the contract
     ///     does not pre-compute it, so it is multiplied by the device's
     ///     **locked** `fxRate` — the same rate the purchase was entered at, not
@@ -322,8 +329,12 @@ public enum StatsRollup {
     ) -> [SpendEntry] {
         var entries: [SpendEntry] = []
         for device in devices {
+            // The ownership basis, not the sticker price: a financed device
+            // costs its plan's total (down payment + every payment + fees), and
+            // adding the sticker instead made this ledger disagree with the
+            // device card and the web rollup.
             entries.append(SpendEntry(
-                amount: device.purchasePriceInVnd ?? 0,
+                amount: device.ownershipCostInVnd ?? 0,
                 date: device.purchaseDate,
                 category: device.category,
                 kind: .device
@@ -472,17 +483,18 @@ public enum StatsRollup {
 
     // MARK: - Leaderboards / asset value
 
-    /// Devices ordered by their **VND** purchase value.
+    /// Devices ordered by their **VND** ownership cost.
     ///
     /// The list screen's "Giá cao nhất / thấp nhất" sorts go through this, as
     /// does the Top 5. Sorting the raw `purchasePrice` is the same bug as
-    /// summing it: a $999 phone would rank below a 1,000,000 ₫ laptop. A foreign
-    /// device with no server VND value cannot be compared and sorts last in
-    /// either direction; ties fall back to the name so the order is stable.
+    /// summing it: a $999 phone would rank below a 1,000,000 ₫ laptop, and a
+    /// financed phone would rank below its own cost. A foreign device with no
+    /// server VND value cannot be compared and sorts last in either direction;
+    /// ties fall back to the name so the order is stable.
     public static func sortedByPurchaseValue(_ devices: [Device],
                                              descending: Bool = true) -> [Device] {
         devices.sorted { lhs, rhs in
-            switch (lhs.purchasePriceInVnd, rhs.purchasePriceInVnd) {
+            switch (lhs.ownershipCostInVnd, rhs.ownershipCostInVnd) {
             case let (left?, right?):
                 if left != right { return descending ? left > right : left < right }
                 return lhs.name.localizedCompare(rhs.name) == .orderedAscending
@@ -517,8 +529,9 @@ public enum StatsRollup {
     /// This used to compare the stored end (local midnight) with `now`, so from
     /// 00:00:01 on the final day the device left the count and its value left
     /// the total — a day early, on the one day the user might still be covered.
-    /// The total is in VND, resolved per device through the same totals rule as
-    /// the ledger.
+    /// The total is in VND, resolved per device through the same ownership-cost
+    /// rule as the ledger (§6.5): a financed device counts as its plan's total,
+    /// not the sticker price.
     public static func activeAssetValue(_ devices: [Device],
                                         now: Date = Date(),
                                         calendar: Calendar = .current) -> AssetValue {
@@ -529,7 +542,7 @@ public enum StatsRollup {
                   let end = device.effectiveWarrantyEnd,
                   CalendarDay.days(from: now, to: end, calendar: calendar) >= 0
             else { continue }
-            total += device.purchasePriceInVnd ?? 0
+            total += device.ownershipCostInVnd ?? 0
             count += 1
         }
         return AssetValue(total: total, count: count)
@@ -540,10 +553,13 @@ public enum StatsRollup {
     ///
     /// The app used to read `GET /api/v1/stats → devices.totalPurchasePrice`,
     /// which the frozen multi-currency contract does not redefine; summing the
-    /// per-device `purchasePriceVnd` the reads already carry is both
-    /// currency-correct and independent of that endpoint's arithmetic.
+    /// per-device VND ownership cost the reads already carry
+    /// (`ownershipCostInVnd`: plan total when financed, `purchasePriceVnd`
+    /// otherwise — §6.5) is both currency-correct and independent of that
+    /// endpoint's arithmetic. The server's own aggregate uses the same basis
+    /// since migration 0031, so the two cannot disagree.
     public static func totalPurchaseValue(_ devices: [Device]) -> Int {
-        devices.reduce(0) { $0 + ($1.purchasePriceInVnd ?? 0) }
+        devices.reduce(0) { $0 + ($1.ownershipCostInVnd ?? 0) }
     }
 
     /// Effective warranty end for a device from its full warranty list — the

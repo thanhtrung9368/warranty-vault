@@ -140,6 +140,22 @@ type EntitlementEvent struct {
 	ReceivedAt            wire.Instant `json:"receivedAt"`
 }
 
+type InstallmentPlan struct {
+	DeviceId        string       `json:"deviceId"`
+	DownPayment     int32        `json:"downPayment"`
+	Months          int32        `json:"months"`
+	MonthlyAmount   int32        `json:"monthlyAmount"`
+	FirstDueAt      wire.Day     `json:"firstDueAt"`
+	FileFee         *int32       `json:"fileFee"`
+	MonthlyFee      *int32       `json:"monthlyFee"`
+	PaidCount       int32        `json:"paidCount"`
+	Lender          *string      `json:"lender"`
+	NotifiedDueAt   wire.Instant `json:"notifiedDueAt"`
+	NotifiedLeadDay *int32       `json:"notifiedLeadDay"`
+	CreatedAt       wire.Instant `json:"createdAt"`
+	UpdatedAt       wire.Instant `json:"updatedAt"`
+}
+
 type PasswordReset struct {
 	ID           string       `json:"id"`
 	UserId       string       `json:"userId"`

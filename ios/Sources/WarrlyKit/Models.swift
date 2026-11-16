@@ -594,6 +594,34 @@ public struct Device: Codable, Sendable, Identifiable, Hashable {
     /// native amount only when the device is VND.
     public let purchasePriceVnd: Int?
 
+    // MARK: Installment plan (FEATURE_RESEARCH_2026-11 §6.5, migration 0031)
+
+    /// The device's financing schedule, or `nil` when it was paid for outright.
+    ///
+    /// This is the USER's own declaration — a down payment, N monthly payments,
+    /// optional fees and how many payments they say they have made. It is not a
+    /// bank ledger: the app never sees a transaction, which is why wave 1 ships
+    /// no reminder and no "overdue" flag.
+    ///
+    /// **Read-only here.** The plan is written exclusively through
+    /// `PUT /api/v1/devices/{id}/installment` (`APIClient.saveInstallment`),
+    /// never through a device PATCH: that call replaces the whole device, and a
+    /// build that does not know the field would erase the plan on every edit.
+    ///
+    /// Money inside the plan is in the DEVICE's currency (`currencyCode`), the
+    /// same unit as `purchasePrice`. Read the prepared totals through
+    /// `installment?.totalCost` / `ownershipCost`, never by re-adding the parts.
+    public let installment: InstallmentPlan?
+
+    /// The money basis every VND total must use, computed **by the server**:
+    /// the plan's total when a plan exists, `purchasePriceVnd` otherwise.
+    ///
+    /// `nil` in exactly the case `purchasePriceVnd` is `nil` (a non-VND row with
+    /// no usable locked rate). Optional only so a payload from before 1.2 still
+    /// decodes; read it through `ownershipCostInVnd`, which falls back to
+    /// `purchasePriceVnd` and keeps every existing total unchanged.
+    public let ownershipCostVnd: Int?
+
     // MARK: Brand warranty lookup (openapi `Device.brandWarranty*`)
 
     /// What the brand's own system says, or `nil` when the user has never
@@ -649,6 +677,23 @@ public struct Device: Codable, Sendable, Identifiable, Hashable {
                                currency: currency)
     }
 
+    /// What the device COST its owner, in the device's own currency: the
+    /// installment plan's total when there is a plan, the purchase price
+    /// otherwise. This is the basis for same-currency comparisons such as resale
+    /// profit/loss (`DeviceResale.profitLoss(costBasis:…)`).
+    public var ownershipCost: Int {
+        installment?.totalCost ?? purchasePrice
+    }
+
+    /// The same cost in VND — the only value a VND total may sum, and the one
+    /// `StatsRollup` adds. Falls back to `purchasePriceVnd` for a payload from
+    /// before 1.2 and to the native amount when the device is VND.
+    public var ownershipCostInVnd: Int? {
+        CurrencyRules.totalVnd(native: ownershipCost,
+                               serverVnd: ownershipCostVnd ?? purchasePriceVnd,
+                               currency: currency)
+    }
+
     /// What the sale contributes to a VND total, or `nil` when there is no sale
     /// or the foreign amount has no server-computed VND value.
     public var soldPriceInVnd: Int? {
@@ -688,6 +733,115 @@ public struct Device: Codable, Sendable, Identifiable, Hashable {
     // `nil` here is "not returned", never "no extension".
     public let repairExtensionDays: Int?
     public let entitledWarrantyEnd: Date?
+}
+
+/// One device's financing schedule (openapi `InstallmentPlan`, migration 0031).
+///
+/// FEATURE_RESEARCH_2026-11 §6.5. This is the USER's own record — a down
+/// payment, N monthly payments, optional fees, and how many payments they say
+/// they have made. It is **not** a bank ledger: the app cannot see whether the
+/// bank charged anything, so:
+///
+///   * there is no "overdue" flag anywhere, and the UI must never claim a
+///     payment is late; `nextDueAt` states the schedule only;
+///   * wave 1 has no reminder and no push (`notifiedDueAt` /
+///     `notifiedLeadDay` are reserved and always `nil`).
+///
+/// ## Currency
+///
+/// Every amount here is in the **device's** currency (`Device.currencyCode`),
+/// not necessarily dong — the same unit as `Device.purchasePrice`. The only VND
+/// figure is `Device.ownershipCostVnd`.
+///
+/// ## Derived fields
+///
+/// `totalCost`, `paidAmount`, `remainingAmount`, `nextDueAt`, `completed` and
+/// `hasUnknownFees` are computed by the server on every read and are never
+/// stored. Do not re-add the parts here: the month-clamp rule for `nextDueAt`
+/// (31 Jan + 1 month = 28/29 Feb) lives in `services/installment.go` so the three
+/// clients cannot implement it three ways.
+public struct InstallmentPlan: Codable, Sendable, Hashable {
+    public let deviceId: String
+    /// Paid at signing, in the device's currency. `0` is a real answer.
+    public let downPayment: Int
+    /// Number of monthly payments, 1…60.
+    public let months: Int
+    /// Scheduled payment per month, > 0.
+    public let monthlyAmount: Int
+    /// The day the FIRST payment is due — a calendar day, `"2026-11-20"`.
+    /// Kept as the raw wire string for the same reason `soldAt` is: only its day
+    /// is ever shown, and parsing it as an instant would move it in a
+    /// negative-offset zone. Format it through `DeviceReturnWindow.dayPrefix` /
+    /// `WireDay`, never with a bare `Date`.
+    public let firstDueAt: String
+    /// Optional arrangement fee. `nil` means "the user did not say", NOT zero —
+    /// an unknown fee makes `totalCost` a lower bound (`hasUnknownFees`).
+    public let fileFee: Int?
+    /// Optional per-payment fee; same `nil` rule as `fileFee`.
+    public let monthlyFee: Int?
+    /// Payments the user says they have made, 0…`months`.
+    public let paidCount: Int
+    /// Who financed it, free text.
+    public let lender: String?
+    /// Reminder dedup stamp for a later wave. Always `nil` in 1.2.
+    public let notifiedDueAt: String?
+    /// The lead day `notifiedDueAt` belongs to. Always `nil` in 1.2.
+    public let notifiedLeadDay: Int?
+    /// Derived: total ownership cost in the device's currency. A **lower bound**
+    /// when `hasUnknownFees`.
+    public let totalCost: Int
+    /// Derived: the part of `totalCost` already paid (down payment + file fee at
+    /// signing + `paidCount` payments).
+    public let paidAmount: Int
+    /// Derived: money still owed in instalments. `0` when complete.
+    public let remainingAmount: Int
+    /// Derived: `firstDueAt + paidCount` months, day-of-month clamped. `nil` when
+    /// the plan is complete.
+    public let nextDueAt: String?
+    /// Derived: `paidCount == months`.
+    public let completed: Bool
+    /// Derived: `fileFee` or `monthlyFee` is unknown, so every total above is a
+    /// lower bound. The UI must say so instead of presenting a fact.
+    public let hasUnknownFees: Bool
+}
+
+/// Body of `PUT /api/v1/devices/{id}/installment` (openapi `InstallmentInput`).
+///
+/// Only what the USER declares. `notifiedDueAt` / `notifiedLeadDay` are
+/// operational dedup markers for a later wave and are not writable here.
+///
+/// Amounts are in the **device's** currency. `fileFee` / `monthlyFee` are
+/// optional and encode as explicit JSON `null` when absent — which is the wire
+/// meaning of "the user did not say" (a lower bound), deliberately different
+/// from `0` ("this fee is zero").
+public struct InstallmentInput: Codable, Sendable, Hashable {
+    public var downPayment: Int
+    public var months: Int
+    public var monthlyAmount: Int
+    /// `YYYY-MM-DD` — a calendar day, not an instant.
+    public var firstDueAt: String
+    public var fileFee: Int?
+    public var monthlyFee: Int?
+    public var paidCount: Int
+    public var lender: String?
+
+    public init(downPayment: Int,
+                months: Int,
+                monthlyAmount: Int,
+                firstDueAt: String,
+                fileFee: Int? = nil,
+                monthlyFee: Int? = nil,
+                paidCount: Int = 0,
+                lender: String? = nil) {
+        self.downPayment = downPayment
+        self.months = months
+        self.monthlyAmount = monthlyAmount
+        self.firstDueAt = firstDueAt
+        self.fileFee = fileFee
+        self.monthlyFee = monthlyFee
+        self.paidCount = paidCount
+        self.lender = lender
+    }
 }
 
 public struct DeviceDetail: Decodable, Sendable {
@@ -740,6 +894,29 @@ public struct DeviceDetailBody: Decodable, Sendable {
     public let fxRate: Int?
     public let purchasePriceVnd: Int?
     public let soldPriceVnd: Int?
+
+    /// The installment plan (migration 0031, §6.5) — same field and rules as
+    /// `Device.installment`. The detail read carries it so the device screen can
+    /// render the card without a second request; `nil` means "no plan".
+    public let installment: InstallmentPlan?
+
+    /// The server-computed VND ownership cost — same field and rules as
+    /// `Device.ownershipCostVnd`.
+    public let ownershipCostVnd: Int?
+
+    /// What the device cost in VND. Detail carries the same pair as the list, so
+    /// the two screens cannot disagree about the money basis.
+    public var ownershipCostInVnd: Int? {
+        CurrencyRules.totalVnd(native: ownershipCost,
+                               serverVnd: ownershipCostVnd ?? purchasePriceVnd,
+                               currency: currency)
+    }
+
+    /// What the device cost in its own currency: the plan total when it has a
+    /// plan, the purchase price otherwise.
+    public var ownershipCost: Int {
+        installment?.totalCost ?? purchasePrice
+    }
 
     /// Never-nil ISO code (`nil` = the contract default `VND`).
     public var currencyCode: String { CurrencyRules.normalized(currency) }

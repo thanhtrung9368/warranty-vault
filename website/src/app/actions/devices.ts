@@ -39,6 +39,7 @@ import {
   setDeviceWarningsFlash,
 } from '@/lib/device-warnings-flash';
 import { isSampleDevice, sampleDeviceInputs } from '@/lib/starter-kit';
+import { installmentInputFromForm } from '@/lib/installment';
 import { todayDay } from '@/lib/api-day';
 import { requireUser } from '@/lib/auth';
 import type { Translator } from '@/lib/i18n/catalog';
@@ -365,6 +366,73 @@ export async function saveBrandWarrantyCheck(
   revalidatePath(`/devices/${deviceId}`);
   const { t } = await getI18n();
   return { ok: true, message: t('Đã ghi kết quả đối chiếu với hãng.') };
+}
+
+// ---- Installment plan (FEATURE_RESEARCH_2026-11 §6.5, migration 0031) --------
+//
+// The plan has its OWN write path (`PUT/DELETE /v1/devices/{id}/installment`)
+// and deliberately does not travel through `updateDevice`. Two reasons, both
+// load-bearing:
+//
+//   * `PATCH /v1/devices/{id}` replaces the whole device. A build that predates
+//     the field (build 23 is in App Review) would erase the plan on every edit,
+//     and there is no way to make an old client send a field it has never heard
+//     of. A separate endpoint cannot be reached by a device PATCH at all.
+//   * The plan's amounts are denominated in the device's currency, which the
+//     server refuses to change while a plan exists (400 `fieldErrors.currency`).
+//     Folding the two forms together would make an ordinary device save fail
+//     for a reason the user did not cause.
+//
+// The form is plain `FormData`: money inputs come back as display strings
+// ("10.000.000"), so `installmentInputFromForm` parses them; validation is Go's
+// (`fieldErrors.months`, `.monthlyAmount`, `.paidCount`, `.firstDueAt` …) and
+// the messages are already in the request's language.
+
+/** Read one money/whole-number input as the raw display string (may be blank). */
+function rawField(formData: FormData, key: string): string | undefined {
+  const v = formData.get(key);
+  return typeof v === 'string' ? v : undefined;
+}
+
+export async function saveInstallment(
+  deviceId: string,
+  _prev: DeviceFormState,
+  formData: FormData,
+): Promise<DeviceFormState> {
+  const input = installmentInputFromForm({
+    downPayment: rawField(formData, 'downPayment'),
+    months: rawField(formData, 'months'),
+    monthlyAmount: rawField(formData, 'monthlyAmount'),
+    firstDueAt: rawField(formData, 'firstDueAt'),
+    fileFee: rawField(formData, 'fileFee'),
+    monthlyFee: rawField(formData, 'monthlyFee'),
+    paidCount: rawField(formData, 'paidCount'),
+    lender: rawField(formData, 'lender'),
+  });
+
+  const res = await api.devices.saveInstallment(deviceId, input);
+  if (!res.ok) return toFormState(res);
+
+  // The detail page is `force-dynamic`, but the action still needs this so the
+  // SAME navigation re-reads the device: the card above the form renders the
+  // server's derived totals (`ownershipCostVnd`), and the list/stats pages read
+  // the same basis. `/stats` is included because the rollup totals move.
+  revalidatePath(`/devices/${deviceId}`);
+  revalidatePath('/devices');
+  revalidatePath('/stats');
+  const { t } = await getI18n();
+  return { ok: true, message: t('Đã lưu kế hoạch trả góp.') };
+}
+
+export async function clearInstallment(deviceId: string): Promise<DeviceFormState> {
+  const res = await api.devices.removeInstallment(deviceId);
+  if (!res.ok) return toFormState(res);
+
+  revalidatePath(`/devices/${deviceId}`);
+  revalidatePath('/devices');
+  revalidatePath('/stats');
+  const { t } = await getI18n();
+  return { ok: true, message: t('Đã xoá kế hoạch trả góp.') };
 }
 
 // Called by `DeviceWarningsBanner` once the flash has been displayed, so a saved

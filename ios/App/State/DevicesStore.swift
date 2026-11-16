@@ -75,6 +75,19 @@ public final class DevicesStore: ObservableObject {
         DeadlineSurface.refreshSoon(client: client)
     }
 
+    /// Re-reads the list projection.
+    ///
+    /// Used by a screen that changes a device through a DEDICATED endpoint rather
+    /// than `PATCH /devices/{id}` and therefore cannot feed the response back
+    /// into `update(...)` — the installment plan (`PUT/DELETE
+    /// /devices/{id}/installment`) is the first of those. Its response carries
+    /// the recomputed `installment` and `ownershipCostVnd`, but the list row is
+    /// what this screen (and the stats rollups) read, so the projection is
+    /// refreshed instead of patching one Device by hand.
+    public func refresh() async {
+        await refreshProjection()
+    }
+
     /// Re-reads the list without touching `state`.
     ///
     /// `POST`/`PATCH /api/v1/devices` return the bare `Device`, but the list

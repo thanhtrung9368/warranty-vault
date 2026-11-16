@@ -3,6 +3,7 @@ package com.warrly.ui.screens.devices
 import com.warrly.ui.screens.todayDayIso
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +58,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -857,6 +859,86 @@ private fun DeviceSummaryCard(device: Device) {
             }
             if (!device.serialNumber.isNullOrBlank()) {
                 DetailRow(stringResource(R.string.devadd_serial_number), device.serialNumber)
+            }
+            // Installment plan (FEATURE_RESEARCH_2026-11 §6.5, migration 0031).
+            // READ-ONLY on Android: wave 1 cut the Android editor on purpose, so
+            // the card shows the plan and points at the web app. The write path
+            // is its own endpoint (`PUT /api/v1/devices/{id}/installment`), not
+            // the device PATCH, which is why this screen can display a plan it
+            // cannot edit without risking erasing it.
+            //
+            // No "overdue" wording anywhere: `paidCount` is self-reported and the
+            // app cannot see whether the bank charged. The next due DAY is shown;
+            // the reader judges.
+            device.installment?.let { plan ->
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.devdetail_installment),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = cs.onSurface)
+                DetailRow(
+                    stringResource(R.string.devdetail_installment_progress,
+                        plan.paidCount, plan.months),
+                    if (plan.completed) {
+                        stringResource(R.string.devdetail_installment_completed)
+                    } else {
+                        formatDeviceMoney(plan.monthlyAmount, device.currency) + "/" +
+                            stringResource(R.string.devdetail_installment_per_period)
+                    },
+                )
+                DetailRow(
+                    stringResource(R.string.devdetail_installment_remaining),
+                    if (plan.completed) {
+                        stringResource(R.string.devdetail_installment_completed)
+                    } else {
+                        formatDeviceMoney(plan.remainingAmount, device.currency)
+                    },
+                )
+                DetailRow(
+                    stringResource(R.string.devdetail_installment_total),
+                    formatDeviceMoney(plan.totalCost, device.currency),
+                )
+                // The next due day is the SERVER's (it owns the month-clamp rule:
+                // 31 Jan + 1 month = 28/29 Feb). Never re-derived here.
+                if (!plan.completed) {
+                    plan.nextDueAt?.take(10)?.let { next ->
+                        DetailRow(
+                            stringResource(R.string.devdetail_installment_next_due),
+                            next,
+                        )
+                    }
+                }
+                if (!plan.lender.isNullOrBlank()) {
+                    DetailRow(
+                        stringResource(R.string.devdetail_installment_lender),
+                        plan.lender ?: "",
+                    )
+                }
+                if (plan.hasUnknownFees) {
+                    Text(
+                        stringResource(R.string.devdetail_installment_unknown_fees),
+                        fontSize = 12.sp,
+                        color = cs.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+                // The editor lives on the web (see the section comment). The URL
+                // is the web app's own device edit page, where the plan form is.
+                val context = LocalContext.current
+                Text(
+                    stringResource(R.string.devdetail_installment_edit_on_web),
+                    fontSize = 13.sp,
+                    color = cs.primary,
+                    textDecoration = TextDecoration.Underline,
+                    modifier = Modifier
+                        .padding(top = 4.dp)
+                        .clickable {
+                            openDirectoryLink(
+                                context,
+                                "https://warrly.com/devices/${device.id}/edit",
+                            )
+                        },
+                )
             }
             // Resale (roadmap #12) — only when a sale is actually recorded.
             // `soldAt` is a calendar day (`YYYY-MM-DD`) like `purchaseDate`, so

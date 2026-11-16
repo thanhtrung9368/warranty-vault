@@ -64,6 +64,7 @@
 		9A71C5FF3F31634A44CD3967 /* WishlistFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F7348BDEAEFE1709F1196E /* WishlistFormView.swift */; };
 		9BC5511C22F307B166450E96 /* PremiumStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A94E8082305F813182841395 /* PremiumStore.swift */; };
 		9FD39E81BFAFBA06C5D6C7CF /* AttachmentDescriptionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFCE97A0BB1747FDE1A7AA5 /* AttachmentDescriptionSheet.swift */; };
+		23214159AFD9A44237068A8D /* InstallmentSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 860D9B183D976E13EA27B995 /* InstallmentSection.swift */; };
 		A31C0E6ED724BE35006B72C9 /* PushRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5744CF576C6B50B3F556BFE6 /* PushRegistrar.swift */; };
 		A6F3F0FC77F9880AC8684810 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FBB67179090E86F03BC37D87 /* PrivacyInfo.xcprivacy */; };
 		AB1DDEB77A9253D41DBEF42E /* BrandWarrantySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F0C6B251B83320A9A05248 /* BrandWarrantySection.swift */; };
@@ -226,6 +227,7 @@
 		BA8D046A3DB1A1BC8D7867CA /* Disclosure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Disclosure.swift; sourceTree = "<group>"; };
 		BB3E30DB5F2BED0874601B3F /* SerialScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SerialScannerView.swift; sourceTree = "<group>"; };
 		BCFCE97A0BB1747FDE1A7AA5 /* AttachmentDescriptionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentDescriptionSheet.swift; sourceTree = "<group>"; };
+		860D9B183D976E13EA27B995 /* InstallmentSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallmentSection.swift; sourceTree = "<group>"; };
 		BF5409F5513C1FDE5B33A354 /* InboxScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxScreen.swift; sourceTree = "<group>"; };
 		C83ECFDE18B85BE8BAFB7400 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
 		CB0C807D1BBF00C15B226DE8 /* DeviceDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDetailView.swift; sourceTree = "<group>"; };
@@ -468,6 +470,7 @@
 				2B85109B7D2AECA8EAFBD450 /* ClaimsSection.swift */,
 				CB0C807D1BBF00C15B226DE8 /* DeviceDetailView.swift */,
 				3A9B29C4B670543664AD4F7D /* DeviceFormView.swift */,
+				860D9B183D976E13EA27B995 /* InstallmentSection.swift */,
 				E524A44E85B68F979F8E4089 /* DevicesScreen.swift */,
 				BB3E30DB5F2BED0874601B3F /* SerialScannerView.swift */,
 				CC795856CE9A07B871A7C09D /* ServiceChecklistView.swift */,
@@ -827,6 +830,7 @@
 				DCC93DF47EAA149597DA3E8D /* InboxDevicePickerSheet.swift in Sources */,
 				EBE3FAD1276413E3A5F74365 /* InboxScreen.swift in Sources */,
 				89B038570B2F0FD30D5C5BA0 /* InboxStore.swift in Sources */,
+				23214159AFD9A44237068A8D /* InstallmentSection.swift in Sources */,
 				E9729603B53E25B7DC2B4E12 /* InsurancePackSheet.swift in Sources */,
 				4AA650E2E9999B6296460CE4 /* LeadDaysSection.swift in Sources */,
 				C5EBDFF0AF59F28C06CEFA16 /* LocalizationStore.swift in Sources */,

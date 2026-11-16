@@ -30,6 +30,11 @@ func RegisterDevices(mux *http.ServeMux, deps Deps) {
 	mux.Handle("GET /api/v1/devices/{id}", requireUser(http.HandlerFunc(getDeviceHandler(deps))))
 	mux.Handle("PATCH /api/v1/devices/{id}", requireUser(http.HandlerFunc(updateDeviceHandler(deps))))
 	mux.Handle("DELETE /api/v1/devices/{id}", requireUser(http.HandlerFunc(deleteDeviceHandler(deps))))
+	// Installment plan (FEATURE_RESEARCH_2026-11 §6.5). A separate endpoint on
+	// purpose: the plan must not be reachable from the device PATCH, because an
+	// older client that does not know the field would erase it on every edit.
+	mux.Handle("PUT /api/v1/devices/{id}/installment", requireUser(http.HandlerFunc(putInstallmentHandler(deps))))
+	mux.Handle("DELETE /api/v1/devices/{id}/installment", requireUser(http.HandlerFunc(deleteInstallmentHandler(deps))))
 }
 
 func listDevicesHandler(deps Deps) http.HandlerFunc {
@@ -224,6 +229,79 @@ func deleteDeviceHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]bool{"ok": true})
+	}
+}
+
+// putInstallmentHandler implements PUT /api/v1/devices/{id}/installment.
+//
+// Idempotent: the plan is uniquely keyed by deviceId, so a second identical PUT
+// writes the same row (upsert). The response is the full device read — the same
+// payload a GET returns — because every caller needs the plan AND the derived
+// `ownershipCostVnd` that the search/list cards read.
+//
+// The body is decoded strictly (`DisallowUnknownFields`), so a field the schema
+// promises but this build lacks is a 400 rather than being ignored;
+// check_request_field_drift.py pins the struct to the schema.
+func putInstallmentHandler(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
+		if !ensureUserWriteRate(w, r, deps, us.UserID) {
+			return
+		}
+		id := r.PathValue("id")
+		if id == "" {
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", i18n.Text(ctx, "Thiếu id thiết bị"), nil)
+			return
+		}
+		var body services.InstallmentInput
+		if err := decodeJSON(r, &body); err != nil {
+			badJSONBody(w, ctx)
+			return
+		}
+		device, err := services.SetInstallmentPlan(ctx, deps.DB, us.UserID, id, body)
+		if err != nil {
+			writeDevicesErr(w, ctx, err, "save installment plan")
+			return
+		}
+		// Operational trace with no money in it (§6.5 "Đo lường"): who changed
+		// what shape of plan, never how much. `paidCount` is self-reported and is
+		// the field a future wave would have to trust, so knowing how many plans
+		// exist is the one useful signal here.
+		slog.Info("installment plan saved",
+			"userId", us.UserID,
+			"deviceId", id,
+			"months", body.Months,
+			"hasFee", body.FileFee != nil || body.MonthlyFee != nil,
+		)
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{"device": device})
+	}
+}
+
+// deleteInstallmentHandler implements DELETE /api/v1/devices/{id}/installment.
+//
+// Idempotent: removing a plan that is already absent succeeds (the requested end
+// state holds). A device that belongs to another account is still 404 — the
+// ownership check comes first, so the endpoint cannot be used to probe ids.
+func deleteInstallmentHandler(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
+		if !ensureUserWriteRate(w, r, deps, us.UserID) {
+			return
+		}
+		id := r.PathValue("id")
+		if id == "" {
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", i18n.Text(ctx, "Thiếu id thiết bị"), nil)
+			return
+		}
+		device, err := services.DeleteInstallmentPlan(ctx, deps.DB, us.UserID, id)
+		if err != nil {
+			writeDevicesErr(w, ctx, err, "delete installment plan")
+			return
+		}
+		slog.Info("installment plan deleted", "userId", us.UserID, "deviceId", id)
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{"device": device})
 	}
 }
 

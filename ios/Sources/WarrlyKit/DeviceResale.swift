@@ -245,22 +245,34 @@ public enum DeviceResale {
 
     // MARK: - The derived profit/loss (read-only)
 
-    /// Profit/loss of the resale versus the purchase price. The API never returns
-    /// this ("Lãi/lỗ = soldPrice − purchasePrice (client tự tính)"), so it is
-    /// computed here and unit-tested. `nil` when no sale price was recorded.
+    /// Profit/loss of the resale versus what the device **cost its owner**.
+    /// The API never returns this ("Lãi/lỗ = soldPrice − cost (client tự
+    /// tính)"), so it is computed here and unit-tested. `nil` when no sale price
+    /// was recorded.
+    ///
+    /// ## `costBasis` is not always `purchasePrice`
+    ///
+    /// For a device paid in full it is `Device.purchasePrice`. For one bought on
+    /// instalments it is `Device.ownershipCost` — the plan's total (down payment
+    /// + every monthly payment + the fees, migration 0031 / §6.5). Comparing a
+    /// resale against the sticker price of a financed phone understates the cost
+    /// by the fees and can flip a real loss into an apparent gain; the §6.5
+    /// research calls that sign flip out as one of the feature's hazards. The
+    /// caller picks the basis (pass `device.ownershipCost`); this function only
+    /// subtracts.
     ///
     /// Both operands are non-negative int32 by contract (Go rejects a negative
-    /// `purchasePrice` with "Giá mua không hợp lệ" and a negative `soldPrice` with
-    /// "Giá bán không hợp lệ"), so the difference cannot overflow `Int`.
+    /// purchase price and a negative `soldPrice`), so the difference cannot
+    /// overflow `Int`.
     ///
-    /// `currency` is the device's own ISO code. Both prices are in that
+    /// `currency` is the device's own ISO code. Both values are in that
     /// currency, so the subtraction is right as it stands — but the *label*
     /// must say so: a USD device shows `"Lỗ 199 USD"`, never `"199 ₫"`. The
     /// default keeps every VND call site (and its output) unchanged.
-    public static func profitLoss(purchasePrice: Int, soldPrice: Int?,
+    public static func profitLoss(costBasis: Int, soldPrice: Int?,
                                   currency: String? = CurrencyRules.vnd) -> SaleProfitLoss? {
         guard let soldPrice else { return nil }
-        let amount = soldPrice - purchasePrice
+        let amount = soldPrice - costBasis
         if amount > 0 {
             return SaleProfitLoss(amount: amount, tone: .profit,
                                   label: L.t("Lãi %@",

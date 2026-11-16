@@ -624,4 +624,48 @@ export const devices = defineMessages({
     'Could not load the category catalog — reload the page and try again.',
   'Dòng này chưa có kết quả từ máy chủ — kiểm tra danh sách thiết bị trước khi gửi lại.':
     'This row has no result from the server — check the device list before resubmitting.',
+
+  // ── Installment plan (FEATURE_RESEARCH_2026-11 §6.5, migration 0031) ────
+  //
+  // The plan is the USER's own record of a financing schedule, never a bank
+  // ledger — the copy keeps saying so, and never claims a payment is late
+  // (`paidCount` is self-reported, so a false "quá hạn" would be the worst
+  // possible error for a money feature).
+  'Trả góp': 'Installments',
+  'Kế hoạch bạn tự ghi: trả trước, số kỳ và số tiền mỗi kỳ. Đây không phải sổ giao dịch ngân hàng — app không biết ngân hàng đã trừ hay chưa.':
+    'A plan you record yourself: down payment, number of payments, amount per month. This is not a bank ledger — the app cannot see whether the bank actually charged you.',
+  'Sửa kế hoạch': 'Edit plan',
+  'Ghi kế hoạch': 'Record a plan',
+  'Còn nợ': 'Still owed',
+  'Tổng chi phí sở hữu': 'Total cost of ownership',
+  'Kỳ tới': 'Next payment',
+  'Mỗi kỳ': 'Per payment',
+  '{amount}/kỳ': '{amount}/month',
+  'Đã trả xong': 'Fully paid',
+  'Đã trả xong kế hoạch': 'This plan is fully paid',
+  'Đã trả {paid}/{months} kỳ': 'Paid {paid} of {months} payments',
+  'Còn nợ {amount}': '{amount} still owed',
+  'Tổng {amount}': 'Total {amount}',
+  'Kỳ tới {date}': 'Next payment {date}',
+  '{months} tháng, kỳ đầu {date}': '{months} months, first payment {date}',
+  'Chưa ghi phí hồ sơ / phí hàng tháng, nên tổng chi phí là mức tối thiểu.':
+    'The arrangement and monthly fees are not recorded, so the total is a lower bound.',
+  'Thiết bị này chưa ghi trả góp. Ghi kế hoạch để chi phí sở hữu, lãi/lỗ khi bán lại và thống kê tính đúng số tiền bạn thật sự trả.':
+    'No installment plan recorded for this device. Record one so ownership cost, resale profit/loss and the stats page use what you actually pay.',
+  'Trả trước': 'Down payment',
+  'Số kỳ (tháng)': 'Number of months',
+  'Mỗi kỳ trả': 'Amount per payment',
+  'Ngày kỳ đầu': 'First payment date',
+  'Phí hồ sơ': 'Arrangement fee',
+  'Phí mỗi kỳ': 'Monthly fee',
+  'Chưa biết — để trống': 'Unknown — leave blank',
+  'Đã trả (số kỳ)': 'Payments made',
+  'Nơi trả góp': 'Lender',
+  'Để trống phí nghĩa là “chưa biết”, không phải 0. Khi thiếu phí, tổng chi phí chỉ là mức tối thiểu.':
+    'Leaving a fee blank means “not known”, not 0. Without the fees the total is only a lower bound.',
+  'Lưu kế hoạch': 'Save plan',
+  'Xoá kế hoạch': 'Delete plan',
+  'Đã lưu kế hoạch trả góp.': 'Installment plan saved.',
+  'Đã xoá kế hoạch trả góp.': 'Installment plan deleted.',
+  'Lãi/lỗ so với tổng chi phí sở hữu': 'Profit/loss vs. total cost of ownership',
 });

@@ -72,6 +72,7 @@ SCHEMA_BY_STRUCT: dict[str, str] = {
     "subscriptionRequest": "SubscriptionInput",
     "subscriptionPaymentRequest": "PaymentInput",
     "snoozeRequest": "SnoozeInput",
+    "InstallmentInput": "InstallmentInput",
 }
 
 # Strict request bodies whose schema is inline in the path, not a named

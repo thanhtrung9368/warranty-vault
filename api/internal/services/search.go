@@ -163,6 +163,20 @@ func Search(ctx context.Context, db *pgxpool.Pool, userID, rawQuery string, limi
 			warByDevice[w.DeviceId] = append(warByDevice[w.DeviceId], w)
 		}
 	}
+	// Installment plans (§6.5): one batch query for the matched devices, so a
+	// search hit carries the same `installment` / `ownershipCostVnd` pair the
+	// list and detail reads carry.
+	planByDevice := map[string]*store.InstallmentPlan{}
+	if len(deviceRows) > 0 {
+		deviceIDs := make([]string, 0, len(deviceRows))
+		for _, d := range deviceRows {
+			deviceIDs = append(deviceIDs, d.ID)
+		}
+		planByDevice, err = installmentPlansByDevice(ctx, q, userID, deviceIDs)
+		if err != nil {
+			return nil, fmt.Errorf("search installment plans: %w", err)
+		}
+	}
 	// Repair clock (§6.1 wave 1): one batch query for the matched devices, the
 	// same derivation the list and the detail use.
 	repairDays := map[string]int32{}
@@ -181,7 +195,7 @@ func Search(ctx context.Context, db *pgxpool.Pool, userID, rawQuery string, limi
 		effectiveEnd := wholeUnitWarrantyEnd(warranties)
 		days := repairDays[d.ID]
 		out.Devices = append(out.Devices, DeviceSearchHit{
-			DeviceVND:            withVNDAndWarranties(d, warranties),
+			DeviceVND:            withVNDAndWarranties(d, warranties, planByDevice[d.ID]),
 			EffectiveWarrantyEnd: effectiveEnd,
 			RepairExtensionDays:  days,
 			EntitledWarrantyEnd:  repairEntitledDay(effectiveEnd, days),

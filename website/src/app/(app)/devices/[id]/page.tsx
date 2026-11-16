@@ -48,6 +48,7 @@ import { DeviceShares } from '@/components/device-shares';
 import { ServiceDirectoryCard } from '@/components/service-directory-card';
 import { ClaimList } from '@/components/claim-list';
 import { BrandWarrantyCard } from '@/components/brand-warranty-card';
+import { InstallmentCard } from '@/components/installment-card';
 import { api } from '@/lib/api';
 import { effectiveWarrantyEnd } from '@/lib/warranty';
 import { requireUser } from '@/lib/auth';
@@ -68,6 +69,7 @@ import {
 import { leadDaysLabel } from '@/lib/lead-days';
 import { readDeviceWarningsFlash } from '@/lib/device-warnings-flash';
 import { costPerDay } from '@/lib/stats-rollup';
+import { hasInstallment, ownershipCost } from '@/lib/installment';
 import { buildHandoverChecklist } from '@/lib/handover-checklist';
 
 export const dynamic = 'force-dynamic';
@@ -170,15 +172,23 @@ export default async function DeviceDetailPage({
     },
     locale,
   );
+  // Installment plan (FEATURE_RESEARCH_2026-11 §6.5, migration 0031). Read-only
+  // here: the card below owns the only write path. `null` = paid for outright.
+  const installment = device.installment ?? null;
+  const financed = hasInstallment(device);
   // Resale (roadmap #12). The API returns both halves or neither; the
-  // profit/loss versus `purchasePrice` is computed client-side on purpose
-  // (openapi: "Lãi/lỗ = soldPrice − purchasePrice (client tự tính)") and is in
-  // the DEVICE's currency, not đồng.
+  // profit/loss versus what the device COST is computed client-side on purpose
+  // and is in the DEVICE's currency, not đồng.
+  //
+  // The basis is `ownershipCost`, NOT the sticker price: for a financed device
+  // that is the plan's total (down payment + every payment + fees). Subtracting
+  // the sticker price would understate the cost by the fees and can flip a real
+  // loss into an apparent gain — the profit-sign trap §6.5 names.
   const saleRecorded = hasSaleRecorded(device);
   const profitLoss =
     device.soldPrice != null
       ? saleProfitLoss(
-          device.purchasePrice,
+          ownershipCost(device),
           device.soldPrice,
           locale,
           device.currency,
@@ -316,6 +326,15 @@ export default async function DeviceDetailPage({
             </CardContent>
           </Card>
 
+          {/* Installment plan (§6.5). Sits next to "Mua hàng" because it is the
+              rest of the answer to "what did this cost me"; the card owns its own
+              write form so a device edit can never erase the plan. */}
+          <InstallmentCard
+            deviceId={device.id}
+            plan={installment}
+            currency={device.currency}
+          />
+
           {/* Sale information is rendered only when a sale was actually
               recorded — an unsold device shows no empty money rows. */}
           {saleRecorded && (
@@ -353,7 +372,11 @@ export default async function DeviceDetailPage({
                 {profitLoss && (
                   <InfoRow
                     icon={profitLoss.tone === 'loss' ? TrendingDown : TrendingUp}
-                    label={t('Lãi/lỗ so với giá mua')}
+                    label={
+                      financed
+                        ? t('Lãi/lỗ so với tổng chi phí sở hữu')
+                        : t('Lãi/lỗ so với giá mua')
+                    }
                     value={
                       <span
                         className={

@@ -137,7 +137,7 @@ func TestBackupCurrencyRoundTrip(t *testing.T) {
 	if restoredUSD.PurchasePrice != 999 {
 		t.Errorf("restored purchasePrice = %d, want 999 (not converted on write or on restore)", restoredUSD.PurchasePrice)
 	}
-	usdVND := withVND(restoredUSD)
+	usdVND := withVND(restoredUSD, nil)
 	if usdVND.PurchasePriceVnd == nil || *usdVND.PurchasePriceVnd != 999*26100 {
 		t.Errorf("restored purchasePriceVnd = %v, want %d", usdVND.PurchasePriceVnd, 999*26100)
 	}
@@ -152,7 +152,7 @@ func TestBackupCurrencyRoundTrip(t *testing.T) {
 	if restoredVND.Currency != "VND" || restoredVND.FxRate != nil {
 		t.Errorf("restored VND pair = %s/%v, want VND/nil", restoredVND.Currency, restoredVND.FxRate)
 	}
-	if got := withVND(restoredVND).PurchasePriceVnd; got == nil || *got != 25_000_000 {
+	if got := withVND(restoredVND, nil).PurchasePriceVnd; got == nil || *got != 25_000_000 {
 		t.Errorf("restored VND purchasePriceVnd = %v, want 25000000", got)
 	}
 
@@ -213,7 +213,7 @@ func TestBackupCurrencyRoundTrip(t *testing.T) {
 	if oldUSD.FxRate != nil {
 		t.Errorf("old payload restored fxRate = %v, want nil", oldUSD.FxRate)
 	}
-	if got := withVND(oldUSD).PurchasePriceVnd; got == nil || *got != 999 {
+	if got := withVND(oldUSD, nil).PurchasePriceVnd; got == nil || *got != 999 {
 		t.Errorf("old payload purchasePriceVnd = %v, want 999 (VND at par, the pre-0022 meaning)", got)
 	}
 

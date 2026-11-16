@@ -292,13 +292,13 @@ final class CurrencyRulesTests: KitTestCase {
 
     func testProfitLossLabelUsesTheDeviceCurrency() {
         L.withLanguage(.vi) {
-            XCTAssertEqual(DeviceResale.profitLoss(purchasePrice: 999, soldPrice: 800,
+            XCTAssertEqual(DeviceResale.profitLoss(costBasis: 999, soldPrice: 800,
                                                    currency: "USD")?.label,
                            "Lỗ 199 USD")
-            XCTAssertEqual(DeviceResale.profitLoss(purchasePrice: 999, soldPrice: 1_100,
+            XCTAssertEqual(DeviceResale.profitLoss(costBasis: 999, soldPrice: 1_100,
                                                    currency: "USD")?.label,
                            "Lãi 101 USD")
-            XCTAssertEqual(DeviceResale.profitLoss(purchasePrice: 30_000_000,
+            XCTAssertEqual(DeviceResale.profitLoss(costBasis: 30_000_000,
                                                    soldPrice: 35_000_000)?.label,
                            "Lãi 5.000.000 ₫",
                            "the default stays the existing VND behaviour")
