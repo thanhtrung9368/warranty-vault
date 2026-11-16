@@ -9,6 +9,11 @@ import WarrlyKit
 // ============================================================
 
 struct WarrantyFormView: View {
+    /// API client for the warranty-card scan: one read of the AI opt-in and one
+    /// `POST /api/v1/ai/extract-warranty-card`. The warranty writes still go
+    /// through `store`; the client is only here so the form does not depend on
+    /// a store accessor that would exist for this one call.
+    let client: APIClient
     @ObservedObject var store: WarrantiesStore
     let warranty: Warranty?
 
@@ -61,6 +66,13 @@ struct WarrantyFormView: View {
     @State private var showDiscardAlert = false
     @State private var showDeleteAlert = false
 
+    // Warranty-card scan (§6.3). The sheet returns a DRAFT; `applyCardDraft`
+    // merges only empty fields and records disagreements as "Trên thẻ: …".
+    // Nothing here saves a Warranty row.
+    @State private var showWarrantyCardScan = false
+    @State private var cardScanNotice: String?
+    @State private var cardMismatches: [WarrantyCardMismatch] = []
+
     /// Collapsed by default when all nine terms are empty, expanded when any is
     /// set. The decision uses the same `WarrantyTerms.hasAnyTerms` rule the
     /// detail rows use, so "the form shows the section" and "the row shows the
@@ -69,8 +81,9 @@ struct WarrantyFormView: View {
 
     private var isEditing: Bool { warranty != nil }
 
-    init(store: WarrantiesStore, warranty: Warranty?, currency: String? = nil,
-         purchaseDate: Date? = nil) {
+    init(client: APIClient, store: WarrantiesStore, warranty: Warranty?,
+         currency: String? = nil, purchaseDate: Date? = nil) {
+        self.client = client
         self.store = store
         self.warranty = warranty
         self.currency = currency
@@ -443,6 +456,13 @@ struct WarrantyFormView: View {
                         .padding(.vertical, 10)
                 }
 
+                // Read the nine contract terms off a warranty card. Draft only:
+                // the merge fills EMPTY fields, disagreements are shown as
+                // "Trên thẻ: …", and saving is still the user's tap.
+                if AIOptInSurface.isVisible {
+                    warrantyCardScanSection
+                }
+
                 // Contract terms. Collapsed by default unless the saved row
                 // already carries one. Everything that is true for every plan
                 // stays above this line; a user who never opens a contract
@@ -535,6 +555,129 @@ struct WarrantyFormView: View {
             Text(L.t("Gói này sẽ bị xoá vĩnh viễn khỏi thiết bị. Không thể hoàn tác."))
         }
         .task { await catalog.loadIfNeeded() }
+        .sheet(isPresented: $showWarrantyCardScan) {
+            WarrantyCardScanSheet(client: client) { draft in
+                applyCardDraft(draft)
+            }
+        }
+    }
+
+    // MARK: - Warranty-card scan
+
+    /// Entry point + the result of the last merge. Hidden with the same
+    /// `AIOptInSurface` constant as the Settings switch, so a row that says
+    /// "bật Trợ lý AI" cannot outlive the switch it points at.
+    private var warrantyCardScanSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            WVSectionHeader(L.t("Đọc thẻ bảo hành"))
+            WVGroup {
+                Button {
+                    showWarrantyCardScan = true
+                } label: {
+                    HStack(spacing: 12) {
+                        WVLeadingIcon(icon: "sparkles", color: WVColor.purple, size: 30)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(L.t("Đọc thẻ bảo hành"))
+                                .wvFont(.body)
+                                .foregroundStyle(WVColor.label)
+                            Text(L.t("Chụp ảnh hoặc chọn PDF — tự điền 9 điều khoản vào các ô đang trống"))
+                                .wvFont(.footnote)
+                                .foregroundStyle(WVColor.label3)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 8)
+                        WVIcon("arrowRight", size: 13)
+                            .foregroundStyle(WVColor.label4)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 44)
+                    .padding(.vertical, 7)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(WVRowButtonStyle())
+            }
+
+            if let cardScanNotice {
+                Text(cardScanNotice)
+                    .wvFont(.caption)
+                    .foregroundStyle(WVColor.label3)
+                    .padding(.horizontal, 32)
+                    .padding(.top, 8)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if !cardMismatches.isEmpty {
+                Text(L.t("Các ô bạn đã nhập được giữ nguyên. “Trên thẻ” là giá trị đọc được — đối chiếu rồi tự sửa nếu cần."))
+                    .wvFont(.caption)
+                    .foregroundStyle(WVColor.label3)
+                    .padding(.horizontal, 32)
+                    .padding(.top, 10)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                WVGroup {
+                    ForEach(cardMismatches) { mismatch in
+                        HStack(alignment: .top, spacing: 8) {
+                            WVIcon("alert", size: 14)
+                                .foregroundStyle(WVColor.orange)
+                                .padding(.top, 1)
+                            Text("\(mismatch.label) — " + L.t("Trên thẻ: %@", mismatch.cardValue))
+                                .wvFont(.caption)
+                                .foregroundStyle(WVColor.orange)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.top, 8)
+            }
+
+            WVSectionFooter(L.t("Bản nháp do AI đọc; bạn kiểm tra lại và bấm lưu. Không có gì được lưu tự động."))
+        }
+    }
+
+    /// Merge a draft into the live form state.
+    ///
+    /// `WarrantyCardRules.merge` owns the rule; this only moves the result into
+    /// the form's own bindings. Applying a filled value also expands the
+    /// contract-terms disclosure when anything changed, so the user can see the
+    /// fields that were filled instead of a collapsed section silently gaining
+    /// data.
+    private func applyCardDraft(_ draft: WarrantyCardDraft) {
+        let current = WarrantyCardValues(
+            component: component,
+            scope: scope,
+            cap: cap,
+            deductible: deductible,
+            exclusions: exclusions,
+            region: region,
+            transferable: transferable.value,
+            claimsAllowed: Int(claimsAllowed),
+            claimsUsed: Int(claimsUsed)
+        )
+        let merge = WarrantyCardRules.merge(draft: draft, into: current)
+
+        if let v = merge.filled.component { component = v }
+        if let v = merge.filled.scope { scope = v }
+        if let v = merge.filled.cap { cap = v }
+        if let v = merge.filled.deductible { deductible = v }
+        if let v = merge.filled.exclusions { exclusions = v }
+        if let v = merge.filled.region { region = v }
+        if let v = merge.filled.transferable { transferable = TransferableChoice(v) }
+        if let v = merge.filled.claimsAllowed { claimsAllowed = String(v) }
+        if let v = merge.filled.claimsUsed { claimsUsed = String(v) }
+
+        cardMismatches = merge.mismatches
+        if merge.hasFilledValues {
+            cardScanNotice = L.t("Đã điền các ô còn trống từ thẻ. Các ô bạn đã nhập được giữ nguyên.")
+            termsExpanded = true
+        } else if merge.hasMismatches {
+            cardScanNotice = L.t("Không điền thêm ô nào: thẻ chỉ có các giá trị bạn đã nhập, nhưng có chỗ khác nhau.")
+        } else {
+            cardScanNotice = L.t("Không đọc được điều khoản nào mới từ thẻ này.")
+        }
     }
 
     // MARK: - Contract terms

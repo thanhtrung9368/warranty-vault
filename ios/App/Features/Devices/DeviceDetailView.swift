@@ -769,7 +769,7 @@ struct DeviceDetailView: View {
             // The fee is in the device's currency, so the form labels the unit.
             // The purchase date seeds the start-date default and is the value
             // the form discloses a conflict against.
-            WarrantyFormView(store: store, warranty: nav.warranty,
+            WarrantyFormView(client: client, store: store, warranty: nav.warranty,
                              currency: currentDevice.currencyCode,
                              purchaseDate: currentDevice.purchaseDate)
         }

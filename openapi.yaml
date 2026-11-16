@@ -3301,6 +3301,92 @@ paths:
         '502': { description: 'Lỗi dịch vụ AI (ai_upstream)' }
         '503': { description: 'Tính năng chưa được bật (feature_disabled)' }
 
+  /api/v1/ai/extract-warranty-card:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
+    post:
+      tags: [ai]
+      summary: Đọc thẻ bảo hành → bản nháp 9 điều khoản hợp đồng (KHÔNG tạo Warranty/Device)
+      description: |
+        Nhận **id của một attachment đã upload** (JSON `{attachmentId}`, KHÔNG
+        nhận multipart) và trả về bản nháp chín điều khoản hợp đồng đọc được từ
+        thẻ bảo hành/phiếu bảo hành: `component`, `scope`, `cap`, `deductible`,
+        `exclusions`, `region`, `transferable`, `claimsAllowed`, `claimsUsed`
+        (migration 0017). Đây là input cho `POST /api/v1/ai/assess-claim`: chín
+        cột đó đang trống là lý do verdict bị hạ xuống `UNCLEAR`.
+
+        **Không tạo/sửa Warranty hay Device.** Người dùng tự xác nhận và lưu
+        trong form bảo hành. Request này chỉ ghi đúng một thứ: văn bản model đọc
+        được (`Attachment.extractedText`, migration 0019), để thẻ trở thành kết
+        quả tìm kiếm được ở nhóm `attachments` của `GET /api/v1/search`. Vì vậy
+        endpoint chỉ nhận `attachmentId` — nhánh multipart của OCR hoá đơn không
+        có hàng `Attachment` nào để sở hữu văn bản. Upload trước bằng
+        `POST /api/v1/attachments` **không kèm `deviceId`** (mục trong Hộp thư),
+        rồi gọi endpoint này với id đó. Một lần quét lại không đọc được chữ
+        **không** xoá văn bản đã lưu trước đó.
+
+        **Không suy diễn.** Response không có `type` (loại bảo hành), `months`,
+        `startDate` hay `endDate`: thẻ giấy không nói STANDARD/EXTENDED/
+        THIRD_PARTY, và biến "bảo hành 24 tháng" thành số tháng sẽ phải bịa ngày
+        bắt đầu. `transferable` là ba trạng thái — `null` nghĩa là thẻ không nói,
+        khác với `false`.
+
+        **Sanitizer (deterministic, phía server).** Mọi con số phải xuất hiện
+        trong chính văn bản model đọc (`NUMBER_NOT_IN_QUOTE` nếu không); khấu trừ
+        ghi theo % bị bỏ và không quy ra đồng (`DEDUCTIBLE_PERCENTAGE`); "0/2"
+        được tách thành used/allowed và used > allowed thì bỏ used
+        (`CLAIMS_USED_OVER_ALLOWED`); thẻ có hai thời hạn (toàn máy + một bộ
+        phận) giữ gói toàn bộ máy (`MULTIPLE_CLOCKS`); chữ dài hơn bound của
+        `WarrantyInput` bị rút gọn theo rune (`TRUNCATED`). Nhờ vậy bản nháp luôn
+        map được vào `WarrantyInput` mà không bị validator trả 400. Trường bị bỏ
+        nằm trong `unmatched[]` để client yêu cầu người dùng tự nhập.
+
+        **Cổng.** Thiếu `ANTHROPIC_API_KEY` ⇒ **503 `feature_disabled`**;
+        `User.aiOptIn` false ⇒ **403 `ai_optin_required`** (ảnh thẻ đã giải mã rời
+        hệ thống tới Anthropic, nên đồng ý đứng trước câu hỏi trả tiền); env
+        `WARRANTY_CARD_PREMIUM` bật + tài khoản không phải Premium ⇒ **403
+        `premium_required`**. Env đó **mặc định TẮT**: chỉ bật Premium sau khi
+        thẻ đạt cổng độ chính xác của §6.3. Rate limit: 10 request / 60 giây /
+        người dùng, bucket riêng `ai:warrantycard`.
+
+        Hỗ trợ **JPEG/PNG/WEBP và PDF** (≤5MB, giới hạn attachment), như OCR hoá
+        đơn; GIF/HEIC bị từ chối 400 trước khi gọi model. Attachment của người
+        khác là **404**, không phải 403.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [attachmentId]
+              properties:
+                attachmentId:
+                  type: string
+                  description: |
+                    ID file đã upload (`POST /api/v1/attachments`, có thể là mục
+                    Hộp thư). Phải là JPEG/PNG/WEBP/PDF. Văn bản đọc được lưu
+                    vào file này và tìm kiếm được qua `GET /api/v1/search`.
+      responses:
+        '200':
+          description: Bản nháp điều khoản (không tạo Warranty/Device) + trạng thái lưu văn bản
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [draft]
+                properties:
+                  draft: { $ref: '#/components/schemas/WarrantyCardDraft' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: |
+            `ai_optin_required` — người dùng chưa bật Trợ lý AI; hoặc
+            `premium_required` — env `WARRANTY_CARD_PREMIUM` bật và tài khoản
+            không có Premium đang hoạt động.
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { description: 'Lỗi dịch vụ AI (ai_upstream)' }
+        '503': { description: 'Tính năng chưa được bật — thiếu ANTHROPIC_API_KEY (feature_disabled)' }
+
   /api/v1/ai/assess-claim:
     parameters: [{ $ref: '#/components/parameters/Lang' }]
     post:
@@ -6967,6 +7053,107 @@ components:
         message: { type: string, description: 'Câu tiếng Việt hiển thị thẳng cho người dùng.' }
 
     # ─── Serial/IMEI advisories (FEATURE_IDEAS #6) ───────────────────────────
+
+    WarrantyCardDraft:
+      type: object
+      description: |
+        Bản nháp chín điều khoản hợp đồng đọc từ thẻ bảo hành (migration 0017).
+        Mọi scalar nullable: `null` = thẻ không ghi, HOẶC sanitizer đã bỏ giá trị
+        (khi đó tên trường có mặt trong `unmatched`). KHÔNG có `type`, `months`,
+        `startDate`, `endDate` — máy chủ không suy loại bảo hành và không biến
+        thời hạn in trên thẻ thành số tháng. Endpoint không bao giờ tạo/sửa
+        Warranty hay Device.
+      required: [confidence, unmatched, warnings, extractedTextStored]
+      properties:
+        component:
+          type: string
+          nullable: true
+          description: 'Bộ phận được bảo hành. `null` = gói áp dụng cho toàn bộ máy (hoặc thẻ không ghi). Tối đa 200 rune.'
+        scope:
+          type: string
+          nullable: true
+          description: 'Phạm vi bảo hành, tối đa 500 rune.'
+        cap:
+          type: integer
+          format: int32
+          nullable: true
+          description: 'Mức tối đa (VND). Chỉ có mặt khi con số xuất hiện trong văn bản đọc được và nằm trong int32; ngoài ra là `null`.'
+        deductible:
+          type: integer
+          format: int32
+          nullable: true
+          description: 'Mức khấu trừ (VND). Khấu trừ theo % LUÔN là `null` (`DEDUCTIBLE_PERCENTAGE`), không bao giờ được quy ra đồng.'
+        exclusions:
+          type: string
+          nullable: true
+          description: 'Trường hợp loại trừ, tối đa 500 rune.'
+        region:
+          type: string
+          nullable: true
+          description: 'Khu vực áp dụng, tối đa 200 rune.'
+        transferable:
+          type: boolean
+          nullable: true
+          description: |
+            Ba trạng thái: `true` = được chuyển nhượng, `false` = không được,
+            `null` = thẻ không nói. Không bao giờ tự đặt `false`.
+        claimsAllowed:
+          type: integer
+          format: int32
+          nullable: true
+          description: 'Số lần được bảo hành. "0/2" trên thẻ ⇒ 2.'
+        claimsUsed:
+          type: integer
+          format: int32
+          nullable: true
+          description: 'Số lần đã dùng. "0/2" ⇒ 0. Nếu lớn hơn `claimsAllowed` thì bị bỏ (`CLAIMS_USED_OVER_ALLOWED`).'
+        confidence: { type: string, enum: [high, medium, low], description: 'Độ tin cậy; giá trị lạ/thiếu hạ xuống `low`.' }
+        unmatched:
+          type: array
+          items: { type: string }
+          description: |
+            Tên các trường mà sanitizer đã BỎ giá trị (khấu trừ %, số không có
+            trong văn bản, số ngoài khoảng, claimsUsed > claimsAllowed), để
+            client yêu cầu người dùng tự nhập. Luôn có mặt, `[]` khi không có gì.
+        warnings:
+          type: array
+          items: { $ref: '#/components/schemas/WarrantyCardWarning' }
+          description: 'Giải thích từng giá trị bị bỏ + hai lựa chọn thận trọng của sanitizer. Luôn có mặt, `[]` khi không có gì.'
+        extractedTextStored:
+          type: boolean
+          description: |
+            `true` chỉ khi văn bản đọc được đã ghi vào `Attachment.extractedText`
+            của chính file trong request. Ghi là best-effort: DB lỗi vẫn trả 200
+            với bản nháp đầy đủ và `false`.
+
+    WarrantyCardWarning:
+      type: object
+      description: |
+        Cảnh báo **không chặn** của bản nháp thẻ bảo hành. Khác `unmatched` ở chỗ
+        nó giải thích *vì sao* một giá trị bị bỏ hoặc vì sao sanitizer chọn gói
+        toàn bộ máy; không bao giờ làm request thất bại.
+      required: [code, field, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - DEDUCTIBLE_PERCENTAGE
+            - NUMBER_NOT_IN_QUOTE
+            - NUMBER_OUT_OF_RANGE
+            - CLAIMS_USED_OVER_ALLOWED
+            - MULTIPLE_CLOCKS
+            - TRUNCATED
+          description: |
+            `DEDUCTIBLE_PERCENTAGE` — khấu trừ ghi theo %, không quy ra đồng.
+            `NUMBER_NOT_IN_QUOTE` — con số model trả về không có trong văn bản
+            đọc được. `NUMBER_OUT_OF_RANGE` — âm hoặc vượt int32.
+            `CLAIMS_USED_OVER_ALLOWED` — used > allowed, đã bỏ used.
+            `MULTIPLE_CLOCKS` — thẻ có hai thời hạn, giữ gói toàn bộ máy.
+            `TRUNCATED` — chữ dài hơn bound của `WarrantyInput`, đã rút gọn.
+        field:
+          type: string
+          description: 'Tên trường trong bản nháp: component | scope | cap | deductible | exclusions | region | claimsAllowed | claimsUsed.'
+        message: { type: string, description: 'Câu đã dịch theo ngôn ngữ request, hiển thị thẳng cho người dùng.' }
 
     DeviceWarning:
       type: object

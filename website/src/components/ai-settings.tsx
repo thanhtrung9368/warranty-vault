@@ -39,7 +39,7 @@ export function AISettings({ initialEnabled }: { initialEnabled: boolean }) {
         <div className="space-y-1 text-sm text-muted-foreground">
           <p className="font-medium text-ink">{t('Trợ lý AI')}</p>
           <p>
-            {t('Khi bật, trợ lý AI làm được hai việc: (1) đọc ảnh/PDF hoá đơn để tự điền thông tin thiết bị — file được gửi đã giải mã tới dịch vụ AI bên thứ ba; (2) đánh giá một lần sửa chữa có thuộc diện bảo hành không và soạn đơn gửi trung tâm — nội dung phiếu sửa chữa, thông tin thiết bị và các điều khoản hợp đồng bảo hành sẽ được gửi tới dịch vụ đó. Cả hai đều chỉ là gợi ý để bạn kiểm tra lại, không phải quyết định. Mặc định tắt.')}
+            {t('Khi bật, trợ lý AI làm ba việc: (1) đọc ảnh/PDF hoá đơn hoặc thẻ bảo hành để tự điền thông tin — file đã giải mã được gửi tới Anthropic, dịch vụ AI ở Mỹ (ngoài Việt Nam); (2) đọc chín điều khoản hợp đồng từ thẻ bảo hành; (3) đánh giá một lần sửa chữa có thuộc diện bảo hành không và soạn đơn gửi trung tâm — nội dung phiếu sửa chữa, thông tin thiết bị và điều khoản hợp đồng cũng được gửi tới Anthropic. Anthropic tự động xoá đầu vào/đầu ra trong vòng 30 ngày (trừ khi pháp luật hoặc chính sách của họ yêu cầu giữ lâu hơn) và mặc định không dùng dữ liệu API để huấn luyện. Phía Warrly, ảnh/PDF vẫn được mã hoá; chỉ văn bản đọc được lưu dạng plaintext trong cơ sở dữ liệu để tìm kiếm. Mọi kết quả chỉ là gợi ý hoặc bản nháp để bạn kiểm tra lại, không phải quyết định. Mặc định tắt.')}
           </p>
         </div>
       </div>

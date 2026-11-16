@@ -213,6 +213,50 @@ export const warranties = defineMessages({
   'Lỗ {amount}': 'Loss {amount}',
   'Hoà vốn': 'Break-even',
 
+  // ── Warranty-card scan (FEATURE_RESEARCH_2026-11 §6.3,
+  // `components/warranty-card-scan.tsx` + `lib/warranty-card-scan.ts`) ─────
+  //
+  // The endpoint returns a DRAFT of the nine contract terms; every sentence
+  // here says one of three things: this is a draft, only EMPTY fields are
+  // filled, and the file is in the inbox. The server's own sanitizer messages
+  // (`warnings[].message`) are rendered verbatim and are NOT translated here —
+  // they already arrive in the request language from the Go catalog.
+  'Đọc thẻ bảo hành': 'Read warranty card',
+  'Đang đọc thẻ bảo hành…': 'Reading warranty card…',
+  'Chụp hoặc chọn ảnh/PDF thẻ bảo hành để tự điền 9 điều khoản — chỉ điền ô bạn còn để trống, bạn vẫn phải bấm lưu':
+    'Take or choose a warranty-card photo/PDF to auto-fill the 9 terms — only fields still empty are filled, and you still have to save',
+  'Đã đọc thẻ — kiểm tra lại trước khi lưu': 'Card read — review it before saving',
+  'Đã đọc thẻ — độ tin cậy chưa cao, kiểm tra kỹ':
+    'Card read — low confidence, check carefully',
+  'Điền vào biểu mẫu': 'Fill the form',
+  'Lưu ý về các giá trị đọc được': 'Notes about the values read',
+  'Không đọc được: {fields} — bạn tự nhập các ô này.':
+    'Could not read: {fields} — enter these fields yourself.',
+  'Đã điền các ô còn trống từ thẻ. Các ô bạn đã nhập được giữ nguyên.':
+    'Filled the empty fields from the card. Fields you already filled were kept.',
+  'Không điền thêm ô nào: thẻ chỉ có các giá trị bạn đã nhập, nhưng có chỗ khác nhau.':
+    'No fields added: the card only has values you already entered, but some differ.',
+  'Không đọc được điều khoản nào mới từ thẻ này.':
+    'No new contract terms were read from this card.',
+  'Các ô bạn đã nhập được giữ nguyên — “Trên thẻ” là giá trị đọc được:':
+    'Fields you already filled are kept — “On the card” is the value read from the card:',
+  'Trên thẻ: {value}': 'On the card: {value}',
+  'Thẻ đã được lưu trong Hộp thư — bạn có thể gán vào một thiết bị sau. Nội dung đọc được cũng đã được lưu để tìm kiếm.':
+    'The card was saved in the inbox — you can link it to a device later. The text read from it was saved for search too.',
+  'Thẻ đã được lưu trong Hộp thư — bạn có thể gán vào một thiết bị sau. Lần này chưa lưu được nội dung đọc để tìm kiếm.':
+    'The card was saved in the inbox — you can link it to a device later. This time the text read could not be saved for search.',
+  'Không đọc được thẻ bảo hành, nhưng file vẫn được lưu trong Hộp thư — mở Hộp thư để gán vào một thiết bị.':
+    'The warranty card could not be read, but the file is still saved in the inbox — open the inbox to link it to a device.',
+  'Không đọc được thẻ bảo hành, thử lại nhé':
+    'Could not read the warranty card. Try again',
+  'Thiếu ảnh thẻ bảo hành': 'Missing warranty-card image',
+  'Bật Trợ lý AI trong Cài đặt để dùng tính năng này.':
+    'Turn on the AI assistant in Settings to use this feature.',
+  'Đọc thẻ bảo hành là tính năng Premium.':
+    'Reading warranty cards is a Premium feature.',
+  'Tính năng đọc thẻ bảo hành chưa khả dụng.':
+    'Warranty-card reading is not available yet.',
+
   // ── Attachment server action (`app/actions/attachments.ts`) ─────────────
   'Thiếu file': 'Missing file',
   'Thiếu deviceId': 'Missing deviceId',

@@ -1177,6 +1177,65 @@ var messages = map[string]message{
 		en: "The AI returned no extracted data",
 	},
 
+	// ── AI warranty-card reading (FEATURE_RESEARCH_2026-11 §6.3,
+	// internal/ai/warrantycard.go, internal/services/ai_warranty_card.go,
+	// internal/handlers/ai.go).
+	//
+	// Two groups. The GATE sentences are the ones a user meets before any model
+	// call — the 503 says the server has no key, the 403 says consent has not
+	// been given, and the Premium 403 is only reachable while env
+	// WARRANTY_CARD_PREMIUM is ON. The SANITIZER sentences explain a value the
+	// server refused to put in the draft; they are read next to the field named
+	// by `warnings[].field`, so they stay field-agnostic on purpose.
+	"Tính năng đọc thẻ bảo hành chưa được bật": {
+		vi: "Tính năng đọc thẻ bảo hành chưa được bật",
+		en: "Warranty-card reading is not enabled",
+	},
+	"Cần bật Trợ lý AI trong Cài đặt trước khi đọc thẻ bảo hành": {
+		vi: "Cần bật Trợ lý AI trong Cài đặt trước khi đọc thẻ bảo hành",
+		en: "Turn on the AI assistant in Settings before reading a warranty card",
+	},
+	"Đọc thẻ bảo hành là tính năng Premium": {
+		vi: "Đọc thẻ bảo hành là tính năng Premium",
+		en: "Reading a warranty card is a Premium feature",
+	},
+	"Lỗi tải thông tin Premium": {
+		vi: "Lỗi tải thông tin Premium",
+		en: "Could not load Premium status",
+	},
+	"Lỗi đọc thẻ bảo hành": {
+		vi: "Lỗi đọc thẻ bảo hành",
+		en: "Could not read the warranty card",
+	},
+	"Content-Type phải là application/json": {
+		vi: "Content-Type phải là application/json",
+		en: "Content-Type must be application/json",
+	},
+	"Khấu trừ ghi theo % — bản nháp để trống ô này, bạn tự nhập số tiền.": {
+		vi: "Khấu trừ ghi theo % — bản nháp để trống ô này, bạn tự nhập số tiền.",
+		en: "The deductible is a percentage — the draft leaves it blank, enter the amount yourself.",
+	},
+	"Không tìm thấy con số này trong phần chữ đọc được trên thẻ — bản nháp để trống ô này.": {
+		vi: "Không tìm thấy con số này trong phần chữ đọc được trên thẻ — bản nháp để trống ô này.",
+		en: "That number was not found in the text read from the card — the draft leaves this field blank.",
+	},
+	"Con số đọc được nằm ngoài khoảng hợp lệ — bản nháp để trống ô này.": {
+		vi: "Con số đọc được nằm ngoài khoảng hợp lệ — bản nháp để trống ô này.",
+		en: "The number read is outside the valid range — the draft leaves this field blank.",
+	},
+	"Số lần đã dùng lớn hơn số lần được phép — bản nháp bỏ số đã dùng.": {
+		vi: "Số lần đã dùng lớn hơn số lần được phép — bản nháp bỏ số đã dùng.",
+		en: "Uses recorded exceed the allowance — the draft drops the used count.",
+	},
+	"Thẻ ghi nhiều thời hạn khác nhau (toàn máy và một bộ phận) — bản nháp giữ điều khoản của gói toàn bộ máy; hãy kiểm tra lại.": {
+		vi: "Thẻ ghi nhiều thời hạn khác nhau (toàn máy và một bộ phận) — bản nháp giữ điều khoản của gói toàn bộ máy; hãy kiểm tra lại.",
+		en: "The card states more than one duration (whole unit and a part) — the draft keeps the whole-unit plan; please review it.",
+	},
+	"Nội dung đọc được dài hơn giới hạn của biểu mẫu nên đã được rút gọn — hãy kiểm tra lại.": {
+		vi: "Nội dung đọc được dài hơn giới hạn của biểu mẫu nên đã được rút gọn — hãy kiểm tra lại.",
+		en: "The text read is longer than the form allows, so it was shortened — please review it.",
+	},
+
 	// ── AI claim assessment (gap #7, internal/ai/assess.go,
 	// internal/services/ai_assess.go, internal/handlers/ai_assess.go).
 	//

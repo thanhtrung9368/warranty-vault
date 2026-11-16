@@ -610,6 +610,33 @@ extension APIClient {
         try await extractReceipt(.file(fileName: fileName, fileType: fileType, data: data))
     }
 
+    /// `POST /api/v1/ai/extract-warranty-card` — the nine contract terms read
+    /// off a warranty card, as a DRAFT.
+    ///
+    /// JSON `{attachmentId}` only. The endpoint's one write is the transcript on
+    /// that attachment (`Attachment.extractedText`), so the file must already
+    /// exist: upload it first as an inbox item
+    /// (`uploadAttachment(deviceId: nil, ...)`), exactly like the receipt flow.
+    /// It never creates a `Warranty` or a `Device`; the form merges only empty
+    /// fields (`WarrantyCardRules.merge`) and saving stays a separate tap.
+    ///
+    /// Documented refusals, all thrown as `APIError.server`:
+    ///   * 403 `ai_optin_required` — AI consent is off;
+    ///   * 403 `premium_required` — only while the server sets
+    ///     `WARRANTY_CARD_PREMIUM`; the sheet has no Premium badge before then;
+    ///   * 503 `feature_disabled` — no model key on the server;
+    ///   * 404 — the attachment belongs to someone else (never 403);
+    ///   * 429 — the per-user 10/60 s bucket.
+    public func extractWarrantyCard(attachmentId: String) async throws -> WarrantyCardDraft {
+        struct Body: Encodable { let attachmentId: String }
+        struct Wrapper: Decodable { let draft: WarrantyCardDraft }
+        let w: Wrapper = try await request(
+            "POST", "/api/v1/ai/extract-warranty-card",
+            body: Body(attachmentId: attachmentId)
+        )
+        return w.draft
+    }
+
     /// Current AI opt-in state for the signed-in user.
     public func getAIOptIn() async throws -> Bool {
         struct Wrapper: Decodable { let aiOptIn: Bool }

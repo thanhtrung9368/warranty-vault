@@ -355,7 +355,7 @@ struct ClaimAssessmentView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Text(L.t("Đánh giá bảo hành dùng chung một lần bật AI với tính năng quét hoá đơn. Khi bật, thông tin lần sửa chữa (mô tả lỗi, chẩn đoán, chi phí) và điều khoản bảo hành sẽ được gửi tới dịch vụ AI bên thứ ba để phân tích."))
+                Text(L.t("Đánh giá bảo hành dùng chung một lần bật AI với tính năng quét hoá đơn. Khi bật, thông tin lần sửa chữa (mô tả lỗi, chẩn đoán, chi phí) và điều khoản bảo hành sẽ được gửi tới Anthropic (dịch vụ AI ở Mỹ) để phân tích."))
                     .wvFont(.footnote)
                     .foregroundStyle(WVColor.label2)
                     .fixedSize(horizontal: false, vertical: true)

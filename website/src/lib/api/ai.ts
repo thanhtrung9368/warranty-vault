@@ -18,6 +18,11 @@ import { apiFetch, type ApiResult } from './client';
 import { normalizeDeviceWarnings } from '@/lib/device-warnings';
 import { normalizeClaimAssessment, type ClaimAssessment } from '@/lib/claim-assessment';
 import type { ExtractReceiptBody } from '@/lib/receipt-scan';
+import {
+  normalizeWarrantyCardDraft,
+  type ExtractWarrantyCardBody,
+  type WarrantyCardDraft,
+} from '@/lib/warranty-card-scan';
 import type { DeviceWarning } from './devices';
 
 // The assessment wire types are owned by `lib/claim-assessment.ts` (the pure
@@ -84,6 +89,27 @@ export async function extractReceipt(body: ExtractReceiptBody): Promise<ApiResul
       extractedTextStored: res.data.draft?.extractedTextStored === true,
     },
   };
+}
+
+// extractWarrantyCard reads the nine contract terms off an attachment that was
+// already uploaded to the inbox. JSON `{ attachmentId }` only — the endpoint's
+// one write is the transcript on that attachment row, so there is no multipart
+// branch to call. The response is normalised rather than trusted: an unknown
+// confidence degrades to `low`, a blank/invalid number to null, and a missing
+// `warnings`/`unmatched` array to `[]`.
+//
+// It never creates a Warranty or a Device. The caller merges the draft
+// (`mergeWarrantyCardDraft`) into empty form fields and the user saves.
+export async function extractWarrantyCard(
+  body: ExtractWarrantyCardBody,
+): Promise<ApiResult<WarrantyCardDraft>> {
+  const res = await apiFetch<{ draft: WarrantyCardDraft }>(
+    'POST',
+    '/v1/ai/extract-warranty-card',
+    body,
+  );
+  if (!res.ok) return res;
+  return { ok: true, data: normalizeWarrantyCardDraft(res.data?.draft) };
 }
 
 // Toggle the per-user AI opt-in. Sending a receipt image to a third-party AI
