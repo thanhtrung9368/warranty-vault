@@ -57,7 +57,16 @@ func warrantyCheckHandler(deps Deps) http.HandlerFunc {
 		defer cancel()
 
 		started := time.Now()
-		stats, err := cron.Run(ctx, deps.DB, deps.Dispatcher)
+		// The email fallback is optional: without a wired client (or without
+		// RESEND_API_KEY, which the pass itself checks) the cron behaves exactly
+		// as it did before FEATURE_RESEARCH_2026-11 §5 #8. Passing the nil
+		// pointer would create a non-nil interface, so the option is added only
+		// when there is a client at all.
+		opts := []cron.Option{}
+		if deps.Email != nil {
+			opts = append(opts, cron.WithMailer(deps.Email))
+		}
+		stats, err := cron.Run(ctx, deps.DB, deps.Dispatcher, opts...)
 		if err != nil {
 			slog.Error("cron run failed", "err", err)
 			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError,
@@ -79,6 +88,10 @@ func warrantyCheckHandler(deps Deps) http.HandlerFunc {
 			"pushes_sent", stats.PushesSent,
 			"pushes_failed", stats.PushesFailed,
 			"pushes_gone", stats.PushesGone,
+			// Reminder email fallback (FEATURE_RESEARCH_2026-11 §5 #8). Zero
+			// unless a user opted in AND push reached nobody; zero as well when
+			// RESEND_API_KEY is absent.
+			"email_fallback_sent", stats.EmailFallbackSent,
 			// Repair clock counters (FEATURE_RESEARCH_2026-11 §6.1). Both are
 			// zero unless WV_REPAIR_EXTENSION is on; the promise counter also
 			// needs a retailer policy with a calendar-day ceiling.

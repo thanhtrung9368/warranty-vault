@@ -17,7 +17,7 @@ INSERT INTO "PushSubscription" (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, NOW()
 )
-RETURNING id, "userId", endpoint, p256dh, auth, "userAgent", "createdAt", platform
+RETURNING id, "userId", endpoint, p256dh, auth, "userAgent", "createdAt", platform, "lastFailureAt", "failureCount", "lastError"
 `
 
 type CreatePushSubscriptionParams struct {
@@ -50,6 +50,9 @@ func (q *Queries) CreatePushSubscription(ctx context.Context, arg CreatePushSubs
 		&i.UserAgent,
 		&i.CreatedAt,
 		&i.Platform,
+		&i.LastFailureAt,
+		&i.FailureCount,
+		&i.LastError,
 	)
 	return i, err
 }
@@ -106,7 +109,7 @@ func (q *Queries) DeletePushSubscriptionByIDInternal(ctx context.Context, id str
 }
 
 const getPushSubscriptionByEndpoint = `-- name: GetPushSubscriptionByEndpoint :one
-SELECT id, "userId", endpoint, p256dh, auth, "userAgent", "createdAt", platform
+SELECT id, "userId", endpoint, p256dh, auth, "userAgent", "createdAt", platform, "lastFailureAt", "failureCount", "lastError"
 FROM "PushSubscription"
 WHERE endpoint = $1
 LIMIT 1
@@ -124,12 +127,15 @@ func (q *Queries) GetPushSubscriptionByEndpoint(ctx context.Context, endpoint st
 		&i.UserAgent,
 		&i.CreatedAt,
 		&i.Platform,
+		&i.LastFailureAt,
+		&i.FailureCount,
+		&i.LastError,
 	)
 	return i, err
 }
 
 const getPushSubscriptionByID = `-- name: GetPushSubscriptionByID :one
-SELECT id, "userId", endpoint, p256dh, auth, "userAgent", "createdAt", platform
+SELECT id, "userId", endpoint, p256dh, auth, "userAgent", "createdAt", platform, "lastFailureAt", "failureCount", "lastError"
 FROM "PushSubscription"
 WHERE id = $1 AND "userId" = $2
 LIMIT 1
@@ -152,6 +158,9 @@ func (q *Queries) GetPushSubscriptionByID(ctx context.Context, arg GetPushSubscr
 		&i.UserAgent,
 		&i.CreatedAt,
 		&i.Platform,
+		&i.LastFailureAt,
+		&i.FailureCount,
+		&i.LastError,
 	)
 	return i, err
 }
@@ -260,6 +269,38 @@ func (q *Queries) ListPushSubscriptionsByUserAndPlatform(ctx context.Context, ar
 	return items, nil
 }
 
+const recordPushSubscriptionFailure = `-- name: RecordPushSubscriptionFailure :exec
+UPDATE "PushSubscription"
+SET "lastFailureAt" = $1::timestamp,
+    "failureCount" = "failureCount" + 1,
+    "lastError" = $2::text
+WHERE id = $3
+`
+
+type RecordPushSubscriptionFailureParams struct {
+	LastFailureAt wire.Instant `json:"lastFailureAt"`
+	LastError     string       `json:"lastError"`
+	ID            string       `json:"id"`
+}
+
+// Push delivery health (FEATURE_RESEARCH_2026-11 §5 #8). The cron calls this on
+// every non-Gone failure — a permanent 401/403 from a rotated key, a temporary 5xx
+// or timeout, and the "transport not configured" result — so "this subscription
+// keeps failing" becomes a fact in the database instead of one line in a log.
+//
+// 404/410 are deliberately NOT recorded: those rows are deleted in the same pass
+// (DeletePushSubscriptionByIDInternal), and health on a row that no longer exists
+// would be meaningless.
+//
+// "failureCount" is cumulative and is NOT reset by a later success. There is no
+// "lastSuccessAt" column, so a count alone must not be read as "consecutive
+// failures"; it answers "has this target ever failed, how many times, and what did
+// the last failure say", which is what an investigation needs.
+func (q *Queries) RecordPushSubscriptionFailure(ctx context.Context, arg RecordPushSubscriptionFailureParams) error {
+	_, err := q.db.Exec(ctx, recordPushSubscriptionFailure, arg.LastFailureAt, arg.LastError, arg.ID)
+	return err
+}
+
 const upsertPushSubscription = `-- name: UpsertPushSubscription :one
 INSERT INTO "PushSubscription" (
     id, "userId", endpoint, p256dh, auth, "userAgent", platform, "createdAt"
@@ -272,7 +313,7 @@ ON CONFLICT (endpoint) DO UPDATE SET
     p256dh     = EXCLUDED.p256dh,
     auth       = EXCLUDED.auth,
     "userAgent" = EXCLUDED."userAgent"
-RETURNING id, "userId", endpoint, p256dh, auth, "userAgent", "createdAt", platform
+RETURNING id, "userId", endpoint, p256dh, auth, "userAgent", "createdAt", platform, "lastFailureAt", "failureCount", "lastError"
 `
 
 type UpsertPushSubscriptionParams struct {
@@ -306,6 +347,9 @@ func (q *Queries) UpsertPushSubscription(ctx context.Context, arg UpsertPushSubs
 		&i.UserAgent,
 		&i.CreatedAt,
 		&i.Platform,
+		&i.LastFailureAt,
+		&i.FailureCount,
+		&i.LastError,
 	)
 	return i, err
 }

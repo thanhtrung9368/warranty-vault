@@ -65,6 +65,14 @@ type userDTO struct {
 	// it to render which option is currently selected. Contrast `Name`, which has
 	// always been emitted as null; that shape is frozen.
 	Locale *string `json:"locale,omitempty"`
+	// ReminderEmailFallback is the opt-in email fallback for deadline reminders
+	// (migration 0033, FEATURE_RESEARCH_2026-11 §5 #8).
+	//
+	// Deliberately NOT `omitempty`, unlike the three fields around it: `false` is
+	// a meaningful answer that a Settings toggle has to read, and it is the
+	// product default for every account that predates the column. The field is
+	// additive, so an old client ignores it.
+	ReminderEmailFallback bool `json:"reminderEmailFallback"`
 	// InboxAddress is the user's personal inbound-email address
 	// ("<token>@INBOX_EMAIL_DOMAIN"), so a client can show it in Settings and the
 	// user can forward a receipt to it (migration 0020).
@@ -290,7 +298,7 @@ func Register(d Deps) http.HandlerFunc {
 		httpx.WriteJSON(w, http.StatusCreated, authTokenResponse{
 			AccessToken: issued.AccessToken,
 			ExpiresAt:   issued.ExpiresAt.UTC().Format(time.RFC3339Nano),
-			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn, Locale: user.Locale, InboxAddress: services.InboxAddress(user.InboxToken)},
+			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn, ReminderEmailFallback: user.ReminderEmailFallback, Locale: user.Locale, InboxAddress: services.InboxAddress(user.InboxToken)},
 		})
 	}
 }
@@ -396,7 +404,7 @@ func Login(d Deps) http.HandlerFunc {
 		httpx.WriteJSON(w, http.StatusOK, authTokenResponse{
 			AccessToken: issued.AccessToken,
 			ExpiresAt:   issued.ExpiresAt.UTC().Format(time.RFC3339Nano),
-			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn, Locale: user.Locale, InboxAddress: services.InboxAddress(user.InboxToken)},
+			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn, ReminderEmailFallback: user.ReminderEmailFallback, Locale: user.Locale, InboxAddress: services.InboxAddress(user.InboxToken)},
 		})
 	}
 }
@@ -451,10 +459,12 @@ func Me(d Deps) http.HandlerFunc {
 		// anyway for aiOptIn. All answers come from this one row so the response
 		// can never disagree with what the middleware resolved.
 		aiOptIn := false
+		emailFallback := false
 		var locale *string
 		var inboxAddress *string
 		if u, uerr := store.New(d.DB).GetUserByID(r.Context(), us.UserID); uerr == nil {
 			aiOptIn = u.AiOptIn
+			emailFallback = u.ReminderEmailFallback
 			locale = u.Locale
 			inboxAddress = services.InboxAddress(u.InboxToken)
 		}
@@ -467,25 +477,33 @@ func Me(d Deps) http.HandlerFunc {
 			slog.Warn("read premium entitlement", "err", perr, "userId", us.UserID)
 		}
 		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]userDTO{
-			"user": {ID: us.UserID, Email: us.Email, Name: us.Name, AiOptIn: aiOptIn, Locale: locale, InboxAddress: inboxAddress, Premium: premium},
+			"user": {ID: us.UserID, Email: us.Email, Name: us.Name, AiOptIn: aiOptIn, ReminderEmailFallback: emailFallback, Locale: locale, InboxAddress: inboxAddress, Premium: premium},
 		})
 	}
 }
 
 // ---- PATCH /api/v1/auth/me ----------------------------------------------------
 //
-// Partial profile update. ONLY `displayName` is accepted. Changing the account
-// email is deliberately NOT supported in this pass: it needs a two-step
-// verification flow (prove control of the new address, then re-authenticate)
-// and is tracked separately. A request carrying `email` / `newEmail` is
-// rejected with a Vietnamese fieldError rather than silently ignored, so the
-// three clients get an unambiguous answer. See openapi.yaml + api/README.md.
+// Partial profile update. Three fields are accepted: `displayName`, `locale` and
+// `reminderEmailFallback` (migration 0033 — the opt-in email fallback for
+// deadline reminders). Changing the account email is deliberately NOT supported
+// here: it needs a two-step verification flow (prove control of the new address,
+// then re-authenticate) and is tracked separately. A request carrying `email` /
+// `newEmail` is rejected with a Vietnamese fieldError rather than silently
+// ignored, so the clients get an unambiguous answer. See openapi.yaml +
+// api/README.md.
 //
 // Body:
 //
-//	{ "displayName": "Nguyễn Văn A" }   → set (trimmed)
-//	{ "displayName": "" }               → clear (same as null)
-//	{ "displayName": null }             → clear
+//	{ "displayName": "Nguyễn Văn A" }        → set (trimmed)
+//	{ "displayName": "" }                    → clear (same as null)
+//	{ "displayName": null }                  → clear
+//	{ "locale": "vi" }                       → set the language preference
+//	{ "reminderEmailFallback": true }        → opt in
+//	{ "reminderEmailFallback": false }       → opt out
+//
+// Each key is independent: an ABSENT key leaves that column alone, so the
+// Settings toggle and the name/language editors cannot overwrite each other.
 //
 // Responds with the same `{ "user": ... }` envelope as GET /auth/me so a client
 // can replace its cached user object straight from the response.
@@ -528,7 +546,7 @@ func updateMeHandler(d Deps) http.HandlerFunc {
 
 		unknown := map[string][]string{}
 		for k := range raw {
-			if k == "displayName" || k == "locale" {
+			if k == "displayName" || k == "locale" || k == "reminderEmailFallback" {
 				continue
 			}
 			if k == "email" || k == "newEmail" {
@@ -538,24 +556,37 @@ func updateMeHandler(d Deps) http.HandlerFunc {
 			unknown[k] = []string{i18n.Text(ctx, "Trường không được hỗ trợ")}
 		}
 		if len(unknown) > 0 {
-			badInput(w, ctx, unknown, i18n.Text(ctx, "Chỉ hỗ trợ sửa tên hiển thị. Đổi email có luồng riêng (change-email + confirm-email-change)."))
+			badInput(w, ctx, unknown, i18n.Text(ctx, "Chỉ hỗ trợ sửa tên hiển thị, ngôn ngữ và nhắc hạn qua email. Đổi email có luồng riêng (change-email + confirm-email-change)."))
 			return
 		}
 
-		// Both accepted fields are tri-state, and the two halves are read the same
-		// way: ABSENT ("locale" not in the map) means leave the stored value alone,
-		// while an explicit `null` or `""` clears it. A client that has never heard
-		// of `locale` therefore cannot wipe a preference by editing its name.
+		// All accepted fields are "absent means leave alone", and each is read the
+		// same way: a key that is not in the map cannot change the stored value.
+		// A client that has never heard of `locale` or `reminderEmailFallback`
+		// therefore cannot wipe a preference by editing its name — which matters
+		// most for the boolean, whose zero value would otherwise silently opt a
+		// user OUT on every unrelated profile edit.
 		//
-		// A body with NEITHER field is still rejected. That used to be enforced by
-		// `displayName` being the only accepted key; now that `locale` exists, the
-		// rule is stated directly, so an empty or mistyped body keeps failing
-		// loudly instead of being a silent 200 that changed nothing. Each field
-		// individually became optional purely so a language picker can send
-		// `{"locale": "vi"}` without also restating the display name.
+		// The first two fields are also tri-state (an explicit `null` or `""`
+		// CLEARS them). The boolean is NOT: `false` is a real choice ("tắt"), so
+		// `null` is rejected as bad input rather than guessed at, and only ABSENT
+		// means unchanged.
+		//
+		// A body with NONE of the three fields is still rejected, so an empty or
+		// mistyped body keeps failing loudly instead of being a silent 200 that
+		// changed nothing. Each field individually became optional purely so a
+		// language picker can send `{"locale": "vi"}` without also restating the
+		// display name, and the Settings toggle can send
+		// `{"reminderEmailFallback": true}` without touching either.
 		rawName, namePresent := raw["displayName"]
 		rawLocale, localePresent := raw["locale"]
-		if !namePresent && !localePresent {
+		rawFallback, fallbackPresent := raw["reminderEmailFallback"]
+		if !namePresent && !localePresent && !fallbackPresent {
+			// The fieldError keeps its pre-existing shape (`displayName` /
+			// "Thiếu displayName") on purpose: it is the shared probe the i18n
+			// locale-precedence test drives, and the generic "Dữ liệu không hợp lệ"
+			// envelope is what that probe asserts. Widening the accepted fields
+			// must not change the shape of this refusal.
 			badInput(w, ctx, map[string][]string{"displayName": {i18n.Text(ctx, "Thiếu displayName")}})
 			return
 		}
@@ -587,15 +618,30 @@ func updateMeHandler(d Deps) http.HandlerFunc {
 			return
 		}
 
+		// Optional boolean, no tri-state: `null` and every non-boolean value are a
+		// 400, because "clear the preference" would have to mean something and the
+		// column's only two states are ON and OFF.
+		emailFallback := false
+		if fallbackPresent {
+			var fallbackIn *bool
+			if err := json.Unmarshal(rawFallback, &fallbackIn); err != nil || fallbackIn == nil {
+				badInput(w, ctx, map[string][]string{
+					"reminderEmailFallback": {i18n.Text(ctx, "Giá trị phải là true hoặc false")},
+				})
+				return
+			}
+			emailFallback = *fallbackIn
+		}
+
 		user, uerr := services.UpdateProfile(ctx, d.DB, us.UserID,
-			name, nameChanged, locale, localeChanged)
+			name, nameChanged, locale, localeChanged, emailFallback, fallbackPresent)
 		if uerr != nil {
 			writeAuthServiceErr(w, ctx, uerr, "update profile")
 			return
 		}
 
 		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{
-			"user":    userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn, Locale: user.Locale, InboxAddress: services.InboxAddress(user.InboxToken)},
+			"user":    userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn, ReminderEmailFallback: user.ReminderEmailFallback, Locale: user.Locale, InboxAddress: services.InboxAddress(user.InboxToken)},
 			"message": i18n.Text(ctx, "Đã cập nhật hồ sơ"),
 		})
 	}

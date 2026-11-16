@@ -111,7 +111,7 @@ func TestUpdateDisplayNameAgainstRealPostgres(t *testing.T) {
 	})
 
 	// 1. Set a name.
-	got, err := UpdateProfile(ctx, pool, userID, strp("Nguyễn Văn A"), true, nil, false)
+	got, err := UpdateProfile(ctx, pool, userID, strp("Nguyễn Văn A"), true, nil, false, false, false)
 	if err != nil {
 		t.Fatalf("UpdateProfile(set): %v", err)
 	}
@@ -132,7 +132,7 @@ func TestUpdateDisplayNameAgainstRealPostgres(t *testing.T) {
 	}
 
 	// 2. Clear it (nil → SQL NULL).
-	cleared, err := UpdateProfile(ctx, pool, userID, nil, true, nil, false)
+	cleared, err := UpdateProfile(ctx, pool, userID, nil, true, nil, false, false, false)
 	if err != nil {
 		t.Fatalf("UpdateProfile(clear): %v", err)
 	}
@@ -148,7 +148,7 @@ func TestUpdateDisplayNameAgainstRealPostgres(t *testing.T) {
 	}
 
 	// 3. Unknown user → NOT_FOUND (the handler maps it to 404).
-	if _, err := UpdateProfile(ctx, pool, "zz_test_profile_missing", strp("X"), true, nil, false); err == nil {
+	if _, err := UpdateProfile(ctx, pool, "zz_test_profile_missing", strp("X"), true, nil, false, false, false); err == nil {
 		t.Fatal("UpdateProfile(missing user) = nil, want NOT_FOUND")
 	} else if svc, ok := As(err); !ok || svc.Code != "NOT_FOUND" {
 		t.Errorf("UpdateProfile(missing user) = %v, want NOT_FOUND", err)

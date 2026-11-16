@@ -214,14 +214,17 @@ type PremiumNotice struct {
 }
 
 type PushSubscription struct {
-	ID        string       `json:"id"`
-	UserId    string       `json:"userId"`
-	Endpoint  string       `json:"endpoint"`
-	P256dh    *string      `json:"p256dh"`
-	Auth      *string      `json:"auth"`
-	UserAgent *string      `json:"userAgent"`
-	CreatedAt wire.Instant `json:"createdAt"`
-	Platform  string       `json:"platform"`
+	ID            string       `json:"id"`
+	UserId        string       `json:"userId"`
+	Endpoint      string       `json:"endpoint"`
+	P256dh        *string      `json:"p256dh"`
+	Auth          *string      `json:"auth"`
+	UserAgent     *string      `json:"userAgent"`
+	CreatedAt     wire.Instant `json:"createdAt"`
+	Platform      string       `json:"platform"`
+	LastFailureAt wire.Instant `json:"lastFailureAt"`
+	FailureCount  int32        `json:"failureCount"`
+	LastError     *string      `json:"lastError"`
 }
 
 type Reminder struct {
@@ -231,6 +234,15 @@ type Reminder struct {
 	CreatedAt           wire.Instant `json:"createdAt"`
 	LastNotifiedAt      wire.Instant `json:"lastNotifiedAt"`
 	LastNotifiedLeadDay *int32       `json:"lastNotifiedLeadDay"`
+}
+
+type ReminderEmailNotice struct {
+	ID       string       `json:"id"`
+	UserId   string       `json:"userId"`
+	Kind     string       `json:"kind"`
+	EntityId string       `json:"entityId"`
+	LeadDay  int32        `json:"leadDay"`
+	SentAt   wire.Instant `json:"sentAt"`
 }
 
 type RetailerPolicy struct {
@@ -319,16 +331,17 @@ type SubscriptionPayment struct {
 }
 
 type User struct {
-	ID                string       `json:"id"`
-	Email             string       `json:"email"`
-	Name              *string      `json:"name"`
-	PasswordHash      string       `json:"passwordHash"`
-	PasswordChangedAt wire.Instant `json:"passwordChangedAt"`
-	CreatedAt         wire.Instant `json:"createdAt"`
-	UpdatedAt         wire.Instant `json:"updatedAt"`
-	AiOptIn           bool         `json:"aiOptIn"`
-	Locale            *string      `json:"locale"`
-	InboxToken        string       `json:"inboxToken"`
+	ID                    string       `json:"id"`
+	Email                 string       `json:"email"`
+	Name                  *string      `json:"name"`
+	PasswordHash          string       `json:"passwordHash"`
+	PasswordChangedAt     wire.Instant `json:"passwordChangedAt"`
+	CreatedAt             wire.Instant `json:"createdAt"`
+	UpdatedAt             wire.Instant `json:"updatedAt"`
+	AiOptIn               bool         `json:"aiOptIn"`
+	Locale                *string      `json:"locale"`
+	InboxToken            string       `json:"inboxToken"`
+	ReminderEmailFallback bool         `json:"reminderEmailFallback"`
 }
 
 type WVUTCTimezoneBaseline struct {

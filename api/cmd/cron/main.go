@@ -26,6 +26,7 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/config"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/cron"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/dbconn"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/email"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/push"
 )
 
@@ -58,12 +59,16 @@ func main() {
 	}
 
 	dispatcher := push.NewFromEnv()
+	// Reminder email fallback (FEATURE_RESEARCH_2026-11 §5 #8). NewFromEnv is
+	// safe with no RESEND_API_KEY: the pass then logs one warning and sends no
+	// fallback mail, and the push path is unchanged.
+	mailer := email.NewFromEnv()
 
 	runCtx, runCancel := context.WithTimeout(rootCtx, 5*time.Minute)
 	defer runCancel()
 
 	started := time.Now()
-	stats, err := cron.Run(runCtx, pool, dispatcher)
+	stats, err := cron.Run(runCtx, pool, dispatcher, cron.WithMailer(mailer))
 	if err != nil {
 		slog.Error("cron run failed",
 			"err", err,
@@ -77,6 +82,7 @@ func main() {
 			"pushes_sent", stats.PushesSent,
 			"pushes_failed", stats.PushesFailed,
 			"pushes_gone", stats.PushesGone,
+			"email_fallback_sent", stats.EmailFallbackSent,
 		)
 		os.Exit(1)
 	}
@@ -92,6 +98,10 @@ func main() {
 		"pushes_sent", stats.PushesSent,
 		"pushes_failed", stats.PushesFailed,
 		"pushes_gone", stats.PushesGone,
+		// Reminder email fallback (FEATURE_RESEARCH_2026-11 §5 #8): emails
+		// actually accepted by Resend this pass. Zero without RESEND_API_KEY or
+		// without any opted-in user whose push reached nobody.
+		"email_fallback_sent", stats.EmailFallbackSent,
 		// Repair clock counters (FEATURE_RESEARCH_2026-11 §6.1). Both are zero
 		// unless WV_REPAIR_EXTENSION is on; the promise counter also requires a
 		// device whose retailer has a verified calendar-day ceiling.

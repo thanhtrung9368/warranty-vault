@@ -33,10 +33,12 @@ SET "passwordHash" = $2,
 WHERE id = $1;
 
 -- name: UpdateUserProfile :one
--- PATCH /api/v1/auth/me — the narrow write path. Both fields are tri-state:
+-- PATCH /api/v1/auth/me — the narrow write path. All three fields are tri-state:
 --
---	name       — SQL NULL clears the name;   ($2, namePresent=false) leaves it ALONE
---	locale     — SQL NULL clears the preference; ($3, localePresent=false) leaves it ALONE
+--	name                    — SQL NULL clears the name;   ($2, namePresent=false) leaves it ALONE
+--	locale                  — SQL NULL clears the preference; ($3, localePresent=false) leaves it ALONE
+--	reminderEmailFallback   — a boolean, so "absent" is the only unchanged state;
+--	                          ($4, fallbackPresent=false) leaves the stored choice ALONE
 --
 -- The `present` booleans mirror what the handler already has to know: a JSON body
 -- distinguishes an ABSENT key ("leave unchanged") from an explicit `null`
@@ -46,13 +48,33 @@ WHERE id = $1;
 -- display-name edit. Same reasoning as `displayName`, which the handler has always
 -- had to track explicitly.
 --
+-- The email-fallback flag needs its own present flag for the same reason, and it
+-- is NOT tri-state with a clear value: `false` is a real choice ("tắt"), so only
+-- the ABSENT key can mean "leave it alone".
+--
 -- Returns the updated row so the handler can answer with the full user DTO.
 UPDATE "User"
 SET name = CASE WHEN sqlc.arg('namePresent')::boolean THEN $2 ELSE name END,
     locale = CASE WHEN sqlc.arg('localePresent')::boolean THEN $3 ELSE locale END,
+    "reminderEmailFallback" = CASE
+        WHEN sqlc.arg('fallbackPresent')::boolean THEN $4
+        ELSE "reminderEmailFallback"
+    END,
     "updatedAt" = NOW()
 WHERE id = $1
 RETURNING *;
+
+-- name: ListReminderEmailFallbackUsers :many
+-- Cron support (internal/cron/run.go, FEATURE_RESEARCH_2026-11 §5 #8). Reads every
+-- account that explicitly opted into the email fallback, in ONE query per pass,
+-- exactly like ListUserLocales. Only the routing fields are projected: the mail is
+-- addressed to the account email, and the greeting does not need the stored name.
+--
+-- The default is FALSE, so this query is empty on a deployment whose users have
+-- not opted in — the fallback then costs one indexed scan and nothing else.
+SELECT id, email
+FROM "User"
+WHERE "reminderEmailFallback" = true;
 
 -- name: ListUserLocales :many
 -- Cron fan-out support (internal/cron/run.go). Push bodies are built in Go with no

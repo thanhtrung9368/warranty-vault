@@ -130,22 +130,25 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
     patch:
       tags: [auth]
-      summary: Cập nhật hồ sơ — tên hiển thị và ngôn ngữ
+      summary: Cập nhật hồ sơ — tên hiển thị, ngôn ngữ và nhắc hạn qua email
       description: |
-        Partial profile update. Two fields are accepted: `displayName` and
-        `locale`. The account email **cannot be changed here** — it has its own
-        two-step flow (`POST /api/v1/auth/change-email`). A body carrying
-        `email` / `newEmail` is rejected with 400 and a `fieldErrors` entry
-        saying so, rather than silently ignored.
+        Partial profile update. Three fields are accepted: `displayName`,
+        `locale` and `reminderEmailFallback` (migration 0033 — opt-in email
+        fallback for deadline reminders, FEATURE_RESEARCH_2026-11 §5 #8). The
+        account email **cannot be changed here** — it has its own two-step flow
+        (`POST /api/v1/auth/change-email`). A body carrying `email` / `newEmail`
+        is rejected with 400 and a `fieldErrors` entry saying so, rather than
+        silently ignored.
 
-        Both accepted fields are **tri-state** and independent: an ABSENT key
-        leaves the stored value alone, `null` (or `""`) CLEARS it, and a value
-        sets it. So `{"locale": "vi"}` on its own is a valid body, and a client
-        that only knows about `displayName` cannot wipe a stored language by
-        editing a name.
+        All three fields are independent and **ABSENT = giữ nguyên**. For
+        `displayName`/`locale` an explicit `null` clears; for the boolean
+        `false` is a real choice ("tắt") and `null` is a 400, so only the
+        missing key means "don't touch it". A client that edits a name therefore
+        cannot wipe a language preference or silently opt a user OUT of email
+        reminders.
 
-        A body with NEITHER key is 400, so an empty or mistyped body still fails
-        loudly instead of being a 200 that changed nothing.
+        A body with NONE of the three keys is 400, so an empty or mistyped body
+        still fails loudly instead of being a 200 that changed nothing.
 
         Response mirrors `GET /api/v1/auth/me` (`{ "user": ... }`) plus a
         Vietnamese `message`, so a client can replace its cached user object
@@ -3455,6 +3458,7 @@ paths:
                       - pushesSent
                       - pushesFailed
                       - pushesGone
+                      - emailFallbackSent
                       - repairExtensionShiftedNotices
                       - repairPromiseNotices
                     properties:
@@ -3469,8 +3473,30 @@ paths:
                       subscriptionExpired: { type: integer }
                       sessionsPruned: { type: integer }
                       pushesSent: { type: integer }
-                      pushesFailed: { type: integer }
-                      pushesGone: { type: integer, description: 'Push trả 404/410 — hàng `PushSubscription` tương ứng đã bị xoá.' }
+                      pushesFailed:
+                        type: integer
+                        description: |
+                          Số lần gửi push LỖI (không phải 404/410). Từ migration
+                          0033, mỗi lần lỗi còn được ghi vào chính hàng
+                          `PushSubscription` (`lastFailureAt`, `failureCount` +
+                          1, `lastError`) — nên sức khoẻ của một đích không còn
+                          chỉ tồn tại trong một dòng log. Đây là bộ đếm
+                          `pushFailed` của §5 #8.
+                      pushesGone:
+                        type: integer
+                        description: |
+                          Push trả 404/410 — hàng `PushSubscription` tương ứng đã
+                          bị xoá. Bộ đếm `pushDeleted` của §5 #8. Hàng đã xoá
+                          không được ghi health (không còn hàng để ghi).
+                      emailFallbackSent:
+                        type: integer
+                        description: |
+                          Số email nhắc hạn đã gửi qua Resend trong lượt chạy
+                          (`User.reminderEmailFallback = true`, và push không tới
+                          được ai). Chỉ tăng khi Resend nhận message; một lần gửi
+                          lỗi bị ghi log, xoá khoá chống trùng và không làm hỏng
+                          cron. Luôn 0 khi thiếu `RESEND_API_KEY` (chỉ log, không
+                          gửi) hoặc khi chưa ai bật opt-in.
                       repairExtensionShiftedNotices: { type: integer, description: 'Số lượt nhắc bảo hành dùng **ngày được hưởng** (`endDate + số ngày sửa đã đóng`) thay vì ngày trên giấy. Chỉ khác 0 khi env `WV_REPAIR_EXTENSION` bật (mặc định tắt — lịch và nội dung build 23 không đổi).' }
                       repairPromiseNotices: { type: integer, description: 'Số push **cam kết sửa chữa** đã gửi trong lượt chạy (T-2 "sắp tới hạn" và T+1 "đã quá hạn"). Cùng cờ `WV_REPAIR_EXTENSION` (mặc định tắt). Chỉ đếm khi thiết bị có `retailerId` trỏ tới một `RetailerPolicy` đang hoạt động **và** chính sách có `repairCeilingDays`; không có chính sách ⇒ không push, không đoán.' }
         '401': { description: 'Missing or wrong CRON_SECRET' }
@@ -4114,6 +4140,24 @@ components:
         email: { type: string, format: email }
         name: { type: string, nullable: true }
         aiOptIn: { type: boolean, description: 'Người dùng đã bật tính năng quét hoá đơn AI (mặc định false)' }
+        reminderEmailFallback:
+          type: boolean
+          description: |
+            Người dùng đã bật **nhắc hạn qua email khi push không tới được**
+            (migration 0033, FEATURE_RESEARCH_2026-11 §5 #8). Mặc định `false` —
+            đây là opt-in rõ ràng, không phải hành vi tự bật cho tài khoản cũ.
+
+            Luôn có mặt trong `user` (không `omitempty`) vì `false` là câu trả
+            lời có nghĩa cho toggle Cài đặt, và là giá trị của mọi tài khoản
+            trước migration này. Đổi bằng `PATCH /api/v1/auth/me`
+            (`{"reminderEmailFallback": true}`), KHÔNG phải một endpoint riêng.
+
+            Khi bật: cron gửi **một** email giao dịch tiếng Việt cho mỗi
+            (loại nhắc, đối tượng, mốc nhắc) — chỉ khi không có
+            `PushSubscription` nào hoặc **mọi** lần gửi push đều lỗi. Không gửi
+            cho nhắc đã ẩn, thiết bị đã bán/xoá, hay mốc đã gửi rồi
+            (`ReminderEmailNotice` là khoá chống trùng). Địa chỉ nhận là email
+            tài khoản.
         premium:
           type: boolean
           description: |
@@ -4262,14 +4306,15 @@ components:
     UpdateProfileInput:
       type: object
       description: |
-        Chỉ hai field dưới đây được chấp nhận: `displayName` và `locale`. Đổi
-        email **không** gửi ở đây — có luồng riêng hai bước
-        (`POST /api/v1/auth/change-email` rồi
-        `POST /api/v1/auth/confirm-email-change`). Gửi thêm `email`/`newEmail` vào
-        endpoint này sẽ trả 400 kèm `fieldErrors` chỉ đúng hai endpoint đó.
+        Chỉ ba field dưới đây được chấp nhận: `displayName`, `locale` và
+        `reminderEmailFallback`. Đổi email **không** gửi ở đây — có luồng riêng
+        hai bước (`POST /api/v1/auth/change-email` rồi
+        `POST /api/v1/auth/confirm-email-change`). Gửi thêm `email`/`newEmail`
+        vào endpoint này sẽ trả 400 kèm `fieldErrors` chỉ đúng hai endpoint đó.
 
-        (Câu cũ ở đây nói "chỉ `displayName`", mâu thuẫn với `locale` ngay bên
-        dưới và với handler — đã sửa.)
+        **Vắng mặt = giữ nguyên** cho cả ba field, nên các editor độc lập nhau:
+        bật/tắt nhắc hạn qua email không đụng tên hiển thị hay ngôn ngữ, và một
+        PATCH chỉ có `displayName` không thể tắt opt-in.
       properties:
         displayName:
           type: string
@@ -4302,12 +4347,23 @@ components:
             rơi về mặc định): đây là một write hỏng, còn kia là một sở thích
             chúng tôi không có.
 
-            Gửi body **rỗng** (không có cả `displayName` lẫn `locale`) là 400.
+            Gửi body **rỗng** (không có field nào trong ba field) là 400.
 
             Ảnh hưởng: ngôn ngữ của `message`/`fieldErrors` trong mọi response
             sau đó (khi request không nói gì), và ngôn ngữ của **push
             notification** — cron không có request nào để hỏi, nên cột này là
             tín hiệu duy nhất. Xem `components.parameters.Lang`.
+        reminderEmailFallback:
+          type: boolean
+          description: |
+            Bật/tắt nhắc hạn qua email khi push không tới được ai. **Hai trạng
+            thái, không phải ba**: `true` bật, `false` tắt, và **vắng mặt** giữ
+            nguyên giá trị đã lưu. `null` (hoặc number/string) là **400** kèm
+            `fieldErrors.reminderEmailFallback` — "xoá" không có nghĩa với một
+            cột boolean đã mặc định `false`.
+
+            Đổi email nhận **không** xảy ra ở đây: fallback luôn dùng
+            `User.email`, và đổi địa chỉ có luồng riêng.
 
     # Body of POST /api/v1/auth/change-email (step 1 of 2).
     ChangeEmailRequest:

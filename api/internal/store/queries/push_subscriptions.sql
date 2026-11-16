@@ -63,3 +63,23 @@ WHERE id = $1;
 -- name: DeletePushSubscriptionByEndpoint :execrows
 DELETE FROM "PushSubscription"
 WHERE endpoint = $1 AND "userId" = $2;
+
+-- name: RecordPushSubscriptionFailure :exec
+-- Push delivery health (FEATURE_RESEARCH_2026-11 §5 #8). The cron calls this on
+-- every non-Gone failure — a permanent 401/403 from a rotated key, a temporary 5xx
+-- or timeout, and the "transport not configured" result — so "this subscription
+-- keeps failing" becomes a fact in the database instead of one line in a log.
+--
+-- 404/410 are deliberately NOT recorded: those rows are deleted in the same pass
+-- (DeletePushSubscriptionByIDInternal), and health on a row that no longer exists
+-- would be meaningless.
+--
+-- "failureCount" is cumulative and is NOT reset by a later success. There is no
+-- "lastSuccessAt" column, so a count alone must not be read as "consecutive
+-- failures"; it answers "has this target ever failed, how many times, and what did
+-- the last failure say", which is what an investigation needs.
+UPDATE "PushSubscription"
+SET "lastFailureAt" = sqlc.arg('lastFailureAt')::timestamp,
+    "failureCount" = "failureCount" + 1,
+    "lastError" = sqlc.arg('lastError')::text
+WHERE id = sqlc.arg('id');

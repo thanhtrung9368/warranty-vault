@@ -330,7 +330,7 @@ managed challenge would block the mail worker's server-to-server POST.
 
 ## Profile editing — email change is NOT supported
 
-`PATCH /api/v1/auth/me` accepts exactly one field, `displayName` (trimmed, max 80 bytes; `null`/`""` clears it). It returns the same `{ "user": ... }` envelope as `GET /api/v1/auth/me` plus a Vietnamese `message`.
+`PATCH /api/v1/auth/me` accepts three optional, independent fields: `displayName` (trimmed, max 80 bytes; `null`/`""` clears it), `locale` (`en`/`vi`; `null`/`""` clears it), and `reminderEmailFallback` (a boolean; absent means unchanged, `false` is a real choice and is NOT the same as absent). A key that is not sent is left alone, so the Settings toggle cannot wipe a name or language and a name edit cannot silently opt a user out of email reminders. It returns the same `{ "user": ... }` envelope as `GET /api/v1/auth/me` plus a Vietnamese `message`.
 
 **The account email cannot be changed through the API.** There is no endpoint for it, `PATCH /api/v1/auth/me` rejects `email`/`newEmail` with a 400 `fieldErrors` entry saying so (rather than silently ignoring it), and `RegisterInput` is the only place an email is ever set. A real email change needs a two-step verified flow (prove control of the new address, then re-authenticate); it is deliberately out of scope for this pass. Do not add an email field to this endpoint as a shortcut — it would let a stolen bearer token silently move the account to an attacker-controlled address, which is exactly why the flow is gated on verification.
 

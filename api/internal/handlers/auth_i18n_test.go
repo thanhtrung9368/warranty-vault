@@ -558,7 +558,7 @@ func TestPatchMeFieldSurface(t *testing.T) {
 	if _, ok := fieldErrors["locale"]; ok {
 		t.Errorf("fieldErrors = %v — `locale` is an accepted field and must not be reported as unsupported", fieldErrors)
 	}
-	if body["message"] != "Only the display name can be edited here. Changing the email has its own flow (change-email + confirm-email-change)." {
+	if body["message"] != "Only the display name, language and email reminders can be edited here. Changing the email has its own flow (change-email + confirm-email-change)." {
 		t.Errorf("message = %v, want the translated headline", body["message"])
 	}
 	// A rejected request writes nothing.
@@ -594,13 +594,13 @@ func TestStoredLocaleDrivesAuthenticatedResponses(t *testing.T) {
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d", rr.Code)
 	}
-	if msg := decodeBody(t, rr)["message"]; msg != "Chỉ hỗ trợ sửa tên hiển thị. Đổi email có luồng riêng (change-email + confirm-email-change)." {
+	if msg := decodeBody(t, rr)["message"]; msg != "Chỉ hỗ trợ sửa tên hiển thị, ngôn ngữ và nhắc hạn qua email. Đổi email có luồng riêng (change-email + confirm-email-change)." {
 		t.Errorf("message = %v, want the Vietnamese one from the stored preference", msg)
 	}
 
 	// An explicit ?lang=en still wins over the stored preference.
 	rr = env.patchProfile(t, "en", "", map[string]any{"nickname": "x"})
-	if msg := decodeBody(t, rr)["message"]; msg != "Only the display name can be edited here. Changing the email has its own flow (change-email + confirm-email-change)." {
+	if msg := decodeBody(t, rr)["message"]; msg != "Only the display name, language and email reminders can be edited here. Changing the email has its own flow (change-email + confirm-email-change)." {
 		t.Errorf("?lang=en → message = %v, want English to win over the stored preference", msg)
 	}
 }

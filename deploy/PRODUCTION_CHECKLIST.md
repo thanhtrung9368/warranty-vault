@@ -99,7 +99,7 @@ endpoint trả 503 `feature_disabled`.
       `api: service_healthy` nên web chỉ lên khi API ping được DB
 - [ ] Migration lần đầu: `docker compose run --rm --entrypoint /app/migrate api up`
 - [ ] Kiểm tra version: `docker compose run --rm --entrypoint /app/migrate api status`
-      → 32 migration đã apply, dòng cuối phải là `0032_device_handoff`.
+      → 33 migration đã apply, dòng cuối phải là `0033_reminder_email_fallback`.
       Đừng đối chiếu với con số trong tài liệu này — `ls api/migrations/*.sql` mới là
       nguồn đúng, và migration lẻ nào chưa chạy thì `status` sẽ dừng trước nó.
 - [ ] **Database PHẢI có encoding UTF-8.** Kiểm tra:
@@ -184,6 +184,7 @@ Rollback schema (ghi nhớ cách chạy đúng):
 | APNs production | `APNS_PRODUCTION=1` | ⚠️ So sánh `== "1"`; mọi giá trị khác (kể cả `true`) = **sandbox gateway** → push iOS thật sẽ không tới |
 | FCM (Android) | `FCM_SERVICE_ACCOUNT_JSON` (JSON 1 dòng), `FCM_PROJECT_ID` (optional) | `fcm not configured` → subscription Android bị skip. File `android/app/google-services.json` là chuyện riêng của client (đang deferred) |
 | Email reset password | `RESEND_API_KEY`, `RESEND_FROM` | ⚠️ Không lỗi: Go log link reset ra stdout (`email dev-mode (no RESEND_API_KEY)`) → user không tự reset được mật khẩu. Xem `docker compose logs api \| grep -i reset` |
+| Email nhắc hạn (fallback khi push chết) | `RESEND_API_KEY`, `RESEND_FROM`, `APP_URL` | Không lỗi: cron ghi `reminder email fallback disabled — RESEND_API_KEY is not set` rồi bỏ qua, user chỉ còn push. Tính năng **mặc định tắt**; từng user bật bằng `PATCH /api/v1/auth/me` (`{"reminderEmailFallback": true}`), và chỉ gửi khi push không tới được ai. `APP_URL` sai ⇒ link trong mail trỏ sai host |
 | Rate limit dùng chung | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | Fallback in-memory — đủ cho 1 instance, nhưng counter reset mỗi lần restart api |
 
 Cách điền giá trị nhiều dòng (đã thử với `docker compose config`):
@@ -201,6 +202,10 @@ Cách điền giá trị nhiều dòng (đã thử với `docker compose config`
       rồi `docker compose logs api | grep -i push`
 - [ ] Có `RESEND_API_KEY` thì chạy thử luồng "quên mật khẩu" và nhận được email
       thật (không chỉ thấy link trong log)
+- [ ] Email fallback (nếu bật): tài khoản thử bật `reminderEmailFallback`, xoá
+      hết push subscription (hoặc để push lỗi), chạy cron một lượt, rồi kiểm tra
+      `email_fallback_sent` trong log/`stats` = 1 và hộp thư nhận đúng **một**
+      mail. Chạy cron lần hai phải không gửi lại
 
 ---
 
