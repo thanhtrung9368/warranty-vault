@@ -161,17 +161,18 @@ struct DevicesScreen: View {
         devices.filter { $0.status != .SOLD } + devices.filter { $0.status == .SOLD }
     }
 
-    /// The deadline this screen prints **and** sorts by: the server's
-    /// effective warranty end plus the days the device spent in closed repairs
-    /// (Luật 19/2023, Điều 30.2.c — repair time does not count against the
-    /// warranty period).
+    /// The deadline this screen prints **and** sorts by: the server's entitled
+    /// warranty end (Luật 19/2023, Điều 30.2.c — repair time does not count
+    /// against the warranty period).
     ///
-    /// This is `RemindersStore.adjustedEnd`, the same call the dashboard
-    /// (`DashboardView.swift:230`), the reminders list and the device hero
-    /// (`DeviceDetailView.swift:133`) make, so the Apple Watch cannot read
-    /// `còn 8 ngày` here and `còn 18 ngày` everywhere else. `nil` stays `nil`:
-    /// a device with no recorded end has no adjusted end either.
+    /// The list read carries `entitledWarrantyEnd` in 1.1, so that value wins.
+    /// Only an older payload (no clock field) falls through to
+    /// `RemindersStore.adjustedEnd`, which is the same fallback the dashboard,
+    /// the reminders list and the device hero use — adding the days on top of a
+    /// server-entitled date would double count. `nil` stays `nil`: a device with
+    /// no recorded end has no adjusted end either.
     private func displayedWarrantyEnd(for device: Device) -> Date? {
+        if let entitled = device.entitledWarrantyEnd { return entitled }
         guard let end = device.effectiveWarrantyEnd else { return nil }
         return remindersStore.adjustedEnd(end, deviceId: device.id)
     }

@@ -3070,6 +3070,7 @@ paths:
                       - pushesSent
                       - pushesFailed
                       - pushesGone
+                      - repairExtensionShiftedNotices
                     properties:
                       warrantyNotices: { type: integer, description: 'Số lượt nhắc bảo hành đã xử lý: một lượt cho mỗi cặp (warranty, mốc `leadDays`) rơi đúng ngày. Mặc định [30, 7] cho kết quả như lịch 30/7 ngày cũ.' }
                       activationNotices: { type: integer, description: 'Số thiết bị được nhắc "chưa kích hoạt bảo hành" trong lượt chạy. Chỉ bắn MỘT lần cho mỗi thiết bị (`activationRequired = true`, `activatedAt IS NULL`, chưa từng nhắc) — không theo `leadDays`, không nhắc hằng ngày.' }
@@ -3084,6 +3085,7 @@ paths:
                       pushesSent: { type: integer }
                       pushesFailed: { type: integer }
                       pushesGone: { type: integer, description: 'Push trả 404/410 — hàng `PushSubscription` tương ứng đã bị xoá.' }
+                      repairExtensionShiftedNotices: { type: integer, description: 'Số lượt nhắc bảo hành dùng **ngày được hưởng** (`endDate + số ngày sửa đã đóng`) thay vì ngày trên giấy. Chỉ khác 0 khi env `WV_REPAIR_EXTENSION` bật (mặc định tắt — lịch và nội dung build 23 không đổi).' }
         '401': { description: 'Missing or wrong CRON_SECRET' }
 
   /api/v1/ai/extract-receipt:
@@ -4967,6 +4969,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/Device'
         - type: object
+          required: [repairExtensionDays]
           properties:
             effectiveWarrantyEnd:
               type: string
@@ -4991,6 +4994,49 @@ components:
                 cho cùng một thiết bị. Trước đây list lấy max trên mọi dòng còn
                 detail bỏ hẳn trường — đó chính là bug đã sửa; giá trị của list
                 thay đổi chỉ khi thiết bị có dòng bộ phận dài hơn dòng toàn máy.
+
+                **Nghĩa không đổi ở 1.1.** Đây vẫn là **ngày trên giấy** (hạn
+                bảo hành đã ghi). Ngày người dùng thực sự được hưởng là
+                `entitledWarrantyEnd` bên dưới.
+            repairExtensionDays:
+              type: integer
+              minimum: 0
+              maximum: 3650
+              description: |
+                Tổng **số ngày đã sửa chữa** của thiết bị (0 = không có lần sửa
+                nào đã đóng) — suy ra khi đọc từ các hàng `Claim` có trạng thái
+                `RESOLVED` / `REJECTED` / `CANCELLED` và `closedAt` khác null.
+                Đây là quyền theo khoản 2.c Điều 30 Luật 19/2023: thời gian sửa
+                chữa không tính vào thời hạn bảo hành.
+
+                Mỗi lần sửa góp `closedAt − openedAt` theo **ngày lịch Việt Nam**
+                (`Asia/Ho_Chi_Minh`), sàn 0 (sửa trong ngày = 0, dữ liệu âm = 0),
+                tổng bị chặn trên **3650** ngày. Không có cột nào trong DB: giá
+                trị được tính lại trên mỗi lần đọc. Trường **luôn có mặt** (0 khi
+                không có gì để cộng) — client build 23 không biết trường này vẫn
+                đọc payload như cũ.
+            entitledWarrantyEnd:
+              type: string
+              format: date
+              nullable: true
+              description: |
+                Ngày hết hạn **người dùng được hưởng** =
+                `effectiveWarrantyEnd + repairExtensionDays ngày`, dạng
+                `YYYY-MM-DD` — một **ngày lịch**, cùng parser với `endDate`.
+                `null` khi thiết bị không có dòng bảo hành toàn máy nào có ngày
+                kết thúc (khi đó không có gì để cộng), kể cả khi
+                `repairExtensionDays > 0`.
+
+                Không phải thoả thuận với cửa hàng: server tính từ chính hồ sơ
+                sửa chữa người dùng đã ghi, nên surface nào in ngày này cũng phải
+                nói rõ nguồn (client dùng câu `WarrantyRepairAdjustment.legalNote`
+                của iOS / câu tương đương của web và Android). `endDate` và
+                `effectiveWarrantyEnd` **không bị đổi nghĩa** — hai ngày cùng
+                hiện để người dùng đối chiếu giấy bảo hành.
+
+                Riêng lịch nhắc: cron và cửa sổ `GET /api/v1/reminders` chỉ đo
+                theo ngày này khi env `WV_REPAIR_EXTENSION` bật (mặc định **tắt**
+                — giữ nguyên lịch build 23). Trường đọc thì luôn có, bất kể cờ.
 
     # `GET /api/v1/devices` row: the stored Device plus two projection fields
     # hydrated per row by services.ListDevices (api/internal/services/devices.go).
@@ -6564,7 +6610,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/Warranty'
         - type: object
-          required: [device]
+          required: [device, repairExtensionDays]
           properties:
             isDismissed:
               type: boolean
@@ -6574,6 +6620,31 @@ components:
                 dòng `true` khi gọi `GET /api/v1/reminders?includeDismissed=true`;
                 ở chế độ mặc định mọi dòng đều đang hoạt động nên khoá này không
                 bao giờ xuất hiện (giữ nguyên hình dạng phản hồi cũ).
+            repairExtensionDays:
+              type: integer
+              minimum: 0
+              maximum: 3650
+              description: |
+                Số ngày sửa chữa đã đóng của **thiết bị** sở hữu gói này — cùng
+                giá trị `GET /api/v1/devices` trả cho thiết bị đó (0 = không có).
+                Xem `DeviceWithEffectiveWarranty.repairExtensionDays` cho định
+                nghĩa đầy đủ (khoản 2.c Điều 30 Luật 19/2023, ngày lịch
+                `Asia/Ho_Chi_Minh`, sàn 0, chặn 3650). Luôn có mặt.
+            entitledWarrantyEnd:
+              type: string
+              format: date
+              nullable: true
+              description: |
+                Ngày hết hạn **được hưởng** của **chính gói bảo hành này** =
+                `endDate + repairExtensionDays ngày`, dạng `YYYY-MM-DD` (ngày
+                lịch, không phải instant). Khác với trường cùng tên trên thiết
+                bị: ở đây mốc gốc là `endDate` của dòng, không phải max toàn máy,
+                vì mỗi hàng nhắc là một gói.
+
+                `null` chỉ khi dòng không có `endDate` đọc được (dữ liệu hỏng) —
+                bình thường luôn có. `endDate` giữ nguyên nghĩa ngày trên giấy.
+                Cron dùng đúng cặp ngày này để đếm ngược khi `WV_REPAIR_EXTENSION`
+                bật (mặc định tắt), nên con số trên thẻ và con số đã push là một.
             device:
               type: object
               required: [id, name, category, status]

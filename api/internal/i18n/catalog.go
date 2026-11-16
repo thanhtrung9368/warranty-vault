@@ -217,6 +217,19 @@ var messages = map[string]message{
 		vi: "Hết hạn: %s • %s",
 		en: "Expires: %s • %s",
 	},
+	// WV_REPAIR_EXTENSION body (FEATURE_RESEARCH_2026-11 §6.1): when a closed
+	// repair moved the warranty end, the push names the entitled date AND the
+	// paper one, so the date a user finds on the certificate is not missing from
+	// the message. Only sent while the flag is on; with it off the two keys
+	// above are used and build 23's body is unchanged.
+	"Hết hạn (đã tính ngày sửa): %s • Hạn trên giấy: %s": {
+		vi: "Hết hạn (đã tính ngày sửa): %s • Hạn trên giấy: %s",
+		en: "Expires (repair time included): %s • Paper expiry: %s",
+	},
+	"Hết hạn (đã tính ngày sửa): %s • Hạn trên giấy: %s • %s": {
+		vi: "Hết hạn (đã tính ngày sửa): %s • Hạn trên giấy: %s • %s",
+		en: "Expires (repair time included): %s • Paper expiry: %s • %s",
+	},
 	"🛍️ Hôm nay là ngày dự kiến mua \"%s\"": {
 		vi: "🛍️ Hôm nay là ngày dự kiến mua \"%s\"",
 		en: "🛍️ Today is the day you planned to buy \"%s\"",

@@ -229,6 +229,19 @@ export type DeviceListItem = Device & {
   attachmentCount: number;
   // Null when no warranties exist on the device.
   effectiveWarrantyEnd: string | null;
+  // The warranty repair clock (FEATURE_RESEARCH_2026-11 §6.1, 1.1): summed
+  // whole days the device spent in CLOSED repairs (0 = none), derived
+  // server-side from Claim.openedAt/closedAt in the Vietnam calendar.
+  //
+  // Typed optional only so a hand-built fixture or a pre-1.1 API still type
+  // checks; the 1.1 server ALWAYS sends it (openapi marks it required). Read it
+  // as `?? 0` — absent means "older server", not "unknown extension".
+  repairExtensionDays?: number;
+  // `effectiveWarrantyEnd + repairExtensionDays` — the date the user is
+  // entitled to under Điều 30.2.c Luật 19/2023. Null when there is no
+  // whole-unit warranty end to extend. `effectiveWarrantyEnd` keeps its paper
+  // meaning; show this one to the user and say where it comes from.
+  entitledWarrantyEnd?: string | null;
   // Return-window deadline, computed server-side:
   // `COALESCE(receivedAt, purchaseDate) + returnWindowDays ngày`. Null when the
   // day count is unknown, is 0, or there is no purchase date at all.
@@ -321,6 +334,14 @@ export type DeviceDetail = Device & {
   // Same derived value as `DeviceListItem.returnDeadline`; null when the window
   // is unknown / not applicable.
   returnDeadline: string | null;
+  // Same paper-date meaning as `DeviceListItem.effectiveWarrantyEnd`; the
+  // server now sends it on the detail read too (it did before, but the client
+  // predated the field and recomputed it locally).
+  effectiveWarrantyEnd?: string | null;
+  // Repair clock — same derivation and values as the list row. Optional only so
+  // a pre-1.1 API still type-checks a page that already has the rest.
+  repairExtensionDays?: number;
+  entitledWarrantyEnd?: string | null;
   warranties: WarrantyWithReminders[];
   attachments: AttachmentMeta[];
   // Repair cases for this device, newest/open first (server order). The

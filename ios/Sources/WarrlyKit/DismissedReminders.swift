@@ -31,6 +31,12 @@ public struct DismissedReminder: Sendable, Equatable, Identifiable {
     public let warrantyType: WarrantyType
     public let warrantyProvider: String?
     public let endDate: Date
+    /// The server's repair clock for this row (openapi
+    /// `ReminderWarranty`). Carried through from the feed so the "Đã ẩn" card
+    /// shows the same entitled date the upcoming row did. `nil` → older server,
+    /// in which case `RemindersStore` falls back to the claims computation.
+    public let repairExtensionDays: Int?
+    public let entitledWarrantyEnd: Date?
 
     public init(warrantyId: String,
                 deviceId: String,
@@ -39,7 +45,9 @@ public struct DismissedReminder: Sendable, Equatable, Identifiable {
                 deviceStatus: DeviceStatus,
                 warrantyType: WarrantyType,
                 warrantyProvider: String?,
-                endDate: Date) {
+                endDate: Date,
+                repairExtensionDays: Int? = nil,
+                entitledWarrantyEnd: Date? = nil) {
         self.warrantyId = warrantyId
         self.deviceId = deviceId
         self.deviceName = deviceName
@@ -48,6 +56,8 @@ public struct DismissedReminder: Sendable, Equatable, Identifiable {
         self.warrantyType = warrantyType
         self.warrantyProvider = warrantyProvider
         self.endDate = endDate
+        self.repairExtensionDays = repairExtensionDays
+        self.entitledWarrantyEnd = entitledWarrantyEnd
     }
 
     /// One entry per warranty — a warranty can only be dismissed once at a
@@ -88,7 +98,9 @@ public enum DismissedReminders {
                     .flatMap(DeviceStatus.init(rawValue:)) ?? .ACTIVE,
                 warrantyType: reminder.type,
                 warrantyProvider: reminder.provider,
-                endDate: reminder.endDate
+                endDate: reminder.endDate,
+                repairExtensionDays: reminder.repairExtensionDays,
+                entitledWarrantyEnd: reminder.entitledWarrantyEnd
             )
         }
         .sorted { $0.endDate > $1.endDate }

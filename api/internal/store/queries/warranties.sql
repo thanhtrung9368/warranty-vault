@@ -180,15 +180,45 @@ WHERE "warrantyId" = $1 AND "isDismissed" = true;
 --
 -- `device_status` rides along so a client can render the status badge of a
 -- hidden reminder whose device is no longer ACTIVE.
+--
+-- ── The repair clock (FEATURE_RESEARCH_2026-11 §6.1) ───────────────────────
+--
+-- `repair_extension_days` is the per-device closed-repair total, and
+-- `repairExtension=true` makes the [endDateFrom, endDateTo] window measure the
+-- ENTITLED end (`endDate + those days`) instead of the paper date. The flag is
+-- `WV_REPAIR_EXTENSION` (services.RepairExtensionEnabled, default OFF): with it
+-- false the predicate is byte-for-byte the pre-1.1 one, so build 23's feed is
+-- unchanged. The flag only moves the WINDOW; every row always carries
+-- `repair_extension_days`, because clients show the entitled date regardless.
+--
+-- The ext lateral duplicates the arithmetic of claims.sql
+-- ListRepairExtensionsByDeviceIDs on purpose: sqlc cannot compose two queries,
+-- and the alternative (load all warranties and filter in Go) would turn the
+-- feed's indexed day window into a full-account scan. Keep the two expressions
+-- identical, including the two AT TIME ZONE clauses (see the long note there
+-- for why one is not enough).
 SELECT
     w.*,
     d.id            AS device_id,
     d.name          AS device_name,
     d.category      AS device_category,
     d.status        AS device_status,
-    COALESCE(rm.dismissed, false) AS is_dismissed
+    COALESCE(rm.dismissed, false) AS is_dismissed,
+    ext.repair_extension_days     AS repair_extension_days
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
+LEFT JOIN LATERAL (
+    SELECT LEAST(3650, GREATEST(0, COALESCE(SUM(
+        GREATEST(0,
+            ((c."closedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+            - ((c."openedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+        )
+    ), 0)))::int AS repair_extension_days
+    FROM "Claim" c
+    WHERE c."deviceId" = d.id
+      AND c."closedAt" IS NOT NULL
+      AND c.status IN ('RESOLVED', 'REJECTED', 'CANCELLED')
+) ext ON true
 LEFT JOIN LATERAL (
     SELECT bool_or(r."isDismissed") AS dismissed
     FROM "Reminder" r
@@ -198,8 +228,16 @@ WHERE d."userId" = sqlc.arg('userId')::text
   AND (
       (sqlc.arg('includeDismissed')::boolean AND COALESCE(rm.dismissed, false))
       OR (
-          w."endDate" >= sqlc.arg('endDateFrom')::timestamp
-          AND w."endDate" <= sqlc.arg('endDateTo')::timestamp
+          CASE WHEN sqlc.arg('repairExtension')::boolean
+               THEN w."endDate" + make_interval(days => ext.repair_extension_days)
+               ELSE w."endDate"
+          END
+              >= sqlc.arg('endDateFrom')::timestamp
+          AND CASE WHEN sqlc.arg('repairExtension')::boolean
+               THEN w."endDate" + make_interval(days => ext.repair_extension_days)
+               ELSE w."endDate"
+          END
+              <= sqlc.arg('endDateTo')::timestamp
           AND d.status = 'ACTIVE'
           AND COALESCE(rm.dismissed, false) = false
       )
@@ -247,16 +285,48 @@ WHERE d."userId" = $1
 -- re-fired every push the first had already sent. Comparing the stamp instant
 -- against the window's own day boundary makes the two agree by construction —
 -- no cast, no timezone argument.
+--
+-- ── The repair clock (FEATURE_RESEARCH_2026-11 §6.1) ───────────────────────
+--
+-- `repairExtension=true` (env `WV_REPAIR_EXTENSION`, default OFF) moves the
+-- T-30/T-7 bucket from the paper `endDate` to the ENTITLED end
+-- (`endDate + repair_extension_days`): a device whose warranty end moved 12 days
+-- later by a closed repair must not get its "còn 7 ngày" push 12 days early.
+-- With the flag false the WHERE clause is the pre-1.1 one exactly, so build 23's
+-- schedule is unchanged. The `ext` lateral carries the same arithmetic as
+-- claims.sql ListRepairExtensionsByDeviceIDs — keep them identical (including
+-- the two AT TIME ZONE clauses; see the note there).
 SELECT
     w.*,
     d."userId"  AS user_id,
-    d.name      AS device_name
+    d.name      AS device_name,
+    ext.repair_extension_days AS repair_extension_days
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
+LEFT JOIN LATERAL (
+    SELECT LEAST(3650, GREATEST(0, COALESCE(SUM(
+        GREATEST(0,
+            ((c."closedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+            - ((c."openedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+        )
+    ), 0)))::int AS repair_extension_days
+    FROM "Claim" c
+    WHERE c."deviceId" = d.id
+      AND c."closedAt" IS NOT NULL
+      AND c.status IN ('RESOLVED', 'REJECTED', 'CANCELLED')
+) ext ON true
 WHERE d.status = 'ACTIVE'
   AND sqlc.arg('leadDay')::int = ANY(d."leadDays")
-  AND w."endDate" >= sqlc.arg('windowStart')::timestamp
-  AND w."endDate" <  sqlc.arg('windowEnd')::timestamp
+  AND CASE WHEN sqlc.arg('repairExtension')::boolean
+           THEN w."endDate" + make_interval(days => ext.repair_extension_days)
+           ELSE w."endDate"
+      END
+      >= sqlc.arg('windowStart')::timestamp
+  AND CASE WHEN sqlc.arg('repairExtension')::boolean
+           THEN w."endDate" + make_interval(days => ext.repair_extension_days)
+           ELSE w."endDate"
+      END
+      <  sqlc.arg('windowEnd')::timestamp
   AND NOT EXISTS (
       SELECT 1 FROM "Reminder" r
       WHERE r."warrantyId" = w.id AND r."isDismissed" = true

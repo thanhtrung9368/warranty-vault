@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
@@ -25,6 +26,21 @@ type ReminderRow struct {
 	store.Warranty
 	IsDismissed bool              `json:"isDismissed,omitempty"`
 	Device      ReminderDeviceRef `json:"device"`
+	// RepairExtensionDays / EntitledWarrantyEnd are the warranty repair clock
+	// (FEATURE_RESEARCH_2026-11 §6.1, wave 1).
+	//
+	// This row is one WARRANTY, so the entitled date is this warranty's paper
+	// `endDate` shifted by the owning device's closed-repair days — not the
+	// device-level max the device reads carry: the row prints one plan's end
+	// date, and the shift is a property of the device. `repairExtensionDays` is
+	// the same per-device number `GET /devices` returns (0 = no closed repair),
+	// and both fields are always present (additive; build 23 ignores them).
+	//
+	// The same pair drives the cron push (and its window when
+	// WV_REPAIR_EXTENSION is on), so the date a client prints and the date a
+	// notification counted down to are the same number.
+	RepairExtensionDays int32     `json:"repairExtensionDays"`
+	EntitledWarrantyEnd *wire.Day `json:"entitledWarrantyEnd"`
 }
 
 // ReminderDeviceRef is the small device projection embedded in each reminder
@@ -68,8 +84,14 @@ func ListUpcomingReminders(ctx context.Context, db *pgxpool.Pool, userID string,
 
 	q := store.New(db)
 	rows, err := q.ListUpcomingReminders(ctx, store.ListUpcomingRemindersParams{
-		UserId:           userID,
+		UserId: userID,
+		// WV_REPAIR_EXTENSION (default OFF) decides whether the window measures
+		// the paper `endDate` or the entitled one. OFF keeps build 23's feed
+		// exactly; ON moves a warranty whose end was extended by a closed repair
+		// into the same window a client now prints. The flag never changes the
+		// response SHAPE — the two clock fields are emitted either way.
 		IncludeDismissed: includeDismissed,
+		RepairExtension:  RepairExtensionEnabled(),
 		EndDateFrom:      wire.At(startOfToday.UTC()),
 		EndDateTo:        wire.At(horizon.UTC()),
 	})
@@ -115,6 +137,8 @@ func ListUpcomingReminders(ctx context.Context, db *pgxpool.Pool, userID string,
 				Category: r.DeviceCategory,
 				Status:   r.DeviceStatus,
 			},
+			RepairExtensionDays: r.RepairExtensionDays,
+			EntitledWarrantyEnd: repairEntitledDay(r.EndDate.Ptr(), r.RepairExtensionDays),
 		})
 	}
 	return out, nil

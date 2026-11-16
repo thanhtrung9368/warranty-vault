@@ -124,6 +124,12 @@
     <string name="devdetail_no_warranty_plan_yet">No warranty plan yet</string>
     <string name="devdetail_tap_to_add_the_first_plan">Tap + to add the first plan.</string>
     <string name="devdetail_bought_on">Bought on</string>
+    <!-- Warranty repair clock (FEATURE_RESEARCH_2026-11 §6.1): the paper date
+         and the entitled date are shown together so a date that moved later
+         than the certificate says is explained, not silently different. -->
+    <string name="devdetail_warranty_end_paper">Paper expiry</string>
+    <string name="devdetail_warranty_end_entitled">Entitled expiry</string>
+    <string name="devdetail_repair_days_note">Repair days added: %1$d — a right under Art. 30.2.c of Law 19/2023, not an agreement with the retailer.</string>
     <string name="devdetail_price">Price</string>
     <string name="devdetail_price_vnd">Price in VND</string>
     <string name="devdetail_currency">Currency</string>

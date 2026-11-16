@@ -373,9 +373,22 @@ SELECT
     d.name          AS device_name,
     d.category      AS device_category,
     d.status        AS device_status,
-    COALESCE(rm.dismissed, false) AS is_dismissed
+    COALESCE(rm.dismissed, false) AS is_dismissed,
+    ext.repair_extension_days     AS repair_extension_days
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
+LEFT JOIN LATERAL (
+    SELECT LEAST(3650, GREATEST(0, COALESCE(SUM(
+        GREATEST(0,
+            ((c."closedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+            - ((c."openedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+        )
+    ), 0)))::int AS repair_extension_days
+    FROM "Claim" c
+    WHERE c."deviceId" = d.id
+      AND c."closedAt" IS NOT NULL
+      AND c.status IN ('RESOLVED', 'REJECTED', 'CANCELLED')
+) ext ON true
 LEFT JOIN LATERAL (
     SELECT bool_or(r."isDismissed") AS dismissed
     FROM "Reminder" r
@@ -385,8 +398,16 @@ WHERE d."userId" = $1::text
   AND (
       ($2::boolean AND COALESCE(rm.dismissed, false))
       OR (
-          w."endDate" >= $3::timestamp
-          AND w."endDate" <= $4::timestamp
+          CASE WHEN $3::boolean
+               THEN w."endDate" + make_interval(days => ext.repair_extension_days)
+               ELSE w."endDate"
+          END
+              >= $4::timestamp
+          AND CASE WHEN $3::boolean
+               THEN w."endDate" + make_interval(days => ext.repair_extension_days)
+               ELSE w."endDate"
+          END
+              <= $5::timestamp
           AND d.status = 'ACTIVE'
           AND COALESCE(rm.dismissed, false) = false
       )
@@ -397,38 +418,40 @@ ORDER BY w."endDate" ASC
 type ListUpcomingRemindersParams struct {
 	UserId           string       `json:"userId"`
 	IncludeDismissed bool         `json:"includeDismissed"`
+	RepairExtension  bool         `json:"repairExtension"`
 	EndDateFrom      wire.Instant `json:"endDateFrom"`
 	EndDateTo        wire.Instant `json:"endDateTo"`
 }
 
 type ListUpcomingRemindersRow struct {
-	ID             string       `json:"id"`
-	DeviceId       string       `json:"deviceId"`
-	Type           string       `json:"type"`
-	Provider       *string      `json:"provider"`
-	StartDate      wire.Day     `json:"startDate"`
-	EndDate        wire.Day     `json:"endDate"`
-	Months         int32        `json:"months"`
-	Cost           *int32       `json:"cost"`
-	Address        *string      `json:"address"`
-	Phone          *string      `json:"phone"`
-	Notes          *string      `json:"notes"`
-	CreatedAt      wire.Instant `json:"createdAt"`
-	UpdatedAt      wire.Instant `json:"updatedAt"`
-	Component      *string      `json:"component"`
-	Scope          *string      `json:"scope"`
-	Cap            *int32       `json:"cap"`
-	Deductible     *int32       `json:"deductible"`
-	Exclusions     *string      `json:"exclusions"`
-	Region         *string      `json:"region"`
-	Transferable   *bool        `json:"transferable"`
-	ClaimsAllowed  *int32       `json:"claimsAllowed"`
-	ClaimsUsed     int32        `json:"claimsUsed"`
-	DeviceID       string       `json:"device_id"`
-	DeviceName     string       `json:"device_name"`
-	DeviceCategory string       `json:"device_category"`
-	DeviceStatus   string       `json:"device_status"`
-	IsDismissed    bool         `json:"is_dismissed"`
+	ID                  string       `json:"id"`
+	DeviceId            string       `json:"deviceId"`
+	Type                string       `json:"type"`
+	Provider            *string      `json:"provider"`
+	StartDate           wire.Day     `json:"startDate"`
+	EndDate             wire.Day     `json:"endDate"`
+	Months              int32        `json:"months"`
+	Cost                *int32       `json:"cost"`
+	Address             *string      `json:"address"`
+	Phone               *string      `json:"phone"`
+	Notes               *string      `json:"notes"`
+	CreatedAt           wire.Instant `json:"createdAt"`
+	UpdatedAt           wire.Instant `json:"updatedAt"`
+	Component           *string      `json:"component"`
+	Scope               *string      `json:"scope"`
+	Cap                 *int32       `json:"cap"`
+	Deductible          *int32       `json:"deductible"`
+	Exclusions          *string      `json:"exclusions"`
+	Region              *string      `json:"region"`
+	Transferable        *bool        `json:"transferable"`
+	ClaimsAllowed       *int32       `json:"claimsAllowed"`
+	ClaimsUsed          int32        `json:"claimsUsed"`
+	DeviceID            string       `json:"device_id"`
+	DeviceName          string       `json:"device_name"`
+	DeviceCategory      string       `json:"device_category"`
+	DeviceStatus        string       `json:"device_status"`
+	IsDismissed         bool         `json:"is_dismissed"`
+	RepairExtensionDays int32        `json:"repair_extension_days"`
 }
 
 // ─── Reminders list (GET /v1/reminders) ───────────────────────────────────
@@ -463,10 +486,28 @@ type ListUpcomingRemindersRow struct {
 //
 // `device_status` rides along so a client can render the status badge of a
 // hidden reminder whose device is no longer ACTIVE.
+//
+// ── The repair clock (FEATURE_RESEARCH_2026-11 §6.1) ───────────────────────
+//
+// `repair_extension_days` is the per-device closed-repair total, and
+// `repairExtension=true` makes the [endDateFrom, endDateTo] window measure the
+// ENTITLED end (`endDate + those days`) instead of the paper date. The flag is
+// `WV_REPAIR_EXTENSION` (services.RepairExtensionEnabled, default OFF): with it
+// false the predicate is byte-for-byte the pre-1.1 one, so build 23's feed is
+// unchanged. The flag only moves the WINDOW; every row always carries
+// `repair_extension_days`, because clients show the entitled date regardless.
+//
+// The ext lateral duplicates the arithmetic of claims.sql
+// ListRepairExtensionsByDeviceIDs on purpose: sqlc cannot compose two queries,
+// and the alternative (load all warranties and filter in Go) would turn the
+// feed's indexed day window into a full-account scan. Keep the two expressions
+// identical, including the two AT TIME ZONE clauses (see the long note there
+// for why one is not enough).
 func (q *Queries) ListUpcomingReminders(ctx context.Context, arg ListUpcomingRemindersParams) ([]ListUpcomingRemindersRow, error) {
 	rows, err := q.db.Query(ctx, listUpcomingReminders,
 		arg.UserId,
 		arg.IncludeDismissed,
+		arg.RepairExtension,
 		arg.EndDateFrom,
 		arg.EndDateTo,
 	)
@@ -505,6 +546,7 @@ func (q *Queries) ListUpcomingReminders(ctx context.Context, arg ListUpcomingRem
 			&i.DeviceCategory,
 			&i.DeviceStatus,
 			&i.IsDismissed,
+			&i.RepairExtensionDays,
 		); err != nil {
 			return nil, err
 		}
@@ -700,13 +742,34 @@ const listWarrantiesInWindow = `-- name: ListWarrantiesInWindow :many
 SELECT
     w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt", w.component, w.scope, w.cap, w.deductible, w.exclusions, w.region, w.transferable, w."claimsAllowed", w."claimsUsed",
     d."userId"  AS user_id,
-    d.name      AS device_name
+    d.name      AS device_name,
+    ext.repair_extension_days AS repair_extension_days
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
+LEFT JOIN LATERAL (
+    SELECT LEAST(3650, GREATEST(0, COALESCE(SUM(
+        GREATEST(0,
+            ((c."closedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+            - ((c."openedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+        )
+    ), 0)))::int AS repair_extension_days
+    FROM "Claim" c
+    WHERE c."deviceId" = d.id
+      AND c."closedAt" IS NOT NULL
+      AND c.status IN ('RESOLVED', 'REJECTED', 'CANCELLED')
+) ext ON true
 WHERE d.status = 'ACTIVE'
   AND $1::int = ANY(d."leadDays")
-  AND w."endDate" >= $2::timestamp
-  AND w."endDate" <  $3::timestamp
+  AND CASE WHEN $2::boolean
+           THEN w."endDate" + make_interval(days => ext.repair_extension_days)
+           ELSE w."endDate"
+      END
+      >= $3::timestamp
+  AND CASE WHEN $2::boolean
+           THEN w."endDate" + make_interval(days => ext.repair_extension_days)
+           ELSE w."endDate"
+      END
+      <  $4::timestamp
   AND NOT EXISTS (
       SELECT 1 FROM "Reminder" r
       WHERE r."warrantyId" = w.id AND r."isDismissed" = true
@@ -715,44 +778,46 @@ WHERE d.status = 'ACTIVE'
       SELECT 1 FROM "Reminder" r
       WHERE r."warrantyId" = w.id
         AND r."lastNotifiedAt" IS NOT NULL
-        AND r."lastNotifiedAt" >= $4::timestamp
+        AND r."lastNotifiedAt" >= $5::timestamp
         AND (r."lastNotifiedLeadDay" IS NULL
              OR r."lastNotifiedLeadDay" = $1::int)
   )
 `
 
 type ListWarrantiesInWindowParams struct {
-	LeadDay       int32        `json:"leadDay"`
-	WindowStart   wire.Instant `json:"windowStart"`
-	WindowEnd     wire.Instant `json:"windowEnd"`
-	NotifiedSince wire.Instant `json:"notifiedSince"`
+	LeadDay         int32        `json:"leadDay"`
+	RepairExtension bool         `json:"repairExtension"`
+	WindowStart     wire.Instant `json:"windowStart"`
+	WindowEnd       wire.Instant `json:"windowEnd"`
+	NotifiedSince   wire.Instant `json:"notifiedSince"`
 }
 
 type ListWarrantiesInWindowRow struct {
-	ID            string       `json:"id"`
-	DeviceId      string       `json:"deviceId"`
-	Type          string       `json:"type"`
-	Provider      *string      `json:"provider"`
-	StartDate     wire.Day     `json:"startDate"`
-	EndDate       wire.Day     `json:"endDate"`
-	Months        int32        `json:"months"`
-	Cost          *int32       `json:"cost"`
-	Address       *string      `json:"address"`
-	Phone         *string      `json:"phone"`
-	Notes         *string      `json:"notes"`
-	CreatedAt     wire.Instant `json:"createdAt"`
-	UpdatedAt     wire.Instant `json:"updatedAt"`
-	Component     *string      `json:"component"`
-	Scope         *string      `json:"scope"`
-	Cap           *int32       `json:"cap"`
-	Deductible    *int32       `json:"deductible"`
-	Exclusions    *string      `json:"exclusions"`
-	Region        *string      `json:"region"`
-	Transferable  *bool        `json:"transferable"`
-	ClaimsAllowed *int32       `json:"claimsAllowed"`
-	ClaimsUsed    int32        `json:"claimsUsed"`
-	UserID        string       `json:"user_id"`
-	DeviceName    string       `json:"device_name"`
+	ID                  string       `json:"id"`
+	DeviceId            string       `json:"deviceId"`
+	Type                string       `json:"type"`
+	Provider            *string      `json:"provider"`
+	StartDate           wire.Day     `json:"startDate"`
+	EndDate             wire.Day     `json:"endDate"`
+	Months              int32        `json:"months"`
+	Cost                *int32       `json:"cost"`
+	Address             *string      `json:"address"`
+	Phone               *string      `json:"phone"`
+	Notes               *string      `json:"notes"`
+	CreatedAt           wire.Instant `json:"createdAt"`
+	UpdatedAt           wire.Instant `json:"updatedAt"`
+	Component           *string      `json:"component"`
+	Scope               *string      `json:"scope"`
+	Cap                 *int32       `json:"cap"`
+	Deductible          *int32       `json:"deductible"`
+	Exclusions          *string      `json:"exclusions"`
+	Region              *string      `json:"region"`
+	Transferable        *bool        `json:"transferable"`
+	ClaimsAllowed       *int32       `json:"claimsAllowed"`
+	ClaimsUsed          int32        `json:"claimsUsed"`
+	UserID              string       `json:"user_id"`
+	DeviceName          string       `json:"device_name"`
+	RepairExtensionDays int32        `json:"repair_extension_days"`
 }
 
 // ─── Cron: warranty bucket fan-out ────────────────────────────────────────
@@ -781,9 +846,21 @@ type ListWarrantiesInWindowRow struct {
 // re-fired every push the first had already sent. Comparing the stamp instant
 // against the window's own day boundary makes the two agree by construction —
 // no cast, no timezone argument.
+//
+// ── The repair clock (FEATURE_RESEARCH_2026-11 §6.1) ───────────────────────
+//
+// `repairExtension=true` (env `WV_REPAIR_EXTENSION`, default OFF) moves the
+// T-30/T-7 bucket from the paper `endDate` to the ENTITLED end
+// (`endDate + repair_extension_days`): a device whose warranty end moved 12 days
+// later by a closed repair must not get its "còn 7 ngày" push 12 days early.
+// With the flag false the WHERE clause is the pre-1.1 one exactly, so build 23's
+// schedule is unchanged. The `ext` lateral carries the same arithmetic as
+// claims.sql ListRepairExtensionsByDeviceIDs — keep them identical (including
+// the two AT TIME ZONE clauses; see the note there).
 func (q *Queries) ListWarrantiesInWindow(ctx context.Context, arg ListWarrantiesInWindowParams) ([]ListWarrantiesInWindowRow, error) {
 	rows, err := q.db.Query(ctx, listWarrantiesInWindow,
 		arg.LeadDay,
+		arg.RepairExtension,
 		arg.WindowStart,
 		arg.WindowEnd,
 		arg.NotifiedSince,
@@ -820,6 +897,7 @@ func (q *Queries) ListWarrantiesInWindow(ctx context.Context, arg ListWarranties
 			&i.ClaimsUsed,
 			&i.UserID,
 			&i.DeviceName,
+			&i.RepairExtensionDays,
 		); err != nil {
 			return nil, err
 		}

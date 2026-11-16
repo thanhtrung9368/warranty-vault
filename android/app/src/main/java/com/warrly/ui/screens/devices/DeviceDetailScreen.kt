@@ -739,6 +739,33 @@ private fun DeviceSummaryCard(device: Device) {
             Spacer(Modifier.height(8.dp))
             DetailRow(stringResource(R.string.devadd_status), stringResource(device.status.labelRes))
             DetailRow(stringResource(R.string.devdetail_bought_on), device.purchaseDate.take(10))
+            // Warranty repair clock (FEATURE_RESEARCH_2026-11 §6.1): the PAPER
+            // date the retailer recorded and the date the user is entitled to
+            // after closed repairs (Luật 19/2023, Điều 30.2.c). Both are server
+            // fields — the entitled date already includes the days, so nothing
+            // is added here. The pair is printed only when an extension exists,
+            // so an ordinary device's summary is unchanged.
+            val paperWarrantyEnd = device.effectiveWarrantyEnd?.take(10)
+            val entitledWarrantyEnd = device.entitledWarrantyEnd?.take(10)
+            val repairDays = device.repairExtensionDays ?: 0
+            if (paperWarrantyEnd != null &&
+                entitledWarrantyEnd != null &&
+                entitledWarrantyEnd != paperWarrantyEnd &&
+                repairDays > 0
+            ) {
+                DetailRow(stringResource(R.string.devdetail_warranty_end_paper), paperWarrantyEnd)
+                DetailRow(
+                    stringResource(R.string.devdetail_warranty_end_entitled),
+                    entitledWarrantyEnd,
+                    valueColor = WVAccent.current.success,
+                )
+                Text(
+                    stringResource(R.string.devdetail_repair_days_note, repairDays),
+                    fontSize = 12.sp,
+                    color = cs.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
+                )
+            }
             if (device.purchasePrice > 0) {
                 // Native currency first — "$999" must never read as dong.
                 DetailRow(

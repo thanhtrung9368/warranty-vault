@@ -45,6 +45,59 @@ JOIN "Device" d ON d.id = c."deviceId"
 WHERE c.id = $1 AND d."userId" = $2
 LIMIT 1;
 
+-- name: ListRepairExtensionsByDeviceIDs :many
+-- The warranty repair clock (docs/FEATURE_RESEARCH_2026-11.md §6.1, wave 1).
+--
+-- Vietnamese consumer law (Luật 19/2023, Điều 30 khoản 2 điểm c) says the time a
+-- product spends being repaired is NOT counted against its warranty period, so a
+-- device whose warranty ends on the paper date X is entitled to X + (closed
+-- repair days). This query is the ONE server derivation of those days; the
+-- device / search / reminder reads use it, and the cron/reminder windows use the
+-- same arithmetic behind the WV_REPAIR_EXTENSION flag (services.RepairExtensionEnabled).
+--
+-- Row selection:
+--   * terminal status only (RESOLVED / REJECTED / CANCELLED) AND closedAt set.
+--     An OPEN / IN_REPAIR claim has not consumed any whole day yet, and a
+--     terminal row with no close stamp is an incomplete record, not a finished
+--     repair. This is the same partition the iOS `ClaimRules.isClosed` owns.
+--   * GREATEST(0, …) per claim: a same-day repair adds 0 (not "+0 days" as a
+--     weird positive), and a negative interval from bad historical data never
+--     shrinks the warranty.
+--   * LEAST(3650, …) on the summed total: ten years is far beyond any real
+--     warranty; a corrupt row must not push an end date into the next century.
+--
+-- ── The two AT TIME ZONE clauses are NOT redundant ─────────────────────────
+--
+-- "openedAt"/"closedAt" are `timestamp(3) without time zone` holding UTC
+-- instants (migration 0021; dbconn pins the session to UTC), so:
+--   1. `AT TIME ZONE 'UTC'` interprets the naive value as an instant, and
+--   2. `AT TIME ZONE 'Asia/Ho_Chi_Minh'` converts that instant to the Vietnam
+--      calendar day before `::date` truncates it.
+-- A bare `::date` would use the UTC session day: a claim closed at 05:30 ICT is
+-- stored 22:30Z the previous day and would lose a whole day. A single
+-- `AT TIME ZONE 'Asia/Ho_Chi_Minh'` is the mirror-image bug — it reads the UTC
+-- wall clock as Ho Chi Minh time, then truncates back in UTC, so a claim opened
+-- at 00:30 UTC (07:30 ICT) lands on the previous day. Both errors are one day,
+-- which is exactly what iOS `WarrantyRepairAdjustment` was written to avoid.
+--
+-- Ownership is joined through Device like every other Claim query. The device id
+-- set is caller-supplied and bounded by MAX_DEVICES_TOTAL_PER_USER (500).
+SELECT
+    c."deviceId" AS device_id,
+    LEAST(3650, GREATEST(0, SUM(
+        GREATEST(0,
+            ((c."closedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+            - ((c."openedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+        )
+    )))::int AS repair_extension_days
+FROM "Claim" c
+JOIN "Device" d ON d.id = c."deviceId"
+WHERE c."deviceId" = ANY(sqlc.arg('deviceIds')::text[])
+  AND d."userId" = sqlc.arg('userId')::text
+  AND c."closedAt" IS NOT NULL
+  AND c.status IN ('RESOLVED', 'REJECTED', 'CANCELLED')
+GROUP BY c."deviceId";
+
 -- name: CountClaimsByUser :one
 -- Per-user ceiling (MAX_CLAIMS_PER_USER = 1000). A claim lives under a device,
 -- so this is bounded structurally by the 500-row device ceiling, but a device

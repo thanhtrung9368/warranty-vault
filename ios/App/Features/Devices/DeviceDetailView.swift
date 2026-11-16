@@ -139,6 +139,12 @@ struct DeviceDetailView: View {
     /// end plus the duration of this device's closed repairs (Luật 19/2023,
     /// Điều 30.2.c — repair time is not counted against the warranty period).
     ///
+    /// The server derives this pair on every device read in 1.1
+    /// (`repairExtensionDays` / `entitledWarrantyEnd`), so the server's entitled
+    /// date wins and the local claim arithmetic only runs when the field is
+    /// absent — i.e. against a pre-1.1 server. `WarrantyRepairAdjustment.adjust`
+    /// owns that choice so the days can never be added twice.
+    ///
     /// `nil` before the detail read lands, because until then `store.claims`
     /// is empty for "not read yet", not "no claims". Showing `+0` in that
     /// window would be a claim the data cannot support; the hero falls back to
@@ -149,7 +155,12 @@ struct DeviceDetailView: View {
     /// schedule stay untouched. See `WarrantyRepairAdjustment`.
     private var repairExtension: WarrantyRepairExtension? {
         guard detailLoaded, let end = effectiveWarrantyEnd else { return nil }
-        return WarrantyRepairAdjustment.adjust(rawEnd: end, claims: store.claims)
+        return WarrantyRepairAdjustment.adjust(
+            rawEnd: end,
+            claims: store.claims,
+            entitledEnd: store.device?.entitledWarrantyEnd ?? currentDevice.entitledWarrantyEnd,
+            serverDays: store.device?.repairExtensionDays ?? currentDevice.repairExtensionDays
+        )
     }
 
     /// The date the hero shows: adjusted when there is a repair extension,
