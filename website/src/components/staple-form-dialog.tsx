@@ -27,19 +27,51 @@ import type { Staple, StapleState } from '@/lib/api/staples';
 import { createStaple, updateStaple } from '@/app/actions/staples';
 
 const STATES: StapleState[] = ['ENOUGH', 'LOW', 'OUT'];
+const PRESET_CATEGORIES = [
+  'Đồ dùng cá nhân',
+  'Đồ dùng nhà cửa',
+  'Đồ dùng nhà bếp',
+  'Đồ dùng vệ sinh',
+  'Thực phẩm khô',
+  'Đồ dùng em bé',
+  'Đồ dùng thú cưng',
+  'Đồ dùng xe',
+  'Văn phòng',
+];
+const OTHER_CATEGORY = '__other__';
 
 export function StapleFormDialog({
   open,
   onOpenChange,
   initial,
+  existingCategories = [],
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initial?: Staple;
+  existingCategories?: string[];
   onSaved: () => void;
 }) {
   const t = useT();
+  const categoryOptions = React.useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...PRESET_CATEGORIES,
+          ...existingCategories.map((c) => c.trim()).filter(Boolean),
+        ]),
+      ),
+    [existingCategories],
+  );
+  const initialCategory = initial?.category?.trim() ?? '';
+  const initialKnown = categoryOptions.includes(initialCategory);
+  const [categoryChoice, setCategoryChoice] = React.useState(
+    initialKnown ? initialCategory : initialCategory ? OTHER_CATEGORY : '',
+  );
+  const [customCategory, setCustomCategory] = React.useState(
+    initialKnown ? '' : initialCategory,
+  );
   const [state, setState] = React.useState<StapleState>(initial?.state ?? 'ENOUGH');
   const [useCadence, setUseCadence] = React.useState(initial?.cadenceDays != null);
   const [error, setError] = React.useState<string | null>(null);
@@ -114,12 +146,32 @@ export function StapleFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="staple-category">{t('Nhóm')}</Label>
-              <Input
-                id="staple-category"
+              <Select value={categoryChoice} onValueChange={setCategoryChoice}>
+                <SelectTrigger id="staple-category">
+                  <SelectValue placeholder={t('Chọn nhóm')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {categoryOptions.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {PRESET_CATEGORIES.includes(category) ? t(category) : category}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={OTHER_CATEGORY}>{t('Khác')}</SelectItem>
+                </SelectContent>
+              </Select>
+              <input
+                type="hidden"
                 name="category"
-                defaultValue={initial?.category ?? ''}
-                placeholder={t('Đồ dùng cá nhân...')}
+                value={categoryChoice === OTHER_CATEGORY ? customCategory : categoryChoice}
               />
+              {categoryChoice === OTHER_CATEGORY && (
+                <Input
+                  value={customCategory}
+                  onChange={(event) => setCustomCategory(event.target.value)}
+                  placeholder={t('Nhóm khác...')}
+                  aria-label={t('Nhóm khác...')}
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="staple-unit">{t('Đơn vị')}</Label>

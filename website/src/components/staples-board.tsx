@@ -53,6 +53,13 @@ export function StaplesBoard({ items }: { items: Staple[] }) {
 
   const toBuy = items.filter((item) => item.state !== 'ENOUGH');
   const enough = items.filter((item) => item.state === 'ENOUGH');
+  const existingCategories = Array.from(
+    new Set(
+      items
+        .map((item) => item.category?.trim())
+        .filter((category): category is string => Boolean(category)),
+    ),
+  );
 
   async function runQuick(
     item: Staple,
@@ -244,6 +251,7 @@ export function StaplesBoard({ items }: { items: Staple[] }) {
           key={editing?.id ?? 'new'}
           open
           initial={editing ?? undefined}
+          existingCategories={existingCategories}
           onOpenChange={(open) => {
             if (!open) setEditing(undefined);
           }}
