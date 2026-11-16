@@ -76,6 +76,7 @@ final class DeadlineSurface {
         DeadlineSnapshotStore()?.clear()
         await DeviceSpotlightIndexer.clear()
         WarrlyIntentBridge.clearPendingDevice()
+        WarrlyIntentBridge.clearPendingCapture()
         WidgetCenter.shared.reloadTimelines(ofKind: WarrlySurface.widgetKind)
     }
 

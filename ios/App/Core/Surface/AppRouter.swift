@@ -2,16 +2,20 @@ import Foundation
 import SwiftUI
 import WarrlyKit
 
-/// One place that turns "open this device" requests into navigation.
+/// One place that turns "open this device" / "capture a receipt" requests into
+/// navigation.
 ///
-/// Four entry points feed it: a Spotlight result tap (an `NSUserActivity`), a
+/// Five entry points feed it: a Spotlight result tap (an `NSUserActivity`), a
 /// `warrly://device/<id>` URL, the "Open device" App Intent (which writes the
-/// id into the App Group because Siri may run before the UI exists), and a
+/// id into the App Group because Siri may run before the UI exists), a
 /// **tapped push notification** (whose payload carries `url: /devices/<id>`,
-/// `/subscriptions/<id>` or `/wishlist/<id>`).
+/// `/subscriptions/<id>` or `/wishlist/<id>`), and the Control Center control
+/// (`warrly://capture` or the `wv.pendingCapture` App Group flag, written by
+/// `CaptureReceiptIntent`).
 ///
-/// The id is kept until the destination tab has loaded enough to push the real
-/// screen. Consuming it earlier would drop the request on a cold launch.
+/// The id/flag is kept until the destination screen — or `RootView`'s capture
+/// sheet — can present it. Consuming it earlier would drop the request on a
+/// cold launch.
 @MainActor
 final class AppRouter: ObservableObject {
     @Published private(set) var pendingDeviceId: String?
@@ -21,9 +25,14 @@ final class AppRouter: ObservableObject {
     /// A wishlist item a target-date / check-in push asked for. Consumed by
     /// `WishlistScreen`, which switches the tab before pushing — same rule.
     @Published private(set) var pendingWishlistId: String?
+    /// The Control Center control asked for receipt capture. Consumed by
+    /// `RootView`, which presents `InboxCaptureSheet` only behind the
+    /// authenticated gate AND below the App Lock cover.
+    @Published private(set) var pendingCapture = false
 
     private var observer: NSObjectProtocol?
     private var pushObserver: NSObjectProtocol?
+    private var captureObserver: NSObjectProtocol?
 
     init() {
         observer = NotificationCenter.default.addObserver(
@@ -54,16 +63,32 @@ final class AppRouter: ObservableObject {
                 }
             }
         }
+
+        // The control's intent may run in this process when the app is already
+        // alive. The App Group flag is the durable path; this saves a scene
+        // phase round trip in the common case.
+        captureObserver = NotificationCenter.default.addObserver(
+            forName: WarrlyDeepLink.pendingCaptureNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.openCapture() }
+        }
     }
 
     deinit {
         if let observer { NotificationCenter.default.removeObserver(observer) }
         if let pushObserver { NotificationCenter.default.removeObserver(pushObserver) }
+        if let captureObserver { NotificationCenter.default.removeObserver(captureObserver) }
     }
 
-    /// Handles `warrly://device/<id>`. Any other URL is ignored, not treated as
-    /// a device id.
+    /// Handles `warrly://device/<id>` and `warrly://capture`. Any other URL is
+    /// ignored, not treated as a device id.
     func open(_ url: URL) {
+        if WarrlyDeepLink.isCaptureURL(url) {
+            openCapture()
+            return
+        }
         guard let id = WarrlyDeepLink.deviceId(from: url) else { return }
         openDevice(id: id)
     }
@@ -78,6 +103,11 @@ final class AppRouter: ObservableObject {
 
     func openWishlist(id: String) {
         pendingWishlistId = id
+    }
+
+    /// `warrly://capture` or the App Group flag both land here.
+    func openCapture() {
+        pendingCapture = true
     }
 
     /// Picks up the id an App Intent queued in the App Group. Called on every
@@ -102,12 +132,20 @@ final class AppRouter: ObservableObject {
         if let id = WarrlyIntentBridge.consumePendingDevice() {
             openDevice(id: id)
         }
+        if WarrlyIntentBridge.consumePendingCapture() {
+            openCapture()
+        }
     }
 
     /// Hands the id to the devices screen exactly once.
     func consume() -> String? {
         defer { pendingDeviceId = nil }
         return pendingDeviceId
+    }
+
+    /// Hands the capture request to `RootView` exactly once.
+    func consumeCapture() {
+        pendingCapture = false
     }
 
     /// Hands the subscription id to the subscriptions screen exactly once.
@@ -122,12 +160,14 @@ final class AppRouter: ObservableObject {
         return pendingWishlistId
     }
 
-    /// Sign-out hygiene. Also clears the App Group queue so a queued intent
-    /// cannot open a device after the account changed.
+    /// Sign-out hygiene. Also clears the App Group queues so a queued intent
+    /// cannot open a device (or the capture sheet) after the account changed.
     func clear() {
         pendingDeviceId = nil
         pendingSubscriptionId = nil
         pendingWishlistId = nil
+        pendingCapture = false
         WarrlyIntentBridge.clearPendingDevice()
+        WarrlyIntentBridge.clearPendingCapture()
     }
 }

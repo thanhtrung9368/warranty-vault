@@ -1284,6 +1284,23 @@
         }
       }
     },
+    "30 ngày" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 days"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 ngày"
+          }
+        }
+      }
+    },
     "30 ngày (mặc định)" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2134,19 +2151,19 @@
         }
       }
     },
-    "Bảo hành sắp hết hạn, ngay trên màn hình chính." : {
+    "Bảo hành sắp hết hạn, trên màn hình chính và màn hình khoá." : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Warranties expiring soon, right on your Home Screen."
+            "value" : "Warranties expiring soon, on your Home Screen and Lock Screen."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bảo hành sắp hết hạn, ngay trên màn hình chính."
+            "value" : "Bảo hành sắp hết hạn, trên màn hình chính và màn hình khoá."
           }
         }
       }
@@ -3650,6 +3667,23 @@
         }
       }
     },
+    "Chưa đọc được dữ liệu đã lưu. Mở Warrly để đồng bộ." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't read the saved data. Open Warrly to sync."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa đọc được dữ liệu đã lưu. Mở Warrly để đồng bộ."
+          }
+        }
+      }
+    },
     "Chưa đối chiếu với hãng" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4105,6 +4139,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Chọn ảnh hoá đơn"
+          }
+        }
+      }
+    },
+    "Chụp hoá đơn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capture receipt"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chụp hoá đơn"
           }
         }
       }
@@ -12025,6 +12076,23 @@
         }
       }
     },
+    "Mở màn hình chụp hoá đơn trong Warrly. Bước tiếp theo là chụp ảnh; nếu bật Face ID bạn sẽ mở khoá trước." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens receipt capture in Warrly. The next step is the photo; if Face ID is on, you'll unlock first."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mở màn hình chụp hoá đơn trong Warrly. Bước tiếp theo là chụp ảnh; nếu bật Face ID bạn sẽ mở khoá trước."
+          }
+        }
+      }
+    },
     "Mở một thiết bị và ghi lại lần sửa đầu tiên ở mục “Sửa chữa & bảo hành”." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12667,6 +12735,57 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ngôn ngữ áp dụng cho cả ứng dụng, thông báo đẩy và email."
+          }
+        }
+      }
+    },
+    "Sẽ tự tải lên khi có mạng." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It will upload when you're back online."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sẽ tự tải lên khi có mạng."
+          }
+        }
+      }
+    },
+    "Warrly không có quyền dùng camera. Mở Cài đặt để bật." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warrly doesn't have camera access. Open Settings to enable it."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warrly không có quyền dùng camera. Mở Cài đặt để bật."
+          }
+        }
+      }
+    },
+    "Đã lưu hoá đơn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Receipt saved"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã lưu hoá đơn"
           }
         }
       }

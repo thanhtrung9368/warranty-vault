@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import AVFoundation
 import UIKit
 import UniformTypeIdentifiers
 import WarrlyKit
@@ -15,6 +16,15 @@ import WarrlyKit
 //
 // The upload path is the same `POST /api/v1/attachments` the device detail uses;
 // the difference is that `deviceId` is nil, so the multipart form omits it.
+//
+// Two extra entry conditions come from the Control Center control:
+//  * `startWithCamera` — land on the camera instead of asking the user to find
+//    it. If camera permission is missing or denied, the sheet says so and links
+//    to Settings instead of silently bouncing back.
+//  * offline — when the upload fails at the transport layer (no network), the
+//    bytes go into the same App Group queue the Share Extension uses and the
+//    sheet says the receipt will upload later. A 429 is a server answer, not a
+//    network failure: it keeps the envelope's own message on screen.
 // ============================================================
 
 struct InboxCaptureSheet: View {
@@ -23,6 +33,8 @@ struct InboxCaptureSheet: View {
     /// store uses it to reload; the Devices screen uses it to announce where the
     /// file went.
     var onUploaded: (AttachmentMeta) -> Void = { _ in }
+    /// Set by the Control Center hand-off: open the live camera immediately.
+    var startWithCamera: Bool = false
 
     @Environment(\.dismiss) private var dismiss
 
@@ -31,7 +43,15 @@ struct InboxCaptureSheet: View {
     @State private var showCamera = false
     @State private var isUploading = false
     @State private var errorMessage: String?
+    /// Camera permission/liveness problem, shown with an "Open Settings" path.
+    /// Kept apart from `errorMessage` because the fix is a system setting, not
+    /// a retry.
+    @State private var cameraError: String?
     @State private var uploadedName: String?
+    /// The upload failed offline and the bytes are safe in the App Group queue.
+    @State private var queuedNotice = false
+    /// Auto-start runs once per sheet even if SwiftUI re-runs its task.
+    @State private var didAttemptAutoCamera = false
 
     var body: some View {
         NavigationStack {
@@ -41,8 +61,13 @@ struct InboxCaptureSheet: View {
 
                     if let uploadedName {
                         successCard(uploadedName)
+                    } else if queuedNotice {
+                        queuedCard
                     } else {
                         captureRows
+                        if let cameraError {
+                            cameraAccessCard(cameraError)
+                        }
                         WVSectionFooter(L.t("Tệp sẽ vào Hộp thư đến và chưa thuộc thiết bị nào. Bạn gán thiết bị sau."))
                     }
 
@@ -81,6 +106,11 @@ struct InboxCaptureSheet: View {
             }
         }
         .interactiveDismissDisabled(isUploading)
+        .task {
+            guard startWithCamera, !didAttemptAutoCamera else { return }
+            didAttemptAutoCamera = true
+            await openCamera()
+        }
         .onChange(of: photoItem) { _, newItem in
             guard let newItem else { return }
             Task { await uploadPhoto(item: newItem) }
@@ -113,7 +143,7 @@ struct InboxCaptureSheet: View {
             // with no camera (the simulator), never shown as a dead control.
             if CameraPicker.isAvailable {
                 Button {
-                    showCamera = true
+                    Task { await openCamera() }
                 } label: {
                     captureRow(
                         icon: "camera", color: WVColor.red,
@@ -213,6 +243,90 @@ struct InboxCaptureSheet: View {
         .padding(.horizontal, WVSpacing.gutter)
     }
 
+    /// Upload failed at the transport layer. The bytes went into the same App
+    /// Group queue the Share Extension uses, so the receipt is **saved** but
+    /// not yet in the inbox — say that, not "added".
+    private var queuedCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "wifi.slash")
+                    .font(.system(size: 22))
+                    .foregroundStyle(WVColor.orange)
+                Text(L.t("Đã lưu hoá đơn"))
+                    .wvFont(.bodyEmphasis)
+                    .foregroundStyle(WVColor.label)
+            }
+            Text(L.t("Sẽ tự tải lên khi có mạng."))
+                .wvFont(.footnote)
+                .foregroundStyle(WVColor.label3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(WVColor.bg2)
+        .clipShape(RoundedRectangle(cornerRadius: WVRadius.list, style: .continuous))
+        .padding(.horizontal, WVSpacing.gutter)
+    }
+
+    /// Camera permission/liveness problem. The fix lives in iOS Settings, so
+    /// offer the same `openSettingsURLString` deep link the push permission
+    /// flow uses instead of a dead "try again".
+    private func cameraAccessCard(_ message: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(WVColor.orange)
+                Text(message)
+                    .wvFont(.footnote)
+                    .foregroundStyle(WVColor.label)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            WVButton(L.t("Mở Cài đặt"), icon: "settings", kind: .secondary, fullWidth: false) {
+                openSettings()
+            }
+        }
+        .padding(.horizontal, 32)
+        .padding(.top, 10)
+    }
+
+    // MARK: - Camera permission
+
+    /// Presenting the camera only after `AVCaptureDevice` says so keeps a denied
+    /// permission from looking like a broken button: the system picker would
+    /// simply bounce back with nothing on screen.
+    private func openCamera() async {
+        // No camera (simulator): the other capture rows are the honest path.
+        guard CameraPicker.isAvailable else { return }
+
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            cameraError = nil
+            showCamera = true
+        case .notDetermined:
+            let granted: Bool = await withCheckedContinuation { continuation in
+                AVCaptureDevice.requestAccess(for: .video) { granted in
+                    continuation.resume(returning: granted)
+                }
+            }
+            if granted {
+                cameraError = nil
+                showCamera = true
+            } else {
+                cameraError = L.t("Warrly không có quyền dùng camera. Mở Cài đặt để bật.")
+            }
+        case .denied, .restricted:
+            cameraError = L.t("Warrly không có quyền dùng camera. Mở Cài đặt để bật.")
+        @unknown default:
+            cameraError = L.t("Warrly không có quyền dùng camera. Mở Cài đặt để bật.")
+        }
+    }
+
+    private func openSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+    }
+
     // MARK: - Upload
 
     /// File-type detection. Shared by the photo and PDF paths so the size/type
@@ -276,25 +390,71 @@ struct InboxCaptureSheet: View {
         defer { isUploading = false }
         do {
             let (data, fileName, type) = try await build()
-            // `deviceId: nil` is the entire feature: the multipart form omits
-            // that field and the file waits in the inbox.
-            let meta = try await client.uploadAttachment(
-                deviceId: nil,
-                fileName: fileName,
-                fileType: type.mimeType,
-                data: data,
-                description: nil
-            )
-            uploadedName = meta.fileName
-            onUploaded(meta)
-            // Leave the confirmation on screen briefly, then close. The user
-            // reads where it went; the list behind it already refreshed.
-            try? await Task.sleep(nanoseconds: 900_000_000)
-            dismiss()
+            do {
+                // `deviceId: nil` is the entire feature: the multipart form omits
+                // that field and the file waits in the inbox.
+                let meta = try await client.uploadAttachment(
+                    deviceId: nil,
+                    fileName: fileName,
+                    fileType: type.mimeType,
+                    data: data,
+                    description: nil
+                )
+                uploadedName = meta.fileName
+                onUploaded(meta)
+                // Leave the confirmation on screen briefly, then close. The user
+                // reads where it went; the list behind it already refreshed.
+                try? await Task.sleep(nanoseconds: 900_000_000)
+                dismiss()
+            } catch let error as APIError {
+                switch error {
+                case .transport:
+                    // No network. The bytes must not be lost, so hand them to
+                    // the app's existing at-least-once queue — the same one the
+                    // Share Extension fills — instead of discarding them behind
+                    // an error banner. `InboxStore.importSharedFiles()` uploads
+                    // them on the next launch/foreground.
+                    queueOffline(data: data, fileName: fileName)
+                case let .server(status, envelope) where status == 429:
+                    // The server's envelope message is the only honest answer
+                    // (a rate limit is not a network failure and retrying now
+                    // cannot succeed). Never replace it with generic copy.
+                    errorMessage = envelope.message ?? envelope.error
+                default:
+                    errorMessage = error.localizedDescription
+                }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         } catch let error as CaptureError {
             if let message = error.message { errorMessage = message }
+        } catch let error as APIError {
+            errorMessage = error.localizedDescription
         } catch {
-            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Saves an offline capture into the App Group queue. Synchronous and small
+    /// (≤5 MB); the item is only removed there after a later upload succeeds.
+    private func queueOffline(data: Data, fileName: String) {
+        guard let queue = SharedInboxStore() else {
+            errorMessage = L.t("Không lưu được tệp để tải lên sau.")
+            return
+        }
+        do {
+            try queue.enqueue(data: data, fileName: fileName)
+            queuedNotice = true
+            // Let the card be read before the sheet closes; the queue survives
+            // even if the app is killed in the meantime.
+            Task {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                dismiss()
+            }
+        } catch let error as SharedInboxError {
+            errorMessage = error.message
+        } catch {
+            errorMessage = L.t("Không lưu được tệp để tải lên sau.")
         }
     }
 

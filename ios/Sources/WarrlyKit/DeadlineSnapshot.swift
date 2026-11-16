@@ -29,6 +29,11 @@ public enum WarrlySurface {
     /// `WidgetCenter.reloadTimelines(ofKind:)`. One constant so the app and the
     /// extension cannot disagree.
     public static let widgetKind = "WarrlyDeadlines"
+
+    /// The `kind` of the Control Center / Lock Screen control (iOS 18+). It
+    /// lives in the same widget extension as the deadline widget and reads the
+    /// same App Group hand-off; it never reads the snapshot itself.
+    public static let captureControlKind = "WarrlyCaptureReceipt"
 }
 
 // MARK: - DeadlineSnapshot
@@ -36,10 +41,16 @@ public enum WarrlySurface {
 /// Everything the out-of-app surfaces need, captured at one instant.
 ///
 /// Versioned so a future shape can be detected rather than misread. The current
-/// version is `1`; the reader accepts an unknown future version (it decodes
+/// version is `2`; the reader accepts an unknown future version (it decodes
 /// what it knows) but never invents data for missing keys.
+///
+/// **v2** adds `counts`, the distinct-device buckets the Lock Screen accessory
+/// families show. It is optional on purpose: a snapshot written by build 23
+/// (version 1) has no `counts`, and refusing to decode it would blank every
+/// widget on iOS 17 until the app is opened once. The accessory rules fall
+/// back to counting the stored rows when `counts` is absent.
 public struct DeadlineSnapshot: Codable, Equatable, Sendable {
-    public static let currentVersion = 1
+    public static let currentVersion = 2
 
     public let version: Int
 
@@ -56,6 +67,11 @@ public struct DeadlineSnapshot: Codable, Equatable, Sendable {
     /// renders the first few, but a Shortcut may ask for the next one.
     public let deadlines: [SnapshotDeadline]
 
+    /// Distinct-device counts across the **whole** filtered reminder feed,
+    /// taken before `deadlines` is capped — that cap is exactly why the Lock
+    /// Screen cannot count its own rows. `nil` in a version-1 snapshot.
+    public let counts: DeadlineSnapshotCounts?
+
     /// Every device the account currently has, in the list projection the app
     /// already shows. Used by the App Intents entity picker; never by the
     /// widget's visible rows. Spotlight indexes the live list, not this file.
@@ -66,13 +82,101 @@ public struct DeadlineSnapshot: Codable, Equatable, Sendable {
         capturedAt: Date,
         windowDays: Int,
         deadlines: [SnapshotDeadline],
+        counts: DeadlineSnapshotCounts? = nil,
         devices: [SnapshotDevice]
     ) {
         self.version = version
         self.capturedAt = capturedAt
         self.windowDays = windowDays
         self.deadlines = deadlines
+        self.counts = counts
         self.devices = devices
+    }
+}
+
+// MARK: - DeadlineSnapshotCounts
+
+/// How many distinct devices have a deadline in each bucket.
+///
+/// Counted **per device**, not per warranty: a laptop with a standard and an
+/// extended warranty is one device to the person reading the Lock Screen, and
+/// the same warranty must not be counted twice. Buckets are cumulative —
+/// `within7` includes `dueToday`, `within30` includes both — and only
+/// non-negative day counts are included (the feed's window starts at today).
+public struct DeadlineSnapshotCounts: Codable, Equatable, Sendable {
+    public let dueToday: Int
+    public let within7: Int
+    public let within30: Int
+
+    public static let zero = DeadlineSnapshotCounts(dueToday: 0, within7: 0, within30: 0)
+
+    public init(dueToday: Int, within7: Int, within30: Int) {
+        self.dueToday = dueToday
+        self.within7 = within7
+        self.within30 = within30
+    }
+
+    /// True when no deadline falls inside the next 30 days. The accessory copy
+    /// then names the empty window instead of printing three zeroes.
+    public var isEmpty: Bool { dueToday == 0 && within7 == 0 && within30 == 0 }
+
+    /// Counts derived from the stored rows. Used for a version-1 snapshot (no
+    /// `counts`) and by the widget-gallery placeholder. The stored rows are
+    /// capped at 12, so these numbers can undercount a legacy snapshot that
+    /// already hit the cap; the next app foreground writes a real v2 snapshot.
+    public static func counting(
+        deadlines: [SnapshotDeadline],
+        now: Date,
+        calendar: Calendar = .current
+    ) -> DeadlineSnapshotCounts {
+        counting(
+            rows: deadlines.map { ($0.deviceId, $0.endDate) },
+            now: now,
+            calendar: calendar
+        )
+    }
+
+    static func counting(
+        reminders: [UpcomingReminder],
+        now: Date,
+        calendar: Calendar = .current
+    ) -> DeadlineSnapshotCounts {
+        counting(
+            rows: reminders.map { ($0.deviceId, $0.endDate) },
+            now: now,
+            calendar: calendar
+        )
+    }
+
+    private static func counting(
+        rows: [(deviceId: String, endDate: Date)],
+        now: Date,
+        calendar: Calendar
+    ) -> DeadlineSnapshotCounts {
+        var today = Set<String>()
+        var seven = Set<String>()
+        var thirty = Set<String>()
+
+        for row in rows {
+            let days = DeadlineWidgetRules.daysRemaining(
+                endDate: row.endDate,
+                now: now,
+                calendar: calendar
+            )
+            // The reminders feed starts at today 00:00, so a negative value is
+            // only possible from a stale/foreign snapshot. "Daily" buckets must
+            // not silently become "overdue" buckets.
+            guard days >= 0 else { continue }
+            if days <= 30 { thirty.insert(row.deviceId) }
+            if days <= 7 { seven.insert(row.deviceId) }
+            if days == 0 { today.insert(row.deviceId) }
+        }
+
+        return DeadlineSnapshotCounts(
+            dueToday: today.count,
+            within7: seven.count,
+            within30: thirty.count
+        )
     }
 }
 
@@ -170,15 +274,27 @@ public enum DeadlineSnapshotBuilder {
         devices: [Device],
         reminders: [UpcomingReminder],
         capturedAt: Date = Date(),
-        windowDays: Int = DeadlineSnapshotBuilder.windowDays
+        windowDays: Int = DeadlineSnapshotBuilder.windowDays,
+        calendar: Calendar = .current
     ) -> DeadlineSnapshot {
         var seen = Set<String>()
-        let deadlineRows: [SnapshotDeadline] = reminders
+        // Filter first, then count, then cap. Counting the capped list would
+        // make "9 due in 30 days" impossible to show on the Lock Screen as soon
+        // as more than twelve deadlines exist.
+        let visible = reminders
             // The default feed already excludes hidden reminders. Filtering
             // again here keeps a caller that passed `includeDismissed=true`
             // from silently resurrecting a deadline the user chose to hide.
             .filter { $0.isDismissed != true }
             .filter { seen.insert($0.id).inserted }
+
+        let counts = DeadlineSnapshotCounts.counting(
+            reminders: visible,
+            now: capturedAt,
+            calendar: calendar
+        )
+
+        let deadlineRows: [SnapshotDeadline] = visible
             .sorted { lhs, rhs in
                 if lhs.endDate != rhs.endDate { return lhs.endDate < rhs.endDate }
                 return lhs.device.name.localizedCaseInsensitiveCompare(rhs.device.name)
@@ -217,8 +333,31 @@ public enum DeadlineSnapshotBuilder {
             capturedAt: capturedAt,
             windowDays: windowDays,
             deadlines: deadlineRows,
+            counts: counts,
             devices: deviceRows
         )
+    }
+}
+
+// MARK: - DeadlineSnapshotReadOutcome
+
+/// What `DeadlineSnapshotStore.readOutcome()` found. The three cases have three
+/// different user-facing answers, so collapsing them would make the widget
+/// claim "nothing is due" when it simply could not read the file.
+///
+/// `unreadable` is the lock-before-first-unlock case: the App Group file exists
+/// but the process cannot read or decode it. It is **not** an empty account.
+public enum DeadlineSnapshotReadOutcome: Equatable, Sendable {
+    /// No snapshot has ever been written (fresh install, signed out, or the
+    /// App Group entitlement is missing).
+    case missing
+    /// A file exists but its bytes are unavailable or do not decode.
+    case unreadable
+    case snapshot(DeadlineSnapshot)
+
+    public var snapshot: DeadlineSnapshot? {
+        if case let .snapshot(snapshot) = self { return snapshot }
+        return nil
     }
 }
 
@@ -262,11 +401,27 @@ public struct DeadlineSnapshotStore {
     }
 
     /// The last complete snapshot, or `nil` when there is none (or it is
-    /// unreadable). Callers must treat `nil` as "never captured", not as
-    /// "nothing is due" — the two states have different copy.
+    /// unreadable). Kept for callers that only need the payload — App Intents
+    /// and Shortcuts — where the two failure modes lead to the same fallback.
+    /// The widget uses `readOutcome()` because its Lock Screen copy must not
+    /// turn "could not read" into "nothing due".
     public func read() -> DeadlineSnapshot? {
-        guard let data = try? Data(contentsOf: fileURL) else { return nil }
-        return try? Self.decoder.decode(DeadlineSnapshot.self, from: data)
+        readOutcome().snapshot
+    }
+
+    /// Distinguishes a missing file from a file this process cannot read.
+    ///
+    /// `fileExists` is checked before the read so a locked, unreadable file is
+    /// reported as `unreadable` instead of looking like a fresh install. Both
+    /// states are silent in the log: the extension has no logger and must not
+    /// print paths.
+    public func readOutcome() -> DeadlineSnapshotReadOutcome {
+        guard fileManager.fileExists(atPath: fileURL.path) else { return .missing }
+        guard let data = try? Data(contentsOf: fileURL) else { return .unreadable }
+        guard let snapshot = try? Self.decoder.decode(DeadlineSnapshot.self, from: data) else {
+            return .unreadable
+        }
+        return .snapshot(snapshot)
     }
 
     /// Writes atomically. A half-written file must never be readable: the

@@ -197,3 +197,14 @@ public final class InboxStore: ObservableObject {
         attachments.insert(attachment, at: 0)
     }
 }
+
+// MARK: - Inbox change notification
+
+extension Notification.Name {
+    /// Posted after a capture performed **outside** the inbox screen adds an
+    /// inbox row. Today that is the Control Center capture sheet, which
+    /// `RootView` presents after an unlock and which has no reference to the
+    /// tab shell's `InboxStore`. The shell reloads on this signal so the badge
+    /// moves immediately instead of waiting for the next foreground.
+    public static let warrlyInboxChanged = Notification.Name("WarrlyInboxChanged")
+}

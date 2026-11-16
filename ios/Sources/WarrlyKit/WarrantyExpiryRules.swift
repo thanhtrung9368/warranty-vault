@@ -121,6 +121,10 @@ public enum WarrantyExpiryRules {
         switch presentation.state {
         case .notConfigured:
             return DeadlineWidgetRules.notConfiguredMessage(language: language)
+        case .unreadable:
+            // Same rule as the widget: a file that cannot be read is not an
+            // account with nothing due.
+            return DeadlineWidgetRules.unreadableMessage(language: language)
         case .empty:
             return presentation.message
                 ?? DeadlineWidgetRules.emptyMessage(
