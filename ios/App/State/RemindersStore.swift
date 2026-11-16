@@ -46,10 +46,18 @@ public final class RemindersStore: ObservableObject {
         // Both go to the light reminders endpoint now; the hidden rows used to
         // cost a second, much heavier read of the whole account export.
         //
-        // The claims read is a third, independent read: it exists solely for
-        // the display-only repair extension. A failure must not blank the
-        // reminders screen — `try?` keeps the feed and leaves the extension
-        // empty, which is the honest "we don't know" state.
+        // The claims read is a third, independent read used ONLY as the fallback
+        // for a server whose reminders feed does not carry
+        // `repairExtensionDays` / `entitledWarrantyEnd`. In 1.1 every row does,
+        // so the primary display path never touches this map; a failure still
+        // must not blank the reminders screen — `try?` keeps the feed and leaves
+        // the fallback empty, which is the honest "we don't know" state.
+        //
+        // It stays (rather than being deleted with the third read, as the
+        // research note suggests) because build 23's server — and any staged
+        // rollout where the app ships before the API — has no clock field to
+        // show, and dropping the read would regress those installs to the paper
+        // date with no extension at all.
         let client = self.client
         let window = windowDays
         let dismissedWindow = dismissedWindowDays
@@ -74,20 +82,49 @@ public final class RemindersStore: ObservableObject {
     // MARK: - Repair extension (display-only)
 
     /// Closed-repair days for one device. `0` when there is nothing to add.
+    ///
+    /// This map is the **fallback** for a server that predates the repair-clock
+    /// fields: every reminder row carries `repairExtensionDays` in 1.1, and
+    /// `repairDays(for:)` prefers it. The claims read below only feeds this map.
     public func repairDays(forDeviceId deviceId: String) -> Int {
         repairDaysByDevice[deviceId] ?? 0
     }
 
-    /// The legal end date for one reminder row: the server's `endDate` plus
-    /// this device's closed-repair days. Pure display — nothing is written back.
-    public func adjustedEnd(_ endDate: Date, deviceId: String) -> Date {
-        WarrantyRepairAdjustment.add(days: repairDays(forDeviceId: deviceId), to: endDate)
+    /// The days to print on one upcoming row: the server's per-device number
+    /// when the row carries it, otherwise the locally computed map.
+    public func repairDays(for entry: UpcomingReminder) -> Int {
+        if let serverDays = entry.repairExtensionDays { return max(0, serverDays) }
+        return repairDays(forDeviceId: entry.deviceId)
+    }
+
+    /// The days to print on one hidden row — same rule as `repairDays(for:)`.
+    public func repairDays(for item: DismissedReminder) -> Int {
+        if let serverDays = item.repairExtensionDays { return max(0, serverDays) }
+        return repairDays(forDeviceId: item.deviceId)
+    }
+
+    /// The legal end date for one reminder row.
+    ///
+    /// Prefers the server's `entitledWarrantyEnd` — that date ALREADY includes
+    /// the repair days, so the client must not add them again. Only when the
+    /// field is absent (older server) does this fall back to
+    /// `endDate + closed-repair days`, which is exactly the pre-1.1 behaviour.
+    /// Pure display — nothing is written back.
+    public func adjustedEnd(_ endDate: Date,
+                            deviceId: String,
+                            entitledWarrantyEnd: Date? = nil) -> Date {
+        if let entitledWarrantyEnd { return entitledWarrantyEnd }
+        return WarrantyRepairAdjustment.add(days: repairDays(forDeviceId: deviceId), to: endDate)
     }
 
     /// True when at least one row on the feed was adjusted, so the screen can
-    /// print the legal note exactly when it is relevant.
+    /// print the legal note exactly when it is relevant. Reads the server field
+    /// first and the fallback map second, so the note appears for a feed that
+    /// carries the clock before the claims read has landed (or after it failed).
     public var hasRepairExtension: Bool {
-        repairDaysByDevice.values.contains { $0 > 0 }
+        if entries.contains(where: { ($0.repairExtensionDays ?? 0) > 0 }) { return true }
+        if dismissed.contains(where: { ($0.repairExtensionDays ?? 0) > 0 }) { return true }
+        return repairDaysByDevice.values.contains { $0 > 0 }
     }
 
     // MARK: - Dismiss / restore
@@ -107,7 +144,9 @@ public final class RemindersStore: ObservableObject {
             deviceStatus: .ACTIVE,
             warrantyType: entry.type,
             warrantyProvider: entry.provider,
-            endDate: entry.endDate
+            endDate: entry.endDate,
+            repairExtensionDays: entry.repairExtensionDays,
+            entitledWarrantyEnd: entry.entitledWarrantyEnd
         )
         if !dismissed.contains(where: { $0.warrantyId == mirrored.warrantyId }) {
             dismissed.append(mirrored)

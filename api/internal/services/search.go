@@ -69,6 +69,13 @@ type AttachmentSearchHit struct {
 type DeviceSearchHit struct {
 	DeviceVND
 	EffectiveWarrantyEnd *wire.Day `json:"effectiveWarrantyEnd"`
+	// RepairExtensionDays / EntitledWarrantyEnd are the warranty repair clock
+	// added in 1.1 (§6.1 wave 1). Same derivation and same values as the list
+	// and detail reads — a search hit must answer "when does cover end?" the
+	// same way every other device read does. EffectiveWarrantyEnd keeps its
+	// paper-date meaning; the entitled date is the one clients show.
+	RepairExtensionDays int32     `json:"repairExtensionDays"`
+	EntitledWarrantyEnd *wire.Day `json:"entitledWarrantyEnd"`
 }
 
 // SearchResults is the grouped payload of GET /api/v1/search.
@@ -156,11 +163,28 @@ func Search(ctx context.Context, db *pgxpool.Pool, userID, rawQuery string, limi
 			warByDevice[w.DeviceId] = append(warByDevice[w.DeviceId], w)
 		}
 	}
+	// Repair clock (§6.1 wave 1): one batch query for the matched devices, the
+	// same derivation the list and the detail use.
+	repairDays := map[string]int32{}
+	if len(deviceRows) > 0 {
+		deviceIDs := make([]string, 0, len(deviceRows))
+		for _, d := range deviceRows {
+			deviceIDs = append(deviceIDs, d.ID)
+		}
+		repairDays, err = repairExtensionsByDevice(ctx, q, userID, deviceIDs)
+		if err != nil {
+			return nil, fmt.Errorf("search repair extensions: %w", err)
+		}
+	}
 	for _, d := range deviceRows {
 		warranties := warByDevice[d.ID]
+		effectiveEnd := wholeUnitWarrantyEnd(warranties)
+		days := repairDays[d.ID]
 		out.Devices = append(out.Devices, DeviceSearchHit{
 			DeviceVND:            withVNDAndWarranties(d, warranties),
-			EffectiveWarrantyEnd: wholeUnitWarrantyEnd(warranties),
+			EffectiveWarrantyEnd: effectiveEnd,
+			RepairExtensionDays:  days,
+			EntitledWarrantyEnd:  repairEntitledDay(effectiveEnd, days),
 		})
 	}
 	subs, err := q.SearchSubscriptions(ctx, store.SearchSubscriptionsParams{

@@ -148,7 +148,16 @@ export default async function DeviceDetailPage({
   const status = device.status as Status;
   // The chip is shared with `/devices` (`components/device-status-pill.tsx`),
   // so the two pages cannot disagree about how a status looks.
-  const effectiveEnd = effectiveWarrantyEnd(device.warranties);
+  // Warranty repair clock (FEATURE_RESEARCH_2026-11 §6.1): the server derives
+  // `repairExtensionDays` and `entitledWarrantyEnd` on the detail read, and both
+  // are on the list/search payloads too. `effectiveEnd` is the PAPER date (max
+  // `endDate` over whole-unit rows); `entitledEnd` is that plus closed-repair
+  // days (Điều 30.2.c Luật 19/2023). The local computation stays as the fallback
+  // for an older API, exactly like iOS `WarrantyRepairAdjustment`.
+  const effectiveEnd = device.effectiveWarrantyEnd ?? effectiveWarrantyEnd(device.warranties);
+  const repairExtensionDays = device.repairExtensionDays ?? 0;
+  const entitledEnd = device.entitledWarrantyEnd ?? null;
+  const displayedEnd = entitledEnd ?? effectiveEnd;
   // Generated from this device's own facts (category, serial, store, warranty
   // end). The detail card only needs the count + section names; the full list
   // lives on the handover route.
@@ -375,19 +384,43 @@ export default async function DeviceDetailPage({
                 <ShieldCheck className="h-5 w-5 text-emerald-ink" />
                 {t('Tổng quan bảo hành')}
               </CardTitle>
-              {effectiveEnd && (
-                <WarrantyPill warrantyEnd={effectiveEnd} variant="badge" />
+              {displayedEnd && (
+                <WarrantyPill warrantyEnd={displayedEnd} variant="badge" />
               )}
             </CardHeader>
             <CardContent className="space-y-2">
-              {effectiveEnd ? (
+              {displayedEnd ? (
                 <>
                   <p className="text-sm text-ink-2">
                     {t('Có {count} gói bảo hành. Gói xa nhất hết {date}.', {
                       count: device.warranties.length,
-                      date: formatDate(effectiveEnd, locale),
+                      date: formatDate(displayedEnd, locale),
                     })}
                   </p>
+                  {/* The two dates, printed together: the paper date the
+                      retailer recorded and the date the user is entitled to
+                      after closed repairs. Both come from the server, so the
+                      web cannot add the days a second time. */}
+                  {entitledEnd && effectiveEnd && repairExtensionDays > 0 && (
+                    <div className="space-y-1 rounded-lg bg-surface-2 p-3">
+                      <p className="text-xs text-muted-foreground">
+                        {t('Hạn trên giấy: {date}', {
+                          date: formatDate(effectiveEnd, locale),
+                        })}
+                      </p>
+                      <p className="text-sm font-semibold text-ink">
+                        {t('Hạn tính cả ngày sửa: {date}', {
+                          date: formatDate(entitledEnd, locale),
+                        })}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t(
+                          'Đã cộng {days} ngày sửa chữa — quyền theo khoản 2.c Điều 30 Luật 19/2023, không phải thoả thuận với cửa hàng.',
+                          { days: repairExtensionDays },
+                        )}
+                      </p>
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     {t('Quản lý chi tiết từng gói ở mục bên dưới.')}
                   </p>

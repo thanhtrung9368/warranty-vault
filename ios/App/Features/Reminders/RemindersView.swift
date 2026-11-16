@@ -169,8 +169,10 @@ struct RemindersView: View {
         // Display-only legal extension: a device with closed repairs ends
         // later than the server's stored date. The pill, the date and the
         // bucket above all read this one value.
-        let repairDays = store.repairDays(forDeviceId: entry.deviceId)
-        let endDate = store.adjustedEnd(entry.endDate, deviceId: entry.deviceId)
+        let repairDays = store.repairDays(for: entry)
+        let endDate = store.adjustedEnd(entry.endDate,
+                                        deviceId: entry.deviceId,
+                                        entitledWarrantyEnd: entry.entitledWarrantyEnd)
         let daysLeft = CalendarDay.days(from: Date(), to: endDate)
 
         return WVRowContainer {
@@ -280,8 +282,10 @@ struct RemindersView: View {
     }
 
     private func dismissedRow(_ item: DismissedReminder) -> some View {
-        let repairDays = store.repairDays(forDeviceId: item.deviceId)
-        let endDate = store.adjustedEnd(item.endDate, deviceId: item.deviceId)
+        let repairDays = store.repairDays(for: item)
+        let endDate = store.adjustedEnd(item.endDate,
+                                        deviceId: item.deviceId,
+                                        entitledWarrantyEnd: item.entitledWarrantyEnd)
         let daysLeft = CalendarDay.days(from: Date(), to: endDate)
 
         return WVRowContainer {
@@ -360,7 +364,9 @@ struct RemindersView: View {
     /// date 10 days later — the header and the row must use one number.
     private func adjustedDays(_ entry: UpcomingReminder, now: Date) -> Int {
         CalendarDay.days(from: now,
-                         to: store.adjustedEnd(entry.endDate, deviceId: entry.deviceId))
+                         to: store.adjustedEnd(entry.endDate,
+                                               deviceId: entry.deviceId,
+                                               entitledWarrantyEnd: entry.entitledWarrantyEnd))
     }
 
     private var buckets: [Bucket] {

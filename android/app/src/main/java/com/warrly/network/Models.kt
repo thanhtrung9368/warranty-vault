@@ -551,12 +551,38 @@ data class Device(
     val leadDays: List<Int> = DEFAULT_LEAD_DAYS,
     val warranties: List<Warranty> = emptyList(),
     /**
-     * `GET /api/v1/devices` only (see Go `DeviceListItem`): `max(endDate)` over
-     * the device's warranties. `null` when the device has no warranty at all —
-     * which is NOT the same as "expired". Absent on the detail read, so it
-     * defaults to null there and the list-only UI must not treat it as truth.
+     * `max(endDate)` over the device's **whole-unit** warranties (openapi
+     * `DeviceWithEffectiveWarranty.effectiveWarrantyEnd`). `null` when the
+     * device has no whole-unit warranty end at all — which is NOT the same as
+     * "expired". The list, detail and search reads all carry it in 1.1.
+     *
+     * This is the **paper** date (what the retailer recorded). The date the user
+     * is entitled to after closed repairs is [entitledWarrantyEnd].
      */
     val effectiveWarrantyEnd: String? = null,
+    /**
+     * Summed whole days the device spent in CLOSED repairs (openapi
+     * `repairExtensionDays`, FEATURE_RESEARCH_2026-11 §6.1). `0` = no closed
+     * repair; `null` = a server that predates the field (pre-1.1), which is the
+     * only case in which a client may compute the extension locally.
+     *
+     * Vietnamese consumer law (Luật 19/2023, Điều 30 khoản 2 điểm c) says repair
+     * time does not count against the warranty period. The server derives this
+     * from `Claim.openedAt`/`closedAt` in the Vietnam calendar, so the client
+     * must never re-derive it — that was the old three-client drift.
+     */
+    val repairExtensionDays: Int? = null,
+    /**
+     * `effectiveWarrantyEnd + repairExtensionDays` — the date the user is
+     * entitled to (openapi `entitledWarrantyEnd`, `YYYY-MM-DD`). `null` when
+     * there is no whole-unit warranty end to extend, or on a pre-1.1 server.
+     *
+     * NEVER add [repairExtensionDays] to this value: the server already did.
+     * Show it next to [effectiveWarrantyEnd] with the legal note, so a date that
+     * moved later than the certificate says is explained rather than looking
+     * like a bug.
+     */
+    val entitledWarrantyEnd: String? = null,
     /** `GET /api/v1/devices` only — the list projection's attachment count. */
     val attachmentCount: Int = 0,
     /**

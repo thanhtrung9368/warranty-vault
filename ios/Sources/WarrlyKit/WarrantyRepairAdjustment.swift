@@ -11,13 +11,23 @@ import Foundation
 //
 // ## Display-only, by construction
 //
-// Nothing here writes. The server's `Warranty.endDate` is the source of truth
-// for what the retailer recorded and for when the server fires its reminders;
-// silently moving either would be a data change, not a display change. This
-// value is what the *user* is entitled to see, and every surface that shows it
-// must say so in the same breath — see `legalNote`.
+// Nothing here writes. `Warranty.endDate` is what the retailer recorded, and it
+// stays untouched; this helper only decides what the *user* is entitled to see,
+// and every surface that shows it must say so in the same breath — see
+// `legalNote`.
 //
-// ## The exact rule
+// ## The server owns the rule now (1.1); this is the fallback
+//
+// `GET /api/v1/devices`, `/devices/{id}`, `/search` and `/reminders` carry
+// `repairExtensionDays` + `entitledWarrantyEnd` (derived server-side in
+// `api/internal/services/repairclock.go` and the SQL it calls). Screens prefer
+// those fields — `adjust(rawEnd:claims:entitledEnd:serverDays:)` does — and only
+// fall back to the local computation below when the field is **absent**, which
+// means the app is talking to a server from before those fields existed. The
+// local path must never run on a payload that already has the server date:
+// adding the days twice is exactly the double count the server field removes.
+//
+// The local rule mirrors the server's:
 //
 // A claim contributes **only** when:
 //
@@ -131,6 +141,36 @@ public enum WarrantyRepairAdjustment {
             claimCount: contributingClaimCount(claims: claims, calendar: calendar),
             rawEnd: rawEnd,
             adjustedEnd: adjusted
+        )
+    }
+
+    /// The same value, preferring the **server's** `entitledWarrantyEnd` when the
+    /// payload carries it.
+    ///
+    /// `entitledEnd` is the field on `DeviceWithEffectiveWarranty` /
+    /// `ReminderWarranty` in `openapi.yaml`. When it is non-nil the server has
+    /// already added the days, so this function returns that date unchanged and
+    /// MUST NOT add them again — `days` is only the "+N ngày sửa" label
+    /// (`serverDays` when present, otherwise the locally counted closed days).
+    /// `claims` stays the fallback source for an older server whose payload has
+    /// no `repairExtensionDays` / `entitledWarrantyEnd`: with `entitledEnd` nil
+    /// this is exactly `adjust(rawEnd:claims:)`.
+    public static func adjust(
+        rawEnd: Date,
+        claims: [Claim],
+        entitledEnd: Date?,
+        serverDays: Int?,
+        calendar: Calendar = .current
+    ) -> WarrantyRepairExtension {
+        guard let entitledEnd else {
+            return adjust(rawEnd: rawEnd, claims: claims, calendar: calendar)
+        }
+        let days = max(0, serverDays ?? extensionDays(claims: claims, calendar: calendar))
+        return WarrantyRepairExtension(
+            days: days,
+            claimCount: contributingClaimCount(claims: claims, calendar: calendar),
+            rawEnd: rawEnd,
+            adjustedEnd: entitledEnd
         )
     }
 

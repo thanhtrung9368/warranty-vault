@@ -252,9 +252,13 @@ struct DashboardView: View {
             // the row rather than draw a countdown nobody should act on.
             if r.device.status == DeviceStatus.SOLD.rawValue { continue }
             // Display-only legal extension: repair time is not counted against
-            // the warranty. The reminder feed still fires on the server's raw
-            // end date; only the date this card prints moves.
-            let end = remindersStore.adjustedEnd(r.endDate, deviceId: r.deviceId)
+            // the warranty. The server's `entitledWarrantyEnd` wins when the
+            // feed carries it; only an older payload falls back to the local
+            // claim computation. `RemindersStore.adjustedEnd` owns that choice
+            // so a date cannot be shifted twice.
+            let end = remindersStore.adjustedEnd(r.endDate,
+                                                 deviceId: r.deviceId,
+                                                 entitledWarrantyEnd: r.entitledWarrantyEnd)
             out.append(DeadlineCandidate(
                 kind: .warranty,
                 entityId: r.deviceId,

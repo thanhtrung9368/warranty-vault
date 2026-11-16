@@ -274,6 +274,19 @@ type DeviceListItem struct {
 	// A wire.Day for the same reason: both inputs are Day columns and only whole
 	// days are added, so it is a day (see deviceReturnDeadline).
 	ReturnDeadline *wire.Day `json:"returnDeadline"`
+	// RepairExtensionDays / EntitledWarrantyEnd are the warranty repair clock
+	// (FEATURE_RESEARCH_2026-11 §6.1, wave 1). See repairclock.go.
+	//
+	// RepairExtensionDays is the summed whole-day duration of the device's
+	// closed claims (0 = none), derived on read from the Claim rows in the
+	// Vietnam calendar — never stored. EntitledWarrantyEnd is
+	// EffectiveWarrantyEnd shifted by those days: the date the user is entitled
+	// to under Luật 19/2023, Điều 30.2.c. EffectiveWarrantyEnd keeps its paper
+	// meaning, so a client can print both. `always present` on the wire
+	// (0 and null respectively); the fields are additive and build 23's clients
+	// ignore them.
+	RepairExtensionDays int32     `json:"repairExtensionDays"`
+	EntitledWarrantyEnd *wire.Day `json:"entitledWarrantyEnd"`
 }
 
 // DeviceDetail is the full device read: device + warranties (with reminders) +
@@ -296,6 +309,11 @@ type DeviceDetail struct {
 	Claims []store.Claim `json:"claims"`
 	// ReturnDeadline mirrors DeviceListItem.ReturnDeadline; see the comment there.
 	ReturnDeadline *wire.Day `json:"returnDeadline"`
+	// RepairExtensionDays / EntitledWarrantyEnd mirror DeviceListItem's fields —
+	// same derivation, same values, so the detail and the list cannot disagree
+	// about when the device's cover ends.
+	RepairExtensionDays int32     `json:"repairExtensionDays"`
+	EntitledWarrantyEnd *wire.Day `json:"entitledWarrantyEnd"`
 }
 
 // AttachmentMeta is the redacted attachment shape for the device read path.
@@ -734,12 +752,23 @@ func ListDevices(ctx context.Context, db *pgxpool.Pool, userID string, f DeviceF
 		}
 	}
 
+	// Repair clock (§6.1 wave 1): one batch query for the same device ids.
+	// Devices with no closed claim are absent from the map and read as 0.
+	repairDays, err := repairExtensionsByDevice(ctx, q, userID, deviceIDs)
+	if err != nil {
+		return nil, fmt.Errorf("list repair extensions: %w", err)
+	}
+
 	for _, d := range rows {
+		effectiveEnd := wholeUnitWarrantyEnd(warByDevice[d.ID])
+		days := repairDays[d.ID]
 		out = append(out, DeviceListItem{
 			DeviceVND:            withVNDAndWarranties(d, warByDevice[d.ID]),
 			AttachmentCount:      countByDevice[d.ID],
-			EffectiveWarrantyEnd: wholeUnitWarrantyEnd(warByDevice[d.ID]),
+			EffectiveWarrantyEnd: effectiveEnd,
 			ReturnDeadline:       deviceReturnDeadline(d),
+			RepairExtensionDays:  days,
+			EntitledWarrantyEnd:  repairEntitledDay(effectiveEnd, days),
 		})
 	}
 
@@ -855,13 +884,26 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 	}
 	claimRows := make([]store.Claim, 0, len(claims))
 	claimRows = append(claimRows, claims...)
+	// Repair clock (§6.1 wave 1). The claim rows above are the source, but the
+	// day arithmetic belongs to SQL: openedAt/closedAt are UTC instants and the
+	// extension is the difference between their VIETNAM calendar days, which is
+	// exactly the rule the batch query owns. Reusing it here keeps the detail,
+	// the list and search on one definition.
+	repairDays, err := repairExtensionsByDevice(ctx, q, userID, []string{id})
+	if err != nil {
+		return nil, fmt.Errorf("get repair extension: %w", err)
+	}
+	effectiveEnd := wholeUnitWarrantyEnd(warranties)
+	days := repairDays[id]
 	return &DeviceDetail{
 		DeviceVND:            withVNDAndWarranties(d, warranties),
-		EffectiveWarrantyEnd: wholeUnitWarrantyEnd(warranties),
+		EffectiveWarrantyEnd: effectiveEnd,
 		Warranties:           wr,
 		Attachments:          metas,
 		Claims:               claimRows,
 		ReturnDeadline:       deviceReturnDeadline(d),
+		RepairExtensionDays:  days,
+		EntitledWarrantyEnd:  repairEntitledDay(effectiveEnd, days),
 	}, nil
 }
 

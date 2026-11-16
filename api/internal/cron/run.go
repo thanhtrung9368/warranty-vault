@@ -75,6 +75,12 @@ type Stats struct {
 	PushesSent           int `json:"pushesSent"`
 	PushesFailed         int `json:"pushesFailed"`
 	PushesGone           int `json:"pushesGone"`
+	// RepairExtensionShiftedNotices counts warranty pushes whose date came from
+	// an entitled end (`endDate + closed repair days`) rather than the paper
+	// endDate — i.e. how many notices WV_REPAIR_EXTENSION actually moved in this
+	// pass. Zero whenever the flag is off, so build 23's response is unchanged
+	// apart from this additive key. FEATURE_RESEARCH_2026-11 §6.1.
+	RepairExtensionShiftedNotices int `json:"repairExtensionShiftedNotices"`
 }
 
 // Dispatcher is the consumer-side contract the cron needs from the push
@@ -365,6 +371,12 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	// A value LARGER than the remaining days is simply not in its window (the
 	// window is in the past), so it never fires retroactively. Neither does a
 	// smaller one fire early: each lead day has exactly one calendar day.
+	//
+	// WV_REPAIR_EXTENSION (default OFF, services.RepairExtensionEnabled) makes
+	// every window below measure the ENTITLED end — the paper `endDate` plus the
+	// device's closed-repair days (Luật 19/2023, Điều 30.2.c) — and the push body
+	// name both dates. OFF keeps build 23's schedule and body byte-for-byte.
+	repairExtension := services.RepairExtensionEnabled()
 	warrantyLeadDays, err := q.ListActiveDeviceLeadDays(ctx)
 	if err != nil {
 		return stats, fmt.Errorf("list active device lead days: %w", err)
@@ -377,10 +389,11 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		}
 		start, end := dayWindow(now, windowDays)
 		rows, err := q.ListWarrantiesInWindow(ctx, store.ListWarrantiesInWindowParams{
-			WindowStart:   wire.At(start),
-			WindowEnd:     wire.At(end),
-			LeadDay:       leadDay,
-			NotifiedSince: notifiedSince,
+			WindowStart:     wire.At(start),
+			WindowEnd:       wire.At(end),
+			LeadDay:         leadDay,
+			NotifiedSince:   notifiedSince,
+			RepairExtension: repairExtension,
 		})
 		if err != nil {
 			return stats, fmt.Errorf("list warranties in window (%dd): %w", days, err)
@@ -398,9 +411,31 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 			if w.EndDate.Valid {
 				endStr = i18n.FormatDate(lang, w.EndDate.Time)
 			}
-			body := i18n.Translate(lang, "Hết hạn: %s", endStr)
-			if w.Provider != nil && *w.Provider != "" {
-				body = i18n.Translate(lang, "Hết hạn: %s • %s", endStr, *w.Provider)
+			// The date this notice counted down to. With the flag on and a
+			// closed repair behind the device, that is the entitled end, not
+			// the paper one; the body names BOTH dates so the jump from the
+			// stored endDate is stated rather than silent. With the flag off
+			// (or no extension) the body is exactly the pre-1.1 sentence.
+			var entitledEnd time.Time
+			if repairExtension && w.EndDate.Valid && w.RepairExtensionDays > 0 {
+				entitledEnd = w.EndDate.Time.AddDate(0, 0, int(w.RepairExtensionDays))
+			}
+			body := ""
+			if !entitledEnd.IsZero() {
+				entitledStr := i18n.FormatDate(lang, entitledEnd)
+				if w.Provider != nil && *w.Provider != "" {
+					body = i18n.Translate(lang, "Hết hạn (đã tính ngày sửa): %s • Hạn trên giấy: %s • %s",
+						entitledStr, endStr, *w.Provider)
+				} else {
+					body = i18n.Translate(lang, "Hết hạn (đã tính ngày sửa): %s • Hạn trên giấy: %s",
+						entitledStr, endStr)
+				}
+				stats.RepairExtensionShiftedNotices++
+			} else {
+				body = i18n.Translate(lang, "Hết hạn: %s", endStr)
+				if w.Provider != nil && *w.Provider != "" {
+					body = i18n.Translate(lang, "Hết hạn: %s • %s", endStr, *w.Provider)
+				}
 			}
 
 			payload := push.Payload{

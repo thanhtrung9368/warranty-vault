@@ -283,6 +283,15 @@ export const devices = defineMessages({
     },
   'Quản lý chi tiết từng gói ở mục bên dưới.':
     'Manage each plan in detail in the section below.',
+  // Warranty repair clock (FEATURE_RESEARCH_2026-11 §6.1). The two dates are
+  // printed together because the entitled one is derived from the paper one:
+  // "Hạn trên giấy" is what the retailer recorded, "Hạn tính cả ngày sửa" is
+  // Điều 30.2.c Luật 19/2023. Leaving the paper date out would make the app's
+  // date and the certificate's date look like a bug.
+  'Hạn trên giấy: {date}': 'Paper expiry: {date}',
+  'Hạn tính cả ngày sửa: {date}': 'Repair-time-adjusted expiry: {date}',
+  'Đã cộng {days} ngày sửa chữa — quyền theo khoản 2.c Điều 30 Luật 19/2023, không phải thoả thuận với cửa hàng.':
+    'Repair days added: {days} — a right under Art. 30.2.c of Law 19/2023, not an agreement with the retailer.',
   'Thiết bị chưa có gói bảo hành nào.': 'This device has no warranty plan yet.',
   'Hạn đổi/trả:': 'Return deadline:',
   'Chính sách của cửa hàng do bạn ghi lại, không phải quy định pháp luật.':

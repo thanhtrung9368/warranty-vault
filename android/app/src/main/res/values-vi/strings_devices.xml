@@ -114,6 +114,11 @@
     <string name="devdetail_no_warranty_plan_yet">Chưa có gói bảo hành nào</string>
     <string name="devdetail_tap_to_add_the_first_plan">Bấm nút + để thêm gói đầu tiên.</string>
     <string name="devdetail_bought_on">Mua ngày</string>
+    <!-- Đồng hồ sửa chữa (FEATURE_RESEARCH_2026-11 §6.1): in cả ngày trên giấy
+         và ngày được hưởng để chênh lệch không đọc thành lỗi. -->
+    <string name="devdetail_warranty_end_paper">Hạn trên giấy</string>
+    <string name="devdetail_warranty_end_entitled">Hạn được hưởng</string>
+    <string name="devdetail_repair_days_note">Đã cộng %1$d ngày sửa chữa — quyền theo khoản 2.c Điều 30 Luật 19/2023, không phải thoả thuận với cửa hàng.</string>
     <string name="devdetail_price">Giá</string>
     <string name="devdetail_price_vnd">Giá quy đổi VND</string>
     <string name="devdetail_currency">Tiền tệ</string>

@@ -667,6 +667,27 @@ public struct Device: Codable, Sendable, Identifiable, Hashable {
     // relies on them.
     public let attachmentCount: Int?
     public let effectiveWarrantyEnd: Date?
+
+    // ── The warranty repair clock (FEATURE_RESEARCH_2026-11 §6.1) ──────────
+    //
+    // The server derives these on every device read (list, detail, search):
+    //
+    //   * repairExtensionDays — summed whole days the device spent in CLOSED
+    //     repairs, in the Vietnam calendar, clamped 0…3650. `0` is a real
+    //     answer ("no closed repair"); `nil` means an older server that does not
+    //     send the field at all.
+    //   * entitledWarrantyEnd — `effectiveWarrantyEnd + repairExtensionDays`,
+    //     i.e. the date the user is entitled to under Luật 19/2023,
+    //     Điều 30.2.c. `nil` when the device has no whole-unit warranty end (or
+    //     the server predates the field).
+    //
+    // `effectiveWarrantyEnd` keeps its PAPER meaning. A screen that shows the
+    // entitled date must prefer these two and fall back to
+    // `WarrantyRepairAdjustment` only when `entitledWarrantyEnd` is absent — see
+    // `WarrantyRepairAdjustment.adjust(rawEnd:claims:entitledEnd:serverDays:)`.
+    // `nil` here is "not returned", never "no extension".
+    public let repairExtensionDays: Int?
+    public let entitledWarrantyEnd: Date?
 }
 
 public struct DeviceDetail: Decodable, Sendable {
@@ -701,6 +722,13 @@ public struct DeviceDetailBody: Decodable, Sendable {
     /// decodes; `nil` there means "not returned", and
     /// `StatsRollup.effectiveWarrantyEnd` is the fallback.
     public let effectiveWarrantyEnd: Date?
+
+    /// The server's repair clock for this device — same fields and same rules
+    /// as `Device.repairExtensionDays` / `Device.entitledWarrantyEnd`. The
+    /// detail read carries them, so the screen shows the server's entitled date
+    /// and only recomputes from claims when the field is absent.
+    public let repairExtensionDays: Int?
+    public let entitledWarrantyEnd: Date?
 
     // The multi-currency trio on the detail read. The detail endpoint embeds the
     // whole `store.Device`, so these have the same wire shape and rules as
@@ -2144,6 +2172,22 @@ public struct UpcomingReminder: Decodable, Sendable, Identifiable {
     /// upcoming feed omits it, so `nil` means "not hidden". See
     /// `DismissedReminders` for the "Đã ẩn" rollup built on top of it.
     public let isDismissed: Bool?
+
+    /// The owning device's closed-repair days (openapi
+    /// `ReminderWarranty.repairExtensionDays`). `0` = no closed repair;
+    /// `nil` = an older server that does not send the field.
+    public let repairExtensionDays: Int?
+
+    /// This warranty row's ENTITLED end — the server's `endDate` shifted by
+    /// `repairExtensionDays` (openapi `ReminderWarranty.entitledWarrantyEnd`).
+    /// `endDate` keeps its paper meaning.
+    ///
+    /// Optional for wire compatibility: `nil` means the server predates the
+    /// field (or the row's end date is unreadable), and the screen falls back to
+    /// `WarrantyRepairAdjustment` over the claims read. When it is present the
+    /// client must NOT add the days again — `RemindersStore.adjustedEnd` is the
+    /// single place that decides.
+    public let entitledWarrantyEnd: Date?
 }
 
 public struct ReminderDevice: Decodable, Sendable {
