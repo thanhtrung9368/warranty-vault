@@ -42,6 +42,8 @@ import * as claimsApi from './claims';
 // AGENT_C_IMPORTS_BEGIN
 import * as subscriptionsApi from './subscriptions';
 import * as wishlistApi from './wishlist';
+// Essentials / restock list — separate from wishlist: no price, no Device.
+import * as staplesApi from './staples';
 import * as catalogApi from './catalog';
 import * as fxApi from './fx';
 import * as pushApi from './push';
@@ -84,6 +86,7 @@ export const api = {
   // AGENT_C_NAMESPACES_BEGIN
   subscriptions: subscriptionsApi,
   wishlist: wishlistApi,
+  staples: staplesApi,
   catalog: catalogApi,
   // AGENT_HANDOFF_NAMESPACES_BEGIN
   handoff: handoffApi,

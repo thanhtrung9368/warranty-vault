@@ -18,6 +18,7 @@ import { devices } from './devices';
 import { warranties } from './warranties';
 import { subscriptions } from './subscriptions';
 import { wishlist } from './wishlist';
+import { staples } from './staples';
 import { dashboard } from './dashboard';
 import { settings } from './settings';
 import { system } from './system';
@@ -38,6 +39,7 @@ export const catalogs: Record<string, Catalog> = {
   warranties,
   subscriptions,
   wishlist,
+  staples,
   dashboard,
   settings,
   system,

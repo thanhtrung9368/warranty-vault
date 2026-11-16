@@ -7,8 +7,10 @@ import {
   Calendar,
   ArrowDown,
   ArrowUp,
+  ArrowRight,
   Heart,
   ImageIcon,
+  Package,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -195,6 +197,27 @@ export default async function WishlistPage({
           </Button>
         }
       />
+
+      <Card
+        asChild
+        padding="md"
+        className="group mt-5 block transition-colors hover:border-border-strong"
+      >
+        <Link href="/wishlist/staples" className="flex items-center gap-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-soft text-emerald-ink">
+            <Package className="h-6 w-6" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-base font-bold text-ink">
+              {t('Đồ dùng thiết yếu')}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {t('Sắp hết, nhắc mua lại')}
+            </p>
+          </div>
+          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+        </Link>
+      </Card>
 
       {totals.count > 0 && (
         <div className="grid gap-4 sm:grid-cols-3">
