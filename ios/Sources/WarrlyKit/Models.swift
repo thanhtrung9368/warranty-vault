@@ -13,6 +13,18 @@ public struct User: Codable, Sendable, Identifiable, Hashable {
     public let email: String
     public let name: String?
     public let aiOptIn: Bool?
+    /// Opt-in for the reminder email fallback (#8).
+    ///
+    /// `GET /auth/me` always serialises it (`false` for anyone who never opted
+    /// in), and `PATCH /auth/me` accepts it as an independent optional field.
+    /// Optional here so a build pointed at an older deployment still decodes;
+    /// `nil` is treated as OFF everywhere, because a preference that permits
+    /// email must never be inferred from a missing key.
+    ///
+    /// It is the ONE reason the server may send this account an email relating
+    /// to a deadline, and only when push was unavailable or failed — the cron
+    /// sends at most one transactional email per reminder.
+    public let reminderEmailFallback: Bool?
     /// Live server entitlement (`PremiumEntitlement`, migration 0027).
     ///
     /// Optional because an older server does not send it; `nil` means "this
@@ -44,10 +56,13 @@ public struct User: Codable, Sendable, Identifiable, Hashable {
     public let inboxAddress: String?
 
     public init(id: String, email: String, name: String?, aiOptIn: Bool? = nil,
+                reminderEmailFallback: Bool? = nil,
                 locale: String? = nil, inboxAddress: String? = nil,
                 premium: Bool? = nil) {
         self.id = id; self.email = email; self.name = name
-        self.aiOptIn = aiOptIn; self.locale = locale
+        self.aiOptIn = aiOptIn
+        self.reminderEmailFallback = reminderEmailFallback
+        self.locale = locale
         self.inboxAddress = inboxAddress; self.premium = premium
     }
 
@@ -111,13 +126,23 @@ public struct UpdateProfileInput: Encodable, Sendable {
 
     public var displayName: Field
     public var locale: Field
+    /// Reminder email fallback opt-in (#8).
+    ///
+    /// Unlike the two string fields this is a plain `Bool?`: a boolean has no
+    /// "clear" state distinct from `false`, so the three states collapse to
+    /// two — absent (`nil`, leave the stored value alone) and present (`true`
+    /// or `false`). Encoding it only when non-nil is what keeps a display-name
+    /// save from flipping a preference the user set elsewhere.
+    public var reminderEmailFallback: Bool?
 
-    public init(displayName: Field = .unchanged, locale: Field = .unchanged) {
+    public init(displayName: Field = .unchanged, locale: Field = .unchanged,
+                reminderEmailFallback: Bool? = nil) {
         self.displayName = displayName
         self.locale = locale
+        self.reminderEmailFallback = reminderEmailFallback
     }
 
-    enum CodingKeys: String, CodingKey { case displayName, locale }
+    enum CodingKeys: String, CodingKey { case displayName, locale, reminderEmailFallback }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
@@ -126,6 +151,9 @@ public struct UpdateProfileInput: Encodable, Sendable {
         }
         if locale.isSet {
             try container.encode(locale.value, forKey: .locale)
+        }
+        if let reminderEmailFallback {
+            try container.encode(reminderEmailFallback, forKey: .reminderEmailFallback)
         }
     }
 }

@@ -164,6 +164,20 @@ public final class AuthStore: ObservableObject {
         status = .authenticated(result.user)
     }
 
+    /// `PATCH /api/v1/auth/me` → the reminder email fallback opt-in (#8).
+    ///
+    /// Sent on its own so it can never disturb the display name or the stored
+    /// language (all three fields are independent on the server). The reply's
+    /// user is adopted, so the switch and the Settings footer read the value
+    /// the account actually holds — a failed save throws and leaves the old
+    /// value visible with the server's message in an alert.
+    public func updateReminderEmailFallback(_ enabled: Bool) async throws {
+        let result = try await client.updateProfile(
+            UpdateProfileInput(reminderEmailFallback: enabled)
+        )
+        status = .authenticated(result.user)
+    }
+
     /// Permanently deletes the account (requires the current password), then
     /// clears the keychain and drops to the unauthenticated state. Throws on
     /// failure (e.g. wrong password) so the caller can surface the error.

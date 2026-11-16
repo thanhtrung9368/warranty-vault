@@ -26,6 +26,13 @@
     <string name="set_update_the_password_you_sign_in">Cập nhật mật khẩu đăng nhập của mày.</string>
     <string name="set_notification_devices">Thiết bị nhận thông báo</string>
     <string name="set_manage_the_devices_registered_for_push">Quản lý các thiết bị đăng ký push notification.</string>
+    <!-- Email nhắc hạn (#8). Câu đồng ý: điều kiện gửi, giới hạn một email mỗi
+         mốc, người nhận (địa chỉ của chính tài khoản) và việc đây là email giao
+         dịch chứ không phải quảng cáo. -->
+    <string name="set_reminder_email_fallback">Email nhắc hạn</string>
+    <string name="set_reminder_email_fallback_subtitle">Chỉ dùng khi thông báo đẩy không khả dụng hoặc gửi lỗi — mỗi mốc nhắc tối đa một email, tới %1$s. Email giao dịch, không phải quảng cáo. Mặc định tắt.</string>
+    <string name="set_reminder_email_fallback_on">Đã bật email nhắc hạn</string>
+    <string name="set_reminder_email_fallback_off">Đã tắt email nhắc hạn</string>
     <string name="set_sign_in_sessions">Phiên đăng nhập</string>
     <string name="set_see_which_devices_are_signed_in">Xem các thiết bị đang đăng nhập và thu hồi từng phiên.</string>
     <string name="set_invoice_scanning_ai">Tính năng AI</string>

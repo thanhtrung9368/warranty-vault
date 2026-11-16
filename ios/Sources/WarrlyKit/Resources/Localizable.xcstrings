@@ -1,6 +1,57 @@
 {
   "sourceLanguage": "vi",
   "strings": {
+    "Email nhắc hạn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminder emails"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email nhắc hạn"
+          }
+        }
+      }
+    },
+    "Đang bật": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang bật"
+          }
+        }
+      }
+    },
+    "Chỉ dùng khi thông báo đẩy không khả dụng hoặc gửi lỗi. Mỗi mốc nhắc gửi tối đa một email tới địa chỉ %@ của tài khoản — email giao dịch, không phải quảng cáo. Mặc định tắt.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only used when push notifications are unavailable or fail. At most one email per reminder, to your account address %@ — a transactional email, not marketing. Off by default."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉ dùng khi thông báo đẩy không khả dụng hoặc gửi lỗi. Mỗi mốc nhắc gửi tối đa một email tới địa chỉ %@ của tài khoản — email giao dịch, không phải quảng cáo. Mặc định tắt."
+          }
+        }
+      }
+    },
     "Quét hoá đơn, thẻ bảo hành & đánh giá bảo hành": {
       "extractionState": "manual",
       "localizations": {

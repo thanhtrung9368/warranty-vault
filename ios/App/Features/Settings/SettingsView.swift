@@ -211,6 +211,11 @@ struct SettingsView: View {
     /// below for backups and the language.
     @State private var aiError: String?
 
+    // Reminder email fallback (#8). Off by default; the switch reads the value
+    // the ACCOUNT holds (via `auth.status`) and a failed PATCH reverts to it.
+    @State private var reminderEmailFallbackBusy = false
+    @State private var reminderEmailFallbackError: String?
+
     // Backup export / import.
     @State private var backupBusy = false
     @State private var exportDoc: ExportFileDocument?
@@ -257,6 +262,13 @@ struct SettingsView: View {
                 WVSectionHeader(L.t("Thông báo"))
                 notificationsSection
                 WVSectionFooter(L.t("Mốc nhắc được đặt riêng cho từng thiết bị và gói đăng ký — mở chi tiết để chỉnh. Mặc định là 30 và 7 ngày."))
+                // Consent copy for the email fallback, not a feature blurb. It
+                // names the trigger (push unavailable or failed), the ceiling
+                // (one email per reminder), the recipient (this account's own
+                // address, interpolated — there is no "send to" field) and that
+                // the mail is transactional. Those four facts are why the
+                // switch may exist at all; do not soften them.
+                WVSectionFooter(L.t("Chỉ dùng khi thông báo đẩy không khả dụng hoặc gửi lỗi. Mỗi mốc nhắc gửi tối đa một email tới địa chỉ %@ của tài khoản — email giao dịch, không phải quảng cáo. Mặc định tắt.", accountEmail))
 
                 // Bảo mật & dữ liệu — who can reach the data, what leaves the
                 // box, and the backup.
@@ -374,6 +386,14 @@ struct SettingsView: View {
             Button("OK", role: .cancel) { aiError = nil }
         } message: {
             Text(aiError ?? "")
+        }
+        .alert(L.t("Không lưu được lựa chọn"), isPresented: Binding(
+            get: { reminderEmailFallbackError != nil },
+            set: { if !$0 { reminderEmailFallbackError = nil } }
+        )) {
+            Button("OK", role: .cancel) { reminderEmailFallbackError = nil }
+        } message: {
+            Text(reminderEmailFallbackError ?? "")
         }
     }
 
@@ -524,6 +544,50 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Reminder email fallback
+
+    /// The account's stored opt-in. A missing key (older server) and a
+    /// signed-out state both read as OFF: permission to email is never
+    /// inferred from absence.
+    private var reminderEmailFallbackOn: Bool {
+        if case let .authenticated(u) = auth.status {
+            return u.reminderEmailFallback ?? false
+        }
+        return false
+    }
+
+    /// The address the fallback would mail. It is the account email, which the
+    /// user cannot change from this screen, so printing it in the footer is the
+    /// whole recipient disclosure.
+    private var accountEmail: String {
+        if case let .authenticated(u) = auth.status { return u.email }
+        return ""
+    }
+
+    /// Persists the reminder email fallback opt-in (#8).
+    ///
+    /// Deliberately no optimistic local value: the switch's binding reads the
+    /// ACCOUNT's flag and `AuthStore` adopts the user returned by the PATCH, so
+    /// only a successful save moves it. A failure (network, 401, a server that
+    /// predates the field) leaves the switch on the value the account really
+    /// holds and raises the server's message — never a silent spring-back.
+    private func setReminderEmailFallback(_ enabled: Bool) {
+        guard !reminderEmailFallbackBusy else { return }
+        reminderEmailFallbackBusy = true
+        Task {
+            defer { reminderEmailFallbackBusy = false }
+            do {
+                try await auth.updateReminderEmailFallback(enabled)
+            } catch let APIError.server(_, envelope) {
+                reminderEmailFallbackError = envelope.message
+                    ?? envelope.fieldErrors?.values.first?.first
+                    ?? L.t("Không kết nối được máy chủ.")
+            } catch {
+                reminderEmailFallbackError = L.t("Không kết nối được máy chủ.")
+            }
+        }
+    }
+
     // MARK: - Sessions section
 
     private var sessionsSection: some View {
@@ -652,6 +716,42 @@ struct SettingsView: View {
                   title: L.t("Nhắc trước"),
                   subtitle: L.t("Theo từng thiết bị / gói"),
                   detail: L.t("Tuỳ chỉnh"))
+
+            WVDivider()
+
+            // Reminder email fallback (#8) — the fallback for exactly the case
+            // the rows above cannot fix: a push subscription that was
+            // registered once and now dies silently (APNs 410, FCM error, a
+            // revoked browser permission), so the deadline passes unseen.
+            //
+            // The switch is off until the account opts in. Its copy is in the
+            // section footer below the group, together with the address the
+            // mail would go to; this row carries only the state so the
+            // disclosure is not truncated to two lines on a small phone.
+            HStack(spacing: WVSpacing.md) {
+                WVLeadingIcon(icon: "mail", color: WVColor.blue, tinted: true)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(L.t("Email nhắc hạn"))
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label)
+                    Text(reminderEmailFallbackOn ? L.t("Đang bật") : L.t("Đang tắt"))
+                        .wvFont(.footnote)
+                        .foregroundStyle(WVColor.label3)
+                }
+                Spacer(minLength: WVSpacing.sm)
+                if reminderEmailFallbackBusy {
+                    ProgressView()
+                } else {
+                    Toggle("", isOn: Binding(
+                        get: { reminderEmailFallbackOn },
+                        set: { newValue in setReminderEmailFallback(newValue) }
+                    ))
+                    .labelsHidden()
+                }
+            }
+            .padding(.horizontal, WVSpacing.gutter)
+            .frame(minHeight: 44)
+            .padding(.vertical, WVSpacing.sm)
         }
     }
 
