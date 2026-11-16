@@ -8,6 +8,7 @@ import { CsvExport } from '@/components/csv-export';
 import { InsurancePackDownload } from '@/components/insurance-pack-download';
 import { PushSettings } from '@/components/push-settings';
 import { PushDevices } from '@/components/push-devices';
+import { EmailFallbackSettings } from '@/components/email-fallback-settings';
 import { SessionList } from '@/components/session-list';
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { DeleteAccountForm } from '@/components/delete-account-form';
@@ -73,6 +74,15 @@ export default async function SettingsPage() {
           subscriptions={pushSubscriptions.subscriptions}
           unavailable={!pushSubscriptions.ok}
         />
+        {/* The fallback for the case those rows cannot fix: push was registered
+            once and now dies silently (APNs 410, FCM error, browser revoked).
+            Off by default and opt-in per account, because it is email. */}
+        <div className="mt-5 border-t border-border pt-5">
+          <EmailFallbackSettings
+            initialEnabled={user.reminderEmailFallback}
+            email={user.email}
+          />
+        </div>
       </Section>
 
       <Section icon={<Lock className="h-4 w-4" />} tint="tint-violet" title={t('Đổi mật khẩu')}>

@@ -117,6 +117,19 @@ export const settings = defineMessages({
     'Remove {device} from the notification list',
   'Gỡ': 'Remove',
 
+  // ── Reminder email fallback (`components/email-fallback-settings.tsx`) ──
+  //
+  // Consent copy, not a feature blurb: it states the trigger (push unavailable
+  // or failed), the ceiling (one email per reminder), the recipient (the
+  // account's own address, interpolated) and that it is transactional. Those
+  // four facts are the reason the switch can be offered at all; do not soften
+  // them into "get notified by email".
+  'Email nhắc hạn': 'Reminder emails',
+  'Chỉ dùng khi thông báo đẩy không khả dụng hoặc gửi lỗi: mỗi mốc nhắc gửi tối đa một email, tới địa chỉ {email} của tài khoản. Đây là email giao dịch — không phải email quảng cáo. Mặc định tắt.':
+    'Only used when push notifications are unavailable or fail: at most one email per reminder, to your account address {email}. This is a transactional email — not marketing. Off by default.',
+  'Đã bật email nhắc hạn': 'Reminder emails are on',
+  'Đã tắt email nhắc hạn': 'Reminder emails are off',
+
   // ── Sign-in sessions (`components/session-list.tsx`, `lib/sessions.ts`) ─
   'Không gỡ được phiên đăng nhập, thử lại sau':
     'Could not revoke the session, try again later',

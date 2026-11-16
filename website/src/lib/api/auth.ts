@@ -15,6 +15,13 @@ export type AuthUser = {
   email: string;
   name: string | null;
   aiOptIn?: boolean;
+  /**
+   * Opt-in for the reminder email fallback (#8). Present on `GET /auth/me`
+   * because the go service always serialises it (like `aiOptIn`); the field is
+   * optional here only so an older deployment that does not send it still
+   * decodes. Default OFF — false covers "never opted in".
+   */
+  reminderEmailFallback?: boolean;
   // Stored language preference (migration 0014). `omitempty` on the Go side, so
   // it is absent — not `null` — for a user who has never chosen one. The web
   // reads it at sign-in to seed the `wv_locale` cookie, so a preference set on
@@ -171,6 +178,21 @@ export async function updateLocale(
   locale: Locale,
 ): Promise<ApiResult<{ user: AuthUser; message?: string }>> {
   return apiFetch<{ user: AuthUser; message?: string }>('PATCH', '/v1/auth/me', { locale });
+}
+
+// `PATCH /v1/auth/me` for the reminder email fallback opt-in (#8).
+//
+// Same "independent tri-state field" shape as `locale`: the key is optional on
+// the Go side, so sending it ALONE leaves the display name and the stored
+// language untouched, and a display-name save cannot flip this preference. The
+// inverse matters too: this preference is the reason the server may email the
+// user, so the UI never sends it as a side effect of another save.
+export async function updateReminderEmailFallback(
+  enabled: boolean,
+): Promise<ApiResult<{ user: AuthUser; message?: string }>> {
+  return apiFetch<{ user: AuthUser; message?: string }>('PATCH', '/v1/auth/me', {
+    reminderEmailFallback: enabled,
+  });
 }
 
 // ---- device sessions (openapi `SessionSummary` / `SessionRevokeResult`) ----

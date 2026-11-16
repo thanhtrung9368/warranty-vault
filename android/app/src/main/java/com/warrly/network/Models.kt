@@ -84,6 +84,16 @@ data class User(
     val name: String? = null,
     val aiOptIn: Boolean = false,
     /**
+     * Opt-in for the reminder email fallback (#8).
+     *
+     * `GET /auth/me` always serialises it (`false` for anyone who never opted
+     * in). The default here covers an older deployment that omits the key —
+     * OFF is the only safe reading, because turning this on is what allows the
+     * server to email this account a deadline reminder when push was
+     * unavailable or failed.
+     */
+    val reminderEmailFallback: Boolean = false,
+    /**
      * `User.locale` — `"vi"`, `"en"`, or `null` for "never chosen"
      * (docs/I18N_PLAN.md §2.3). `omitempty` on the server, so an account that
      * has never opened the language switcher sends no byte at all and an older
@@ -176,6 +186,20 @@ data class UpdateProfileInput(val displayName: String)
  */
 @Serializable
 data class UpdateLocaleInput(val locale: String)
+
+/**
+ * Body of `PATCH /api/v1/auth/me` when only the reminder email fallback opt-in
+ * changes (#8).
+ *
+ * Same independent-field rule as [UpdateLocaleInput]: `reminderEmailFallback`
+ * and `displayName`/`locale` are separate optional keys, so this body can never
+ * disturb them. The field is a boolean, so it only has the "set" state — the
+ * absence of the key means "leave it unchanged", and there is nothing to
+ * clear. `ApiClient.json` drops nulls, but this type is non-nullable anyway:
+ * the preference can only be turned ON or OFF, never unset.
+ */
+@Serializable
+data class UpdateReminderEmailFallbackInput(val reminderEmailFallback: Boolean)
 
 /** Response of `PATCH /api/v1/auth/me` — the fresh user plus a translated note. */
 @Serializable

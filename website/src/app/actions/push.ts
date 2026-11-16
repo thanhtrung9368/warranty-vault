@@ -7,6 +7,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { api } from '@/lib/api';
+import { requireUser } from '@/lib/auth';
 import type { PushInput, PushSubscriptionMeta } from '@/lib/api/push';
 import { getI18n } from '@/lib/i18n/server';
 
@@ -83,4 +84,32 @@ export async function removePushSubscription(id: string) {
   if (!res.ok) return { ok: false, message: res.message ?? t('Không gỡ được thiết bị') };
   revalidatePath('/settings');
   return { ok: true };
+}
+
+// Reminder email fallback opt-in (#8), a preference rather than a push target.
+//
+// It lives in this file because it is the other delivery path for a reminder:
+// when push is unavailable or the fan-out fails, the cron may send exactly one
+// transactional email per reminder. Stored on the account (`user` row) rather
+// than in a device subscription, so the Go cron can read it with no request
+// context — the same reason `locale` lives there.
+//
+// The action returns the value the server stored, not an echo of the request:
+// the toggle renders the account's actual preference, and a failed PATCH keeps
+// the old one visible with the server's message.
+export async function setReminderEmailFallback(enabled: boolean) {
+  await requireUser();
+  const { t } = await getI18n();
+  if (typeof enabled !== 'boolean') {
+    return { ok: false, message: t('Không cập nhật được cài đặt') };
+  }
+  const res = await api.auth.updateReminderEmailFallback(enabled);
+  if (!res.ok) {
+    return { ok: false, message: res.message ?? t('Không cập nhật được cài đặt') };
+  }
+  revalidatePath('/settings');
+  return {
+    ok: true,
+    enabled: res.data.user.reminderEmailFallback ?? enabled,
+  };
 }

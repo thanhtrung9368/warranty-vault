@@ -51,6 +51,14 @@ interface ApiService {
     @PATCH("api/v1/auth/me")
     suspend fun updateLocale(@Body body: UpdateLocaleInput): UpdateProfileResponse
 
+    // Same endpoint again, body carrying ONLY `reminderEmailFallback` (#8).
+    // Three intents, three request types: a preference that permits email is
+    // never toggled as a side effect of saving a name or a language.
+    @PATCH("api/v1/auth/me")
+    suspend fun updateReminderEmailFallback(
+        @Body body: UpdateReminderEmailFallbackInput,
+    ): UpdateProfileResponse
+
     // ---- Email change (two steps) ----
     // Step 1 requires the current password and mails a single-use, 30-minute
     // token to the NEW address; `User.email` is unchanged until step 2. The

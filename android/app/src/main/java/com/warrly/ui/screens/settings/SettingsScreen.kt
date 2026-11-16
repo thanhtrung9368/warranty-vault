@@ -147,6 +147,12 @@ fun SettingsScreen(
         runCatching { api.getAIOptIn() }.onSuccess { aiOptIn = it.aiOptIn }
     }
 
+    // Reminder email fallback (#8) — an account preference, not a push target.
+    // The value itself is read from `currentUser` so a saved change (or a fresh
+    // `/me` on bootstrap) is what the switch renders; this only holds the
+    // in-flight spinner.
+    var reminderEmailFallbackBusy by remember { mutableStateOf(false) }
+
     // Backup export / import + account deletion.
     var backupBusy by remember { mutableStateOf(false) }
     var showImportModeDialog by remember { mutableStateOf(false) }
@@ -557,6 +563,65 @@ fun SettingsScreen(
                         title = stringResource(R.string.set_notification_devices),
                         subtitle = stringResource(R.string.set_manage_the_devices_registered_for_push),
                         onClick = onOpenPushDevices,
+                        showDivider = true,
+                    )
+                    // Reminder email fallback (#8). Sits in the notification
+                    // block next to the push rows because it is the fallback for
+                    // exactly the case those cannot fix: a push subscription
+                    // that was registered once and now dies silently (APNs 410,
+                    // FCM error, revoked browser permission). The subtitle is
+                    // consent copy — trigger, ceiling, recipient, and that the
+                    // mail is transactional — and the switch is OFF until the
+                    // account opts in.
+                    SettingsRow(
+                        icon = Icons.Filled.MailOutline,
+                        title = stringResource(R.string.set_reminder_email_fallback),
+                        subtitle = stringResource(
+                            R.string.set_reminder_email_fallback_subtitle,
+                            currentUser?.email.orEmpty(),
+                        ),
+                        trailing = {
+                            if (reminderEmailFallbackBusy) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            } else {
+                                Switch(
+                                    checked = currentUser?.reminderEmailFallback == true,
+                                    onCheckedChange = { next ->
+                                        reminderEmailFallbackBusy = true
+                                        scope.launch {
+                                            try {
+                                                val res = auth.updateReminderEmailFallback(next)
+                                                snack(
+                                                    context.getString(
+                                                        if (res.user.reminderEmailFallback) {
+                                                            R.string.set_reminder_email_fallback_on
+                                                        } else {
+                                                            R.string.set_reminder_email_fallback_off
+                                                        },
+                                                    ),
+                                                )
+                                            } catch (e: Exception) {
+                                                // Never fail silently: the
+                                                // switch stays on the stored
+                                                // value and the snackbar carries
+                                                // the server's message.
+                                                snack(
+                                                    context.getString(
+                                                        R.string.set_could_not_update_the_setting,
+                                                        e.toUserMessage(ApiClient.json, context),
+                                                    ),
+                                                )
+                                            } finally {
+                                                reminderEmailFallbackBusy = false
+                                            }
+                                        }
+                                    },
+                                )
+                            }
+                        },
                         showDivider = true,
                     )
                     // Device sessions are NOT the push list above: revoking here

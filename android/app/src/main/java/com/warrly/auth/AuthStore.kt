@@ -15,6 +15,7 @@ import com.warrly.network.RegisterInput
 import com.warrly.network.UpdateLocaleInput
 import com.warrly.network.UpdateProfileInput
 import com.warrly.network.UpdateProfileResponse
+import com.warrly.network.UpdateReminderEmailFallbackInput
 import com.warrly.network.User
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -145,6 +146,26 @@ class AuthStore(
             null -> languageStore?.followDevice(resolved, res.user.id)
             else -> languageStore?.set(choice)
         }
+        return res
+    }
+
+    /**
+     * `PATCH /api/v1/auth/me` with **only** `reminderEmailFallback` — the
+     * reminder email fallback opt-in (#8).
+     *
+     * It lives on the account, not on this device: the Go cron renders the
+     * fallback email with no request context, exactly like the language it
+     * renders it in. Sent on its own so it cannot disturb the display name or
+     * the stored language (all three keys are independent on the server).
+     *
+     * The store adopts the returned user, so the Settings row and its footer
+     * render the value the account actually holds. Throws on failure — the
+     * screen shows the server's message in a snackbar and the switch stays on
+     * the real value.
+     */
+    suspend fun updateReminderEmailFallback(enabled: Boolean): UpdateProfileResponse {
+        val res = api.updateReminderEmailFallback(UpdateReminderEmailFallbackInput(enabled))
+        _status.value = Status.Authenticated(res.user)
         return res
     }
 

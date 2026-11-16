@@ -26,6 +26,13 @@ export type CurrentUser = {
   name: string | null;
   aiOptIn: boolean;
   /**
+   * The reminder email fallback opt-in (#8). The Go service always serialises
+   * it on `GET /auth/me`; `Boolean(...)` treats a missing key (an older
+   * deployment) as OFF, which is the product default and the safe reading: a
+   * preference that permits email must never be inferred from absence.
+   */
+  reminderEmailFallback: boolean;
+  /**
    * The stored language preference (migration 0014), or `null` when the user has
    * never chosen one. `null` is NOT `'en'`: it means "no opinion", which lets the
    * browser's own `Accept-Language` decide.
@@ -71,6 +78,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
         email?: string;
         name?: string | null;
         aiOptIn?: boolean;
+        reminderEmailFallback?: boolean;
         locale?: string | null;
       };
     };
@@ -81,6 +89,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       email: u.email,
       name: u.name ?? null,
       aiOptIn: Boolean(u.aiOptIn),
+      reminderEmailFallback: Boolean(u.reminderEmailFallback),
       locale: normalizeStoredLocale(u.locale),
     };
   } catch {

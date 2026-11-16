@@ -27,6 +27,12 @@
     <string name="set_update_the_password_you_sign_in">Update the password you sign in with.</string>
     <string name="set_notification_devices">Notification devices</string>
     <string name="set_manage_the_devices_registered_for_push">Manage the devices registered for push notifications.</string>
+    <!-- Reminder email fallback (#8). Consent copy: trigger, ceiling, recipient
+         (the account's own address), and transactional-not-marketing. -->
+    <string name="set_reminder_email_fallback">Reminder emails</string>
+    <string name="set_reminder_email_fallback_subtitle">Only when push notifications are unavailable or fail — at most one email per reminder, to %1$s. A transactional email, not marketing. Off by default.</string>
+    <string name="set_reminder_email_fallback_on">Reminder emails are on</string>
+    <string name="set_reminder_email_fallback_off">Reminder emails are off</string>
     <string name="set_sign_in_sessions">Sign-in sessions</string>
     <string name="set_see_which_devices_are_signed_in">See which devices are signed in and revoke sessions one by one.</string>
     <string name="set_invoice_scanning_ai">AI features</string>
