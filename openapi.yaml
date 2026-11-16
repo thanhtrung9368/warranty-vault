@@ -32,6 +32,7 @@ tags:
   - { name: claims, description: 'Yêu cầu bảo hành / sửa chữa: một thiết bị hỏng đi đâu, bệnh viện nào, ai nói gì, bảo hành có trả tiền không. Migration 0021.' }
   - { name: attachments }
   - { name: shares, description: 'Phiếu bàn giao bảo hành + link chia sẻ có token. `GET /api/v1/public/shares/{token}` là endpoint DUY NHẤT không cần bearer.' }
+  - { name: handoff, description: 'Sang tay thiết bị (Warrly 2.0): chủ máy chuyển hồ sơ thiết bị cho người mua qua mã 6 ký tự, dùng một lần, hết hạn sau 14 ngày. App CHỈ chuyển dữ liệu — không phải giấy tờ pháp lý, không thanh toán, không escrow, không marketplace. `GET /api/v1/public/handoff/{code}` là endpoint KHÔNG cần bearer.' }
   - { name: insurance, description: 'Bảng kê tài sản dạng PDF để nộp cho công ty bảo hiểm / đơn vị giám định. Luôn là tiếng Việt, bất kể ngôn ngữ của request.' }
   - { name: subscriptions }
   - { name: wishlist }
@@ -1639,6 +1640,259 @@ paths:
           content:
             text/html:
               schema: { type: string }
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  # ── Resale handoff (Warrly 2.0) ─────────────────────────────────────────────
+  #
+  # A handoff moves a COPY of one device record into another account. It is not a
+  # share link (read-only), not a sale, and not a legal document. Price and private
+  # notes never travel — see HandoffPreview and the claim transaction's description.
+  /api/v1/devices/{id}/handoff:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      tags: [handoff]
+      summary: Create a resale handoff code (owner only)
+      description: |
+        Tạo **phiếu bàn giao** cho một thiết bị: chủ máy chuyển hồ sơ (ngày mua,
+        serial/model, các gói bảo hành, hoá đơn được chọn, tình trạng và lịch sử
+        sửa chữa) cho người mua. **Giá mua, giá bán và ghi chú riêng không bao
+        giờ đi theo.**
+
+        **App chỉ chuyển dữ liệu, không phải giấy tờ pháp lý.** Không có thanh
+        toán, escrow hay marketplace ở bất kỳ đâu trong tính năng này.
+
+        Mã 6 ký tự (`23456789ABCDEFGHJKLMNPQRSTUVWXYZ` — không có I/O để đọc
+        không nhầm):
+
+        * **chỉ trả về MỘT LẦN** trong response này; server chỉ lưu sha256
+          (`codeHash`), nên không endpoint nào — kể cả `GET` dưới đây — đọc lại
+          được mã. Cùng khuôn `DeviceShare.token`.
+        * hiệu lực **14 ngày**, **dùng một lần**;
+        * **1 phiếu / thiết bị / 30 ngày**; không thể tạo phiếu mới khi phiếu cũ
+          còn `PENDING` (huỷ trước bằng `DELETE`);
+        * entropy ~30 bit, nên an toàn nằm ở TTL + dùng-một-lần + rate limit
+          (preview 60/15 phút/IP, claim 10/phút/người dùng) + quyền huỷ của chủ
+          máy — **không** nằm ở độ dài mã.
+
+        `claimPath` là đường dẫn **web** `/handoff/<code>` (trang giải thích rồi
+        đưa người mua đã đăng nhập sang claim), **không** phải đường API.
+
+        Thiết bị `SOLD`/`LOST` không tạo được phiếu (409). Body rỗng hợp lệ.
+        `attachmentIds` là lựa chọn **tường minh**: vắng mặt hoặc `[]` =
+        **không** tệp nào đi theo.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HandoffCreateInput' }
+      responses:
+        '201':
+          description: Created — `handoff.code` is shown once and never again
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [handoff]
+                properties:
+                  handoff: { $ref: '#/components/schemas/CreatedHandoff' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: |
+            * `conflict` — thiết bị đang `SOLD`/`LOST`, hoặc đã có phiếu `PENDING`
+              chưa dùng;
+            * `limit_reached` — đã tạo phiếu cho thiết bị này trong 30 ngày qua;
+              câu lỗi nêu **ngày sớm nhất** được tạo lại.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+    get:
+      tags: [handoff]
+      summary: Latest handoff status of a device (owner only)
+      description: |
+        Phiếu **gần nhất** của thiết bị (mọi trạng thái), hoặc `handoff: null`
+        nếu chưa từng tạo. Thiết bị của người khác = `404`, không phải `null`.
+
+        **Không có `code`/`claimPath`** — hai trường đó chỉ tồn tại trong response
+        của `POST`.
+
+        `status: EXPIRED` được **tính** khi đọc: một dòng `PENDING` đã quá
+        `expiresAt` không bao giờ hiện là còn dùng được.
+
+        `nextAllowedAt` chỉ có mặt khi luật 30 ngày còn chặn, để UI giải thích
+        được vì sao nút tạo đang tắt thay vì để người dùng gặp 409.
+      responses:
+        '200':
+          description: Latest handoff (or null) + cooldown hint
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HandoffStatusResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [handoff]
+      summary: Cancel the open handoff (owner only)
+      description: |
+        Huỷ phiếu `PENDING` của thiết bị. **Idempotent** với phiếu đã `CANCELLED`
+        (gọi lại vẫn `200`: ý định "mã này không được dùng" đã đúng).
+
+        `409` khi phiếu đã `CLAIMED` (người mua đã nhận) hoặc đã `EXPIRED` — trạng
+        thái cuối, chủ máy không được ghi đè. `404` khi thiết bị không có phiếu
+        nào (hoặc không phải của người gọi).
+
+        Huỷ làm mã chết ngay: công khai `GET` và claim đều trả lỗi, và **không có
+        gì được chuyển** — giao dịch claim là nơi duy nhất ghi dữ liệu.
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`conflict` — phiếu đã được người mua nhận hoặc đã hết hạn.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
+  /api/v1/public/handoff/{code}:
+    parameters:
+      - name: code
+        in: path
+        required: true
+        description: 'Mã 6 ký tự, không phân biệt hoa/thường. Chính mã này là quyền truy cập.'
+        schema: { type: string, minLength: 6, maxLength: 6 }
+      - { $ref: '#/components/parameters/Lang' }
+    get:
+      tags: [handoff]
+      summary: Public handoff preview (NO authentication)
+      security: []
+      description: |
+        Bản xem trước an toàn cho người mua **trước khi** đăng nhập. Đây là bề mặt
+        không xác thực **thứ hai** của service (bề mặt kia là phiếu chia sẻ).
+
+        **Nội dung trả về** đúng bằng `HandoffPreview`: mã, trạng thái, hạn,
+        `sellerName` (tên hiển thị của người bán — không bao giờ là id/email),
+        thiết bị (tên/hãng/model/loại/ngày mua/**serial che giữa**), các gói bảo
+        hành (loại/ngày bắt đầu/ngày kết thúc/nhà bảo hành/trạng thái tính sẵn),
+        **metadata** của các tệp được chọn (tên, MIME, kích thước), lịch sử sửa
+        chữa (trạng thái, ngày mở/đóng, bảo hành có trả tiền không) và câu
+        disclaimer.
+
+        **Không bao giờ có:** `userId`/email/`id` thiết bị, `purchasePrice`,
+        `soldPrice`, `Device.notes`, `Warranty.cost`/`notes`, id / đường dẫn /
+        khoá mã hoá / **nội dung** của tệp, hay **serial đầy đủ**. Việc lọc nằm ở
+        câu SQL, không phải ở một bộ lọc Go mà lần sửa sau có thể bỏ quên.
+
+        **Mã chết trả về ĐÚNG MỘT câu trả lời:** không tồn tại, đã hết hạn, đã bị
+        huỷ, đã có người nhận, hoặc thiết bị của nó đã bị xoá đều là `404` với
+        body **giống hệt nhau** — endpoint không phải oracle để dò mã nào từng
+        tồn tại. (Claim thì phân biệt được `410`/`409` vì người gọi đã đăng nhập
+        và thật sự cầm một mã; xem endpoint đó.)
+
+        **Header trên MỌI response** (kể cả 404): `Cache-Control: no-store`,
+        `X-Robots-Tag: noindex`, `Referrer-Policy: no-referrer` (mã nằm trong
+        path), `X-Frame-Options: DENY`, CSP `default-src 'none'`.
+
+        **Rate limit** theo IP: 60 request / 15 phút (`429` + `Retry-After`) —
+        đây là lớp khiến mã 30-bit không thể dò.
+
+        **Ngôn ngữ:** `?lang=vi|en` → `Accept-Language` → **`vi`** (mặc định của
+        artifact, không phải `en` của phần còn lại của API). `Content-Language`
+        nói đúng ngôn ngữ đã render. Ngôn ngữ không hỗ trợ rơi xuống mức kế tiếp,
+        không bao giờ là 400.
+      responses:
+        '200':
+          description: Safe preview for a still-usable code
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [handoff]
+                properties:
+                  handoff: { $ref: '#/components/schemas/HandoffPreview' }
+        '404':
+          description: |
+            Mã không tồn tại / hết hạn / bị huỷ / đã có người nhận / thiết bị đã
+            bị xoá — **không phân biệt được** (cùng status, cùng body, trong cùng
+            một ngôn ngữ).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/handoff/{code}/claim:
+    parameters:
+      - name: code
+        in: path
+        required: true
+        description: 'Mã 6 ký tự từ `POST /api/v1/devices/{id}/handoff`. Không phân biệt hoa/thường.'
+        schema: { type: string, minLength: 6, maxLength: 6 }
+      - { $ref: '#/components/parameters/Lang' }
+    post:
+      tags: [handoff]
+      summary: Claim a handoff into your account (one use)
+      description: |
+        Người mua nhận thiết bị: trong **một transaction**, server tạo `Device`
+        mới thuộc tài khoản người gọi, copy các dòng `Warranty`, các `Attachment`
+        **được chọn** (cùng blob mã hoá — không mã hoá lại) và lịch sử `Claim`,
+        kiểm tra danh mục + hạn mức thiết bị của người mua, đánh dấu phiếu
+        `CLAIMED`, rồi đánh dấu thiết bị của người bán `SOLD` + `handoffSentAt`.
+
+        **Giá và ghi chú không đi theo:** `purchasePrice = 0`,
+        `soldPrice`/`soldAt` = `null`, `Device.notes` = `null`,
+        `Warranty.cost`/`notes` = `null`, `Claim.cost` = `null`. Người bán không
+        bị ghi giá bán: `handoffSentAt` + `status: SOLD` là dấu "đã chuyển",
+        `soldPrice` vẫn là việc người bán tự ghi sau.
+
+        **Người mua nhận được dấu nguồn gốc:** `handoffReceivedAt` và
+        `handoffSellerName` (tên hiển thị của người bán) trên thiết bị mới.
+
+        **Dùng một lần.** Cùng người mua gọi lại cùng mã = `200` với **đúng thiết
+        bị đã nhận** (retry sau mất mạng không phải lỗi); người khác gọi =
+        `409`. `code` đã hết hạn/bị huỷ = `410`, không tồn tại = `404`, chủ máy
+        tự nhận máy mình = `403`.
+
+        **Không có body.** Không có trường chọn giá, chọn người bán, hay
+        `markSold`: đây là chuyển dữ liệu, không phải giao dịch mua bán.
+      responses:
+        '200':
+          description: The buyer's new device (same payload as GET /api/v1/devices/{id})
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HandoffClaimResult' }
+        '400':
+          description: |
+            `category_invalid` — loại thiết bị của hồ sơ không còn trong danh mục,
+            nên thiết bị copy sẽ không render được ở bất kỳ client nào.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: '`forbidden` — người gọi chính là người bán: bàn giao là chuyển cho NGƯỜI KHÁC, không phải nhập lại.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '404':
+          description: '`not_found` — mã không tồn tại (hoặc thiết bị nguồn đã bị xoá).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '409':
+          description: |
+            * `conflict` — mã đã được **người khác** nhận, hoặc thiết bị nguồn đã
+              thành `SOLD`/`LOST` sau khi tạo phiếu;
+            * `limit_reached` — hạn mức thiết bị của người mua (50/500 gói Free,
+              200/2.000 gói Premium), cùng predicate plan-aware với mọi cửa ghi
+              `Device` khác.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '410':
+          description: '`gone` — mã đã hết hạn (14 ngày) hoặc đã bị chủ máy huỷ. Không có gì được chuyển.'
+          content:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
         '429': { $ref: '#/components/responses/RateLimited' }
@@ -5357,6 +5611,39 @@ components:
             nên một client không biết trường này (build 23 đang chờ duyệt) sẽ
             **xoá mất kế hoạch** mỗi lần sửa thiết bị. Trường này luôn có mặt
             (`null` khi không có kế hoạch) để client render vô điều kiện.
+        handoffSentAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Chỉ đọc. Thời điểm hồ sơ thiết bị được **bàn giao cho người mua**
+            (migration 0032). Được ghi khi lệnh claim thành công, cùng lúc thiết
+            bị chuyển `status: SOLD`; cặp đó là thứ UI hiển thị **"đã chuyển"**
+            thay cho "đã bán".
+
+            `soldAt`/`soldPrice` **không** bị ghi: bàn giao không phải bán và app
+            không được bịa ra giá. Người bán vẫn có thể ghi giá bán sau bằng
+            `PATCH /api/v1/devices/{id}`.
+
+            Không nằm trong `DeviceCreateInput`/`DeviceUpdateInput`, nên PATCH
+            (kể cả từ build 23) không xoá được.
+        handoffReceivedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Chỉ đọc. Thời điểm thiết bị này được **nhận qua bàn giao** (migration
+            0032) — chỉ có trên thiết bị **mới** trong tài khoản người mua. UI
+            hiển thị "chuyển từ người bán <ngày>". `null` với mọi thiết bị được
+            tạo/import theo cách khác.
+        handoffSellerName:
+          type: string
+          nullable: true
+          description: |
+            Chỉ đọc. **Tên hiển thị** của người bán tại lúc claim (migration
+            0032). Không bao giờ là id, email hay số điện thoại. `null` khi
+            người bán chưa đặt tên hiển thị.
+
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -8088,3 +8375,211 @@ components:
         expiresAt: { type: string, format: date-time, description: 'Ngày link ngừng hoạt động — người nhận biết phiếu có hạn.' }
         issuedAt: { type: string, format: date-time, description: 'Ngày **tạo link**, không phải ngày mở phiếu.' }
         disclaimer: { type: string, description: 'Câu tiếng Việt nói rõ phiếu **không** phải hoá đơn, không kèm ảnh chứng từ, và nên đối chiếu số máy trên máy thật. Hiển thị thẳng.' }
+    # ─── Resale handoff (Warrly 2.0) ────────────────────────────────────────
+    #
+    # A handoff is a one-way COPY of a device record into another account, keyed
+    # by a 6-character single-use code. It is not a share link, not a sale, and
+    # not a legal document. The three properties every schema below shares:
+    # no money, no private notes, one use.
+
+    HandoffCreateInput:
+      type: object
+      description: |
+        Body của `POST /api/v1/devices/{id}/handoff`. Không trường nào bắt buộc;
+        body rỗng nghĩa là "không tệp nào đi theo".
+      properties:
+        attachmentIds:
+          type: array
+          uniqueItems: true
+          maxItems: 5
+          items: { type: string }
+          description: |
+            Lựa chọn **tường minh** các hoá đơn/chứng từ đi theo. Vắng mặt hoặc
+            `[]` = **không** tệp nào đi theo — server không tự chọn thay chủ máy,
+            vì một tệp hoá đơn có thể chứa tên, địa chỉ, số điện thoại và cả món
+            khác trong cùng ảnh.
+
+            Mỗi id phải là `Attachment` của **chính thiết bị này** và của người
+            gọi; id lạ ⇒ 400 `fieldErrors.attachmentIds`.
+
+    HandoffStatusValue:
+      type: string
+      enum: [PENDING, CLAIMED, EXPIRED, CANCELLED]
+      description: |
+        * `PENDING` — mã còn dùng được tới `expiresAt`;
+        * `CLAIMED` — đã có người nhận (dùng hết một lần);
+        * `EXPIRED` — quá 14 ngày mà chưa ai nhận. API **tính** trạng thái này
+          khi đọc, nên không bao giờ trả `PENDING` cho một mã đã quá hạn;
+        * `CANCELLED` — chủ máy đã huỷ.
+
+    Handoff:
+      type: object
+      required: [id, deviceId, status, createdAt, expiresAt]
+      description: |
+        Phiếu bàn giao ở góc nhìn **chủ máy**. **Không** chứa `code` hay
+        `claimPath`: mã chỉ hiện một lần lúc tạo, server chỉ lưu sha256.
+      properties:
+        id: { type: string }
+        deviceId: { type: string }
+        status: { $ref: '#/components/schemas/HandoffStatusValue' }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time, description: 'Tạo + 14 ngày. Không có mã vĩnh viễn.' }
+        claimedAt: { type: string, format: date-time, description: 'Có mặt khi `status = CLAIMED`.' }
+
+    CreatedHandoff:
+      type: object
+      required: [id, deviceId, code, claimPath, status, createdAt, expiresAt]
+      description: |
+        **`code` là credential và chỉ xuất hiện trong response này.** Server chỉ
+        lưu sha256 (`codeHash`); không có endpoint nào đọc lại mã, kể cả
+        `GET /api/v1/devices/{id}/handoff`.
+      properties:
+        id: { type: string }
+        deviceId: { type: string }
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          pattern: '^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$'
+          description: 'Mã 6 ký tự (bỏ I/O để đọc không nhầm). Đọc cho người mua hoặc gửi `claimPath`.'
+        claimPath:
+          type: string
+          description: 'Đường dẫn **web** `/handoff/<code>` để client ghép với base URL của chính nó (trang giải thích + chuyển sang claim). KHÔNG phải đường API.'
+        status: { $ref: '#/components/schemas/HandoffStatusValue' }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+
+    HandoffStatusResponse:
+      type: object
+      required: [handoff]
+      description: Response của `GET /api/v1/devices/{id}/handoff`.
+      properties:
+        handoff:
+          allOf: [{ $ref: '#/components/schemas/Handoff' }]
+          nullable: true
+          description: 'Phiếu gần nhất (mọi trạng thái), hoặc `null` nếu thiết bị chưa từng có phiếu.'
+        nextAllowedAt:
+          type: string
+          format: date-time
+          description: |
+            Chỉ có mặt khi luật **1 phiếu / thiết bị / 30 ngày** còn chặn: thời
+            điểm sớm nhất được tạo phiếu mới. Vắng mặt = tạo được ngay.
+
+    HandoffPreviewDevice:
+      type: object
+      required: [name, category, purchaseDate]
+      description: |
+        Thiết bị, ở mức an toàn cho người chưa đăng nhập. Cố ý **không** có `id`
+        (không cho tương quan với endpoint khác) và không có `purchasePlace`.
+      properties:
+        name: { type: string }
+        brand: { type: string, nullable: true }
+        model: { type: string, nullable: true }
+        category: { type: string }
+        purchaseDate:
+          type: string
+          format: date
+          description: '`YYYY-MM-DD` — ngày lịch, không phải instant.'
+        serialMasked:
+          type: string
+          nullable: true
+          description: 'Serial **che giữa** (giữ tối đa 4 đầu + 4 cuối, luôn che ít nhất 1 ký tự). Serial đầy đủ chỉ có trong thiết bị mà người mua nhận được SAU claim.'
+
+    HandoffPreviewWarranty:
+      type: object
+      required: [type, startDate, endDate, status]
+      description: 'Một gói bảo hành ở mức xem trước: khung thời gian + nơi bảo hành. Không có tiền, không có điều khoản loại trừ.'
+      properties:
+        type: { type: string, enum: [STANDARD, EXTENDED, THIRD_PARTY] }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        provider: { type: string, nullable: true }
+        status:
+          type: string
+          enum: [ACTIVE, EXPIRED]
+          description: 'Tính từ `endDate` theo ngày lịch Việt Nam (ngày kết thúc bao gồm trọn ngày). Không lưu trong DB nên không thể cũ.'
+
+    HandoffPreviewAttachment:
+      type: object
+      required: [fileName, mimeType, sizeBytes]
+      description: |
+        **Chỉ metadata** của tệp được chọn: không id, không byte, không đường dẫn
+        lưu trữ. Tệp thật chỉ tải được sau claim, qua route có xác thực
+        `/api/files/{id}` — một route blob công khai sẽ là bề mặt không xác thực
+        thứ hai cho dữ liệu nhạy cảm hơn hẳn JSON này.
+      properties:
+        fileName: { type: string }
+        mimeType: { type: string }
+        sizeBytes: { type: integer, format: int32 }
+
+    HandoffPreviewClaim:
+      type: object
+      required: [status, openedAt]
+      description: 'Lịch sử sửa chữa ở mức xem trước. Nội dung issue/diagnosis chỉ đi theo dòng được copy sau claim.'
+      properties:
+        status: { type: string, enum: [OPEN, IN_REPAIR, RESOLVED, REJECTED, CANCELLED] }
+        openedAt: { type: string, format: date-time }
+        closedAt: { type: string, format: date-time, nullable: true }
+        coveredByWarranty:
+          type: boolean
+          nullable: true
+          description: '`null` = chưa xác định. Chỉ ghi nhận sự thật, không phán quyết.'
+
+    HandoffPreview:
+      type: object
+      required: [code, status, expiresAt, disclaimer, device, warranties, attachments, claims]
+      description: |
+        **Toàn bộ** những gì `GET /api/v1/public/handoff/{code}` để lộ ra cho
+        người không đăng nhập. Danh sách này là **hợp đồng bảo mật**: thêm một
+        trường là mở rộng thứ một người lạ đọc được.
+
+        **Cố ý vắng mặt:** `userId`/email của người bán (chỉ có `sellerName` —
+        tên hiển thị họ tự đặt), `deviceId`, `purchasePrice`, `soldPrice`,
+        `Device.notes`, `Warranty.cost`, `Warranty.notes`, id/đường dẫn/khoá mã
+        hoá/nội dung của tệp, và **serial đầy đủ**.
+      properties:
+        code: { type: string }
+        status: { $ref: '#/components/schemas/HandoffStatusValue' }
+        expiresAt: { type: string, format: date-time }
+        sellerName:
+          type: string
+          nullable: true
+          description: 'Tên hiển thị của người bán (`User.name`) tại thời điểm đọc. Không bao giờ là id hay email.'
+        device: { $ref: '#/components/schemas/HandoffPreviewDevice' }
+        warranties:
+          type: array
+          items: { $ref: '#/components/schemas/HandoffPreviewWarranty' }
+        attachments:
+          type: array
+          items: { $ref: '#/components/schemas/HandoffPreviewAttachment' }
+        claims:
+          type: array
+          items: { $ref: '#/components/schemas/HandoffPreviewClaim' }
+        disclaimer:
+          type: string
+          description: |
+            Câu bắt buộc trên artifact công khai: **"App chỉ chuyển dữ liệu, không
+            phải giấy tờ pháp lý. Phiếu bàn giao không thay thế hoá đơn, hợp đồng
+            hay giấy tờ sở hữu; hãy kiểm tra số máy và tình trạng thiết bị trước
+            khi nhận."** Trả về theo ngôn ngữ của request (mặc định `vi`).
+
+    HandoffClaimSummary:
+      type: object
+      required: [id, status, claimedAt]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [CLAIMED] }
+        claimedAt: { type: string, format: date-time }
+
+    HandoffClaimResult:
+      type: object
+      required: [handoff, device]
+      description: |
+        Kết quả claim. `device` là **cùng payload** `GET /api/v1/devices/{id}`
+        trả về, nên client không cần gọi thêm và không thể thấy hai câu trả lời
+        khác nhau về cùng một thiết bị.
+      properties:
+        handoff: { $ref: '#/components/schemas/HandoffClaimSummary' }
+        device:
+          allOf: [{ $ref: '#/components/schemas/DeviceDetail' }]
+          description: 'Thiết bị **mới** trong tài khoản người mua (`handoffReceivedAt` + `handoffSellerName` được set; giá = 0, ghi chú = null).'

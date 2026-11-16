@@ -99,7 +99,7 @@ endpoint trả 503 `feature_disabled`.
       `api: service_healthy` nên web chỉ lên khi API ping được DB
 - [ ] Migration lần đầu: `docker compose run --rm --entrypoint /app/migrate api up`
 - [ ] Kiểm tra version: `docker compose run --rm --entrypoint /app/migrate api status`
-      → 31 migration đã apply, dòng cuối phải là `0031_installment_plan`.
+      → 32 migration đã apply, dòng cuối phải là `0032_device_handoff`.
       Đừng đối chiếu với con số trong tài liệu này — `ls api/migrations/*.sql` mới là
       nguồn đúng, và migration lẻ nào chưa chạy thì `status` sẽ dừng trước nó.
 - [ ] **Database PHẢI có encoding UTF-8.** Kiểm tra:

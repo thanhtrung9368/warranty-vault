@@ -73,6 +73,10 @@ SCHEMA_BY_STRUCT: dict[str, str] = {
     "subscriptionPaymentRequest": "PaymentInput",
     "snoozeRequest": "SnoozeInput",
     "InstallmentInput": "InstallmentInput",
+    # Resale handoff (migration 0032): the create body has ONE optional field and
+    # is decoded strictly, so an unknown key is a 400 rather than a handoff that
+    # silently ships no receipts.
+    "handoffCreateRequest": "HandoffCreateInput",
 }
 
 # Strict request bodies whose schema is inline in the path, not a named
