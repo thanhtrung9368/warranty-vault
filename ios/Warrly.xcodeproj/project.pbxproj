@@ -65,7 +65,6 @@
 		9A71C5FF3F31634A44CD3967 /* WishlistFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F7348BDEAEFE1709F1196E /* WishlistFormView.swift */; };
 		9BC5511C22F307B166450E96 /* PremiumStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A94E8082305F813182841395 /* PremiumStore.swift */; };
 		9FD39E81BFAFBA06C5D6C7CF /* AttachmentDescriptionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFCE97A0BB1747FDE1A7AA5 /* AttachmentDescriptionSheet.swift */; };
-		23214159AFD9A44237068A8D /* InstallmentSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 860D9B183D976E13EA27B995 /* InstallmentSection.swift */; };
 		A31C0E6ED724BE35006B72C9 /* PushRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5744CF576C6B50B3F556BFE6 /* PushRegistrar.swift */; };
 		A6F3F0FC77F9880AC8684810 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FBB67179090E86F03BC37D87 /* PrivacyInfo.xcprivacy */; };
 		AB1DDEB77A9253D41DBEF42E /* BrandWarrantySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F0C6B251B83320A9A05248 /* BrandWarrantySection.swift */; };
@@ -80,6 +79,7 @@
 		C7AC3247EAFD17CC03FB0798 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 569E34979FCE797CC256EF82 /* Components.swift */; };
 		CCF8B9EE27949317AB45DE66 /* SubscriptionsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3552F34924BA68A7F154BE7 /* SubscriptionsStore.swift */; };
 		CDBEDBF734B129F8A0BB03CD /* Charts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C1FBEE7DBBA46C09F5EC2D8 /* Charts.swift */; };
+		D020C125C79012AE0069AD9A /* InstallmentSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AD16507099526954B951794 /* InstallmentSection.swift */; };
 		D10445D364810FD53A47B3F2 /* DeviceFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A9B29C4B670543664AD4F7D /* DeviceFormView.swift */; };
 		D1C905C7BD2AE84702AD9F4A /* AuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C326B2D0B7FECEC9BBCBE81 /* AuthStore.swift */; };
 		D294F0EB52D56C10EEEAFD28 /* WarrantiesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF8280A48921BDB1B223FA62 /* WarrantiesStore.swift */; };
@@ -202,6 +202,7 @@
 		9535797B7111A2A0299DA7BE /* StapleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StapleStore.swift; sourceTree = "<group>"; };
 		962356363C6D6FB924763757 /* WishlistStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistStore.swift; sourceTree = "<group>"; };
 		98BA507A3214DC81D4416E2A /* WarrantyTermsBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyTermsBlock.swift; sourceTree = "<group>"; };
+		9AD16507099526954B951794 /* InstallmentSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallmentSection.swift; sourceTree = "<group>"; };
 		9BFC0974CC3587733FD9D5F6 /* WarrantyCardScanSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyCardScanSheet.swift; sourceTree = "<group>"; };
 		9DB5D5E80AD5FDEFB4CCD26E /* AdsBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsBannerView.swift; sourceTree = "<group>"; };
 		A042C35BC3C17A27F6A73A59 /* BulkDeviceAddView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkDeviceAddView.swift; sourceTree = "<group>"; };
@@ -229,7 +230,6 @@
 		BA8D046A3DB1A1BC8D7867CA /* Disclosure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Disclosure.swift; sourceTree = "<group>"; };
 		BB3E30DB5F2BED0874601B3F /* SerialScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SerialScannerView.swift; sourceTree = "<group>"; };
 		BCFCE97A0BB1747FDE1A7AA5 /* AttachmentDescriptionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentDescriptionSheet.swift; sourceTree = "<group>"; };
-		860D9B183D976E13EA27B995 /* InstallmentSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallmentSection.swift; sourceTree = "<group>"; };
 		BF5409F5513C1FDE5B33A354 /* InboxScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxScreen.swift; sourceTree = "<group>"; };
 		C83ECFDE18B85BE8BAFB7400 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
 		CB0C807D1BBF00C15B226DE8 /* DeviceDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDetailView.swift; sourceTree = "<group>"; };
@@ -473,8 +473,8 @@
 				2B85109B7D2AECA8EAFBD450 /* ClaimsSection.swift */,
 				CB0C807D1BBF00C15B226DE8 /* DeviceDetailView.swift */,
 				3A9B29C4B670543664AD4F7D /* DeviceFormView.swift */,
-				860D9B183D976E13EA27B995 /* InstallmentSection.swift */,
 				E524A44E85B68F979F8E4089 /* DevicesScreen.swift */,
+				9AD16507099526954B951794 /* InstallmentSection.swift */,
 				BB3E30DB5F2BED0874601B3F /* SerialScannerView.swift */,
 				CC795856CE9A07B871A7C09D /* ServiceChecklistView.swift */,
 				32B17B4E0FDB45A93ECCB48B /* ServiceDirectorySection.swift */,
@@ -833,7 +833,7 @@
 				DCC93DF47EAA149597DA3E8D /* InboxDevicePickerSheet.swift in Sources */,
 				EBE3FAD1276413E3A5F74365 /* InboxScreen.swift in Sources */,
 				89B038570B2F0FD30D5C5BA0 /* InboxStore.swift in Sources */,
-				23214159AFD9A44237068A8D /* InstallmentSection.swift in Sources */,
+				D020C125C79012AE0069AD9A /* InstallmentSection.swift in Sources */,
 				E9729603B53E25B7DC2B4E12 /* InsurancePackSheet.swift in Sources */,
 				4AA650E2E9999B6296460CE4 /* LeadDaysSection.swift in Sources */,
 				C5EBDFF0AF59F28C06CEFA16 /* LocalizationStore.swift in Sources */,
@@ -933,7 +933,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 25;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -953,7 +953,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.2.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1044,7 +1044,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 25;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1058,7 +1058,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.2.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
