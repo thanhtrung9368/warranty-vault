@@ -44,6 +44,7 @@
 		64098F1E020CA14620A80ECF /* MoreScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7B4E664E69C4E53E8D17BF0 /* MoreScreen.swift */; };
 		6A567C7E8DC0896FA7857042 /* CatalogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8126004F477522699C8B5716 /* CatalogStore.swift */; };
 		725F197320CE3F01381DF18D /* DeadlineAccessoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A186BD998A27860B87DD0484 /* DeadlineAccessoryViews.swift */; };
+		758690A63DA79F5D9B59DC51 /* WarrantyCardScanSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFC0974CC3587733FD9D5F6 /* WarrantyCardScanSheet.swift */; };
 		75D5A75BC2DFF4FBB1EDBC4B /* DisplayNameSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE8446F5D3080E7AE569BA1 /* DisplayNameSheet.swift */; };
 		75D8FBB22994FEC99E72AFBD /* StaplesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D79751F541447C7A16AEDEE /* StaplesView.swift */; };
 		76AB1C235AD0E9737288F197 /* AttachmentPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 118660EBEABDC48A7BDCA123 /* AttachmentPreview.swift */; };
@@ -200,6 +201,7 @@
 		9535797B7111A2A0299DA7BE /* StapleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StapleStore.swift; sourceTree = "<group>"; };
 		962356363C6D6FB924763757 /* WishlistStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistStore.swift; sourceTree = "<group>"; };
 		98BA507A3214DC81D4416E2A /* WarrantyTermsBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyTermsBlock.swift; sourceTree = "<group>"; };
+		9BFC0974CC3587733FD9D5F6 /* WarrantyCardScanSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyCardScanSheet.swift; sourceTree = "<group>"; };
 		9DB5D5E80AD5FDEFB4CCD26E /* AdsBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsBannerView.swift; sourceTree = "<group>"; };
 		A042C35BC3C17A27F6A73A59 /* BulkDeviceAddView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkDeviceAddView.swift; sourceTree = "<group>"; };
 		A186BD998A27860B87DD0484 /* DeadlineAccessoryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeadlineAccessoryViews.swift; sourceTree = "<group>"; };
@@ -324,6 +326,7 @@
 		3A413EBD7424183274B763F2 /* Warranties */ = {
 			isa = PBXGroup;
 			children = (
+				9BFC0974CC3587733FD9D5F6 /* WarrantyCardScanSheet.swift */,
 				0DCDE32D624D890090538C46 /* WarrantyFormView.swift */,
 				98BA507A3214DC81D4416E2A /* WarrantyTermsBlock.swift */,
 			);
@@ -863,6 +866,7 @@
 				F2991D85EF8894D60A0DEF46 /* Theme.swift in Sources */,
 				E1C940AABCE749C5DACDE428 /* ThemeStore.swift in Sources */,
 				D294F0EB52D56C10EEEAFD28 /* WarrantiesStore.swift in Sources */,
+				758690A63DA79F5D9B59DC51 /* WarrantyCardScanSheet.swift in Sources */,
 				C1330D82F0F68FD467C4F867 /* WarrantyFormView.swift in Sources */,
 				8D886912F7AB3BE46EB87E36 /* WarrantyTermsBlock.swift in Sources */,
 				81E15CD5A52173973033472C /* WarrlyApp.swift in Sources */,

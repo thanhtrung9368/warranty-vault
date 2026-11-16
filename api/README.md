@@ -234,6 +234,52 @@ capped at 8000 runes before it is stored or returned. `fileName` / `description`
 are plaintext columns that were already in every `AttachmentMeta` payload, so
 indexing them adds no new exposure.
 
+## Warranty-card reading (FEATURE_RESEARCH_2026-11 §6.3)
+
+`POST /api/v1/ai/extract-warranty-card` is the contract-term sibling of receipt
+OCR. Body is JSON `{attachmentId}` only — no multipart branch, because the one
+write this path performs is the transcript on an existing `Attachment` row, and
+a raw upload has none. It returns a draft of the **nine** contract columns from
+migration `0017` (`component`, `scope`, `cap`, `deductible`, `exclusions`,
+`region`, `transferable`, `claimsAllowed`, `claimsUsed`) plus `confidence`,
+`unmatched[]` and `warnings[]`. It never creates or updates a `Warranty` or a
+`Device`; the user confirms the draft in the warranty form.
+
+Two things are deliberately absent from the draft: `type` (a paper card does not
+say STANDARD/EXTENDED/THIRD_PARTY, and inferring it from a term would invent a
+classification) and any date/month count (turning "bảo hành 24 tháng" into a
+number of months would require inventing the start date).
+
+The sanitizer in `internal/services/ai_warranty_card.go` is deterministic and is
+the reason the result is safe to pre-fill:
+
+- every number must occur inside the model's own verbatim transcript
+  (`NUMBER_NOT_IN_QUOTE` otherwise) — a number with no evidence is dropped;
+- a percentage deductible becomes `null` (`DEDUCTIBLE_PERCENTAGE`), never đồng;
+- a `"0/2"` claim counter is split into used/allowed, and used > allowed drops
+  used (`CLAIMS_USED_OVER_ALLOWED`);
+- a card with two clocks (whole unit + a part) keeps the whole-unit plan and
+  drops `component` (`MULTIPLE_CLOCKS`);
+- text is truncated on a rune boundary to the exact `ValidateWarrantyInput`
+  bounds (`TRUNCATED`), so the draft always maps into `WarrantyInput` without a
+  400.
+
+Gates: missing `ANTHROPIC_API_KEY` → 503 `feature_disabled`; no AI opt-in → 403
+`ai_optin_required`; env `WARRANTY_CARD_PREMIUM` ON and no active Premium → 403
+`premium_required`. **`WARRANTY_CARD_PREMIUM` defaults OFF** — Premium gating is
+only switched on after the accuracy gate in §6.3 (≥80% exact-or-null on
+cap/deductible/exclusions/scope) has been measured, and no client shows a
+Premium badge for this feature before then. Rate limit: 10 requests / 60 s per
+user in its own `ai:warrantycard` bucket.
+
+Privacy: the decrypted card leaves the box to Anthropic on every call, which is
+why the per-user opt-in is checked before the Premium gate. Only the transcript is
+persisted (`Attachment.extractedText`, plaintext in Postgres like receipt OCR);
+the model call itself has no retention on our side. Anthropic's published
+defaults are 30-day deletion of API inputs/outputs and no training on commercial
+API data by default — the iOS/web consent copy states exactly that, with the
+caveat that Anthropic may retain longer when required by law or its Usage Policy.
+
 ## Inbound email — the mail path into the inbox (migration 0020)
 
 `POST /api/v1/inbox/email` lets a mail provider drop a receipt's attachments into

@@ -152,8 +152,13 @@ export const settings = defineMessages({
   'Không cập nhật được cài đặt': 'Could not update the setting',
   'Trợ lý AI': 'AI assistant',
   'Trợ lý AI (tuỳ chọn)': 'AI assistant (optional)',
-  'Khi bật, trợ lý AI làm được hai việc: (1) đọc ảnh/PDF hoá đơn để tự điền thông tin thiết bị — file được gửi đã giải mã tới dịch vụ AI bên thứ ba; (2) đánh giá một lần sửa chữa có thuộc diện bảo hành không và soạn đơn gửi trung tâm — nội dung phiếu sửa chữa, thông tin thiết bị và các điều khoản hợp đồng bảo hành sẽ được gửi tới dịch vụ đó. Cả hai đều chỉ là gợi ý để bạn kiểm tra lại, không phải quyết định. Mặc định tắt.':
-    'When on, the AI assistant does two things: (1) read a receipt image/PDF to fill in the device details — the file is sent decrypted to a third-party AI service; (2) assess whether a repair is likely covered and draft a letter to the service centre — the claim content, the device details and the warranty contract terms are sent to that service. Both are guidance for you to check, not decisions. Off by default.',
+  // Consent copy, not a feature description: it names the recipient
+  // (Anthropic), where it is (the US, outside Vietnam), the retention (30 days,
+  // with the documented exceptions) and what Warrly itself keeps. Keep it in
+  // step with the iOS Settings footer and with the two Anthropic privacy pages
+  // cited in `AIOptInSurface` (ios/App/Features/Settings/SettingsView.swift).
+  'Khi bật, trợ lý AI làm ba việc: (1) đọc ảnh/PDF hoá đơn hoặc thẻ bảo hành để tự điền thông tin — file đã giải mã được gửi tới Anthropic, dịch vụ AI ở Mỹ (ngoài Việt Nam); (2) đọc chín điều khoản hợp đồng từ thẻ bảo hành; (3) đánh giá một lần sửa chữa có thuộc diện bảo hành không và soạn đơn gửi trung tâm — nội dung phiếu sửa chữa, thông tin thiết bị và điều khoản hợp đồng cũng được gửi tới Anthropic. Anthropic tự động xoá đầu vào/đầu ra trong vòng 30 ngày (trừ khi pháp luật hoặc chính sách của họ yêu cầu giữ lâu hơn) và mặc định không dùng dữ liệu API để huấn luyện. Phía Warrly, ảnh/PDF vẫn được mã hoá; chỉ văn bản đọc được lưu dạng plaintext trong cơ sở dữ liệu để tìm kiếm. Mọi kết quả chỉ là gợi ý hoặc bản nháp để bạn kiểm tra lại, không phải quyết định. Mặc định tắt.':
+    'When on, the AI assistant does three things: (1) reads invoice or warranty-card photos/PDFs and auto-fills details — the decrypted file is sent to Anthropic, a US AI service outside Vietnam; (2) reads the nine contract terms off a warranty card; (3) assesses whether a repair is likely covered and drafts a letter to the service centre — the repair details, the device details and the contract terms are also sent to Anthropic. Anthropic automatically deletes inputs and outputs within 30 days (unless required to keep them longer by law or its Usage Policy) and does not train on API data by default. On the Warrly side the photo/PDF stays encrypted; only the text read from it is stored as plaintext in the database so it can be searched. Every result is a suggestion or a draft for you to check, not a decision. Off by default.',
   'Đang bật': 'On',
   'Đang tắt': 'Off',
   'Thiếu ảnh hoá đơn': 'Missing the receipt image',

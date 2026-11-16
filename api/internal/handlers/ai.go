@@ -37,6 +37,8 @@ func RegisterAI(mux *http.ServeMux, deps Deps) {
 	requireUser := auth.RequireUser(deps.DB)
 	mux.Handle("POST /api/v1/ai/extract-receipt",
 		requireUser(http.HandlerFunc(extractReceiptHandler(deps))))
+	mux.Handle("POST /api/v1/ai/extract-warranty-card",
+		requireUser(http.HandlerFunc(extractWarrantyCardHandler(deps))))
 	mux.Handle("POST /api/v1/ai/assess-claim",
 		requireUser(http.HandlerFunc(assessClaimHandler(deps))))
 	mux.Handle("GET /api/v1/ai/opt-in",
@@ -180,6 +182,64 @@ func extractReceiptHandler(d Deps) http.HandlerFunc {
 	}
 }
 
+// extractWarrantyCardHandler accepts ONLY application/json { "attachmentId": "..." }.
+//
+// No multipart branch, on purpose (§6.3): the endpoint's one write is the OCR
+// transcript on `Attachment.extractedText`, and a raw upload has no Attachment
+// row to own it. Clients upload first (an inbox item with no deviceId) and then
+// name that id, exactly like the web/iOS receipt flow.
+//
+// It returns a DRAFT of the nine contract-term fields and never creates a
+// Warranty or a Device. The gates live in services.ExtractWarrantyCard so this
+// handler only has to keep the HTTP shape right: JSON body, 404 for someone
+// else's attachment, 503 without a key, 403 for opt-in/Premium, 429 for the
+// per-user 10/60s bucket.
+func extractWarrantyCardHandler(d Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
+
+		rl, _ := ratelimit.CheckAIWarrantyCard(ctx, d.Limiter, us.UserID)
+		if !rl.Ok {
+			rateLimited(w, ctx, rl.RetryAfterSec)
+			return
+		}
+
+		if d.AI == nil || !d.AI.Enabled() {
+			httpx.WriteErrorC(w, ctx, http.StatusServiceUnavailable, "feature_disabled",
+				i18n.Text(ctx, "Tính năng đọc thẻ bảo hành chưa được bật"), nil)
+			return
+		}
+
+		if ct := strings.ToLower(r.Header.Get("Content-Type")); !strings.HasPrefix(ct, "application/json") {
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
+				i18n.Text(ctx, "Content-Type phải là application/json"), nil)
+			return
+		}
+
+		var body struct {
+			AttachmentID string `json:"attachmentId"`
+		}
+		if err := decodeJSONLoose(r, &body); err != nil {
+			badJSONBody(w, ctx)
+			return
+		}
+		attachmentID := strings.TrimSpace(body.AttachmentID)
+		if attachmentID == "" {
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
+				i18n.Text(ctx, "Thiếu attachmentId"), nil)
+			return
+		}
+
+		draft, sErr := services.ExtractWarrantyCard(ctx, d.DB, d.AI, us.UserID, attachmentID)
+		if sErr != nil {
+			writeAIError(w, ctx, sErr)
+			return
+		}
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{"draft": draft})
+	}
+}
+
 // writeAIError maps a services.AttachmentError onto the wire. The code (and
 // therefore the status) is contract and does not move with the language;
 // `ae.Message` is already the finished sentence in the request's language,
@@ -202,6 +262,11 @@ func writeAIError(w http.ResponseWriter, ctx context.Context, err error) {
 			httpx.WriteErrorC(w, ctx, http.StatusServiceUnavailable, "feature_disabled", ae.Message, nil)
 		case "ai_optin_required":
 			httpx.WriteErrorC(w, ctx, http.StatusForbidden, "ai_optin_required", ae.Message, nil)
+		case "premium_required":
+			// Reachable only while env WARRANTY_CARD_PREMIUM is ON: the
+			// warranty-card endpoint is the one AI surface that can be sold, and
+			// §6.3 keeps the paywall off until the accuracy gate is met.
+			httpx.WriteErrorC(w, ctx, http.StatusForbidden, "premium_required", ae.Message, nil)
 		case "ai_rate_limited":
 			httpx.WriteErrorC(w, ctx, http.StatusTooManyRequests, "ai_rate_limited", ae.Message, nil)
 		case "ai_upstream":

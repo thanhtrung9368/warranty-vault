@@ -5,12 +5,14 @@ import { requireUser } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { getI18n } from '@/lib/i18n/server';
 import { buildExtractReceiptBody } from '@/lib/receipt-scan';
+import { buildExtractWarrantyCardBody } from '@/lib/warranty-card-scan';
 import {
   claimAssessmentGateFromFailure,
   type ClaimAssessmentGate,
 } from '@/lib/claim-assessment';
 import type { AttachmentMeta } from '@/lib/api/devices';
 import type { ClaimAssessment, DraftDevice } from '@/lib/api/ai';
+import type { WarrantyCardDraft } from '@/lib/warranty-card-scan';
 
 export type ExtractReceiptResult =
   | {
@@ -95,6 +97,79 @@ export async function extractReceipt(formData: FormData): Promise<ExtractReceipt
       // The server's message is already in this request's language.
       message: res.message ?? t('Không quét được hoá đơn, thử lại nhé'),
       attachment,
+    };
+  }
+  return { ok: true, draft: res.data, attachment };
+}
+
+export type ExtractWarrantyCardResult =
+  | { ok: true; draft: WarrantyCardDraft; attachment: AttachmentMeta }
+  | {
+      ok: false;
+      message: string;
+      /**
+       * Present when the upload landed but extraction did not. The file KEEPS
+       * living in the inbox — the action never deletes it — so the UI must say
+       * so instead of implying the pick was lost.
+       */
+      attachment?: AttachmentMeta;
+      /**
+       * The two AI refusals, typed so the UI can offer the right next step
+       * instead of an error tone. `ai_optin_required` means consent is off
+       * (Settings → AI assistant); `premium_required` only appears while the
+       * server sets WARRANTY_CARD_PREMIUM; `feature_disabled` means no key.
+       */
+      gate?: 'ai_optin_required' | 'premium_required' | 'feature_disabled';
+    };
+
+// Read the nine contract terms off a warranty-card photo/PDF.
+//
+// UPLOAD FIRST, THEN EXTRACT, for the same reason as receipt scanning: the
+// warranty-card endpoint is JSON `{ attachmentId }` only, and that is the branch
+// whose transcript is persisted on the attachment. It never creates a Warranty
+// or a Device — the client merges the draft into EMPTY form fields and the user
+// saves. A failed extraction leaves the upload in the inbox; the copy says so.
+export async function extractWarrantyCard(
+  formData: FormData,
+): Promise<ExtractWarrantyCardResult> {
+  await requireUser();
+  const { t } = await getI18n();
+
+  const file = formData.get('file');
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, message: t('Thiếu ảnh thẻ bảo hành') };
+  }
+
+  // Step 1 — no deviceId: an inbox item, exactly like the receipt flow.
+  const uploaded = await api.attachments.upload({ file });
+  if (!uploaded.ok) {
+    return { ok: false, message: uploaded.message ?? t('Tải lên thất bại') };
+  }
+  const attachment = uploaded.data;
+  revalidatePath('/inbox');
+
+  const body = attachment ? buildExtractWarrantyCardBody(attachment.id) : null;
+  if (!body) {
+    return {
+      ok: false,
+      message: t('Không đọc được thẻ bảo hành, thử lại nhé'),
+      attachment: attachment || undefined,
+    };
+  }
+
+  const res = await api.ai.extractWarrantyCard(body);
+  if (!res.ok) {
+    const gate =
+      res.error === 'ai_optin_required' ||
+      res.error === 'premium_required' ||
+      res.error === 'feature_disabled'
+        ? res.error
+        : undefined;
+    return {
+      ok: false,
+      message: res.message ?? t('Không đọc được thẻ bảo hành, thử lại nhé'),
+      attachment,
+      gate,
     };
   }
   return { ok: true, draft: res.data, attachment };

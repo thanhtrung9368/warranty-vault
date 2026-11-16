@@ -103,6 +103,17 @@ func CheckAIExtract(ctx context.Context, limiter Limiter, userID string) (Result
 	return limiter.Check(ctx, "ai:extract:user:"+userID, 10, writeWindow)
 }
 
+// CheckAIWarrantyCard is the warranty-card sibling of CheckAIExtract: 10
+// requests / 60 s per user, in its own bucket.
+//
+// §6.3 asks for "rate limit riêng 10/60s". A separate bucket (not shared with
+// `ai:extract`) means a user scanning a stack of paper cards cannot starve the
+// receipt scan they need for the same purchase, and vice versa — the same
+// reasoning that gave claim assessment its own `ai:assess` bucket.
+func CheckAIWarrantyCard(ctx context.Context, limiter Limiter, userID string) (Result, error) {
+	return limiter.Check(ctx, "ai:warrantycard:user:"+userID, 10, writeWindow)
+}
+
 // CheckAIAssess is the claim-assessment sibling of CheckAIExtract: the same
 // 10 requests / 60s budget, because it makes the same kind of paid model call,
 // but a separate bucket so the two AI features cannot starve each other.

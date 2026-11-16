@@ -479,7 +479,7 @@ struct InboxCaptureSheet: View {
 /// in front of the user. The camera writes JPEG bytes, which still go through
 /// the same magic-byte check (`AttachmentFileType.detect`) as a picked file.
 /// The app already declares `NSCameraUsageDescription` for the serial scanner.
-private struct CameraPicker: UIViewControllerRepresentable {
+struct CameraPicker: UIViewControllerRepresentable {
     let onCapture: (Data) -> Void
     let onCancel: () -> Void
 

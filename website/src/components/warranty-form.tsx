@@ -22,6 +22,12 @@ import { dayToInputValue } from '@/lib/api-day';
 import { currencySuffix } from '@/lib/currency';
 import { warrantyTypeLabel } from '@/lib/i18n/labels';
 import { useLocale, useT } from '@/lib/i18n/client';
+import { WarrantyCardScan } from '@/components/warranty-card-scan';
+import type {
+  WarrantyCardField,
+  WarrantyCardMismatch,
+  WarrantyCardValues,
+} from '@/lib/warranty-card-scan';
 import {
   hasWarrantyTermErrors,
   termsExpandedByDefault,
@@ -174,8 +180,91 @@ export function WarrantyForm({
       dayToInputValue(initial.startDate)
     : format(new Date(), 'yyyy-MM-dd');
 
+  // ─── Warranty-card scan state (§6.3) ──────────────────────────────────
+  //
+  // The nine term inputs are uncontrolled, and that is deliberate: this form is
+  // a plain `useActionState` form with `defaultValue`, and lifting nine more
+  // fields into state would only add re-render surface. The card scan fills
+  // ONLY fields that were empty, so the safe way to show a filled value is to
+  // remount that one input (`key`) with a new `defaultValue` — a user-typed
+  // field has no override, keeps its key, and is never touched.
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const [scanOverrides, setScanOverrides] = React.useState<WarrantyCardValues>({});
+  const [scanNonces, setScanNonces] = React.useState<
+    Partial<Record<WarrantyCardField, number>>
+  >({});
+  const [cardMismatches, setCardMismatches] = React.useState<WarrantyCardMismatch[]>([]);
+  // A scan fills fields inside the collapsible terms block; open it so the
+  // values are visible instead of silently landing in a closed section.
+  const [openTermsAfterScan, setOpenTermsAfterScan] = React.useState(false);
+
+  /** Read the nine current values straight from the form. `claimsUsed`'s
+   *  default of 0 is the wire default ("not recorded"), so it counts as empty —
+   *  otherwise the field would never accept a value from the card. */
+  const currentTermValues = React.useCallback((): WarrantyCardValues => {
+    const form = formRef.current;
+    if (!form) return {};
+    const fd = new FormData(form);
+    const str = (key: string): string | undefined => {
+      const value = fd.get(key);
+      if (typeof value !== 'string') return undefined;
+      const trimmed = value.trim();
+      return trimmed === '' ? undefined : trimmed;
+    };
+    const num = (key: string): number | undefined => {
+      const value = fd.get(key);
+      if (typeof value !== 'string' || value.trim() === '') return undefined;
+      const n = Number(value);
+      return Number.isFinite(n) ? n : undefined;
+    };
+    const transferable = fd.get('transferable');
+    const used = num('claimsUsed');
+    return {
+      component: str('component'),
+      scope: str('scope'),
+      cap: num('cap'),
+      deductible: num('deductible'),
+      exclusions: str('exclusions'),
+      region: str('region'),
+      transferable:
+        transferable === 'true' ? true : transferable === 'false' ? false : undefined,
+      claimsAllowed: num('claimsAllowed'),
+      claimsUsed: used === 0 ? undefined : used,
+    };
+  }, []);
+
+  const applyScanMerge = React.useCallback(
+    (merge: { filled: WarrantyCardValues; mismatches: WarrantyCardMismatch[] }) => {
+      setScanOverrides((prev) => ({ ...prev, ...merge.filled }));
+      setScanNonces((prev) => {
+        const next = { ...prev };
+        for (const field of Object.keys(merge.filled)) {
+          const key = field as WarrantyCardField;
+          next[key] = (prev[key] ?? 0) + 1;
+        }
+        return next;
+      });
+      setCardMismatches(merge.mismatches);
+      if (Object.keys(merge.filled).length > 0 || merge.mismatches.length > 0) {
+        setOpenTermsAfterScan(true);
+      }
+    },
+    [],
+  );
+
+  const textDefault = (field: 'component' | 'scope' | 'exclusions' | 'region'): string =>
+    scanOverrides[field] ?? initial?.[field] ?? '';
+
+  const numberDefault = (
+    field: 'cap' | 'deductible' | 'claimsAllowed' | 'claimsUsed',
+    fallback: number | null | undefined,
+  ): number | null | undefined => scanOverrides[field] ?? fallback;
+
+  const termKey = (field: WarrantyCardField): string =>
+    `${field}-${scanNonces[field] ?? 0}`;
+
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={formRef} action={formAction} className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="type">
@@ -280,12 +369,34 @@ export function WarrantyForm({
         </div>
       </div>
 
+      {/* Warranty-card scan. Upload-first: the card lands in the inbox, the
+          Go endpoint returns a DRAFT of the nine contract terms, and the merge
+          below fills only empty fields. Nothing is saved by the scan. */}
+      <WarrantyCardScan getCurrent={currentTermValues} onMerged={applyScanMerge} />
+
+      {cardMismatches.length > 0 && (
+        <div className="rounded-xl border-[1.5px] border-amber-200 bg-amber-soft px-3 py-2 text-xs text-amber-ink dark:border-amber-900">
+          <p className="font-semibold">
+            {t('Các ô bạn đã nhập được giữ nguyên — “Trên thẻ” là giá trị đọc được:')}
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {cardMismatches.map((mismatch) => (
+              <li key={mismatch.field}>
+                <span className="font-medium">{mismatch.label}: </span>
+                {t('Trên thẻ: {value}', { value: mismatch.cardValue })}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Contract terms — collapsed unless the row already carries one. The
           native <details> is deliberate: no extra state, keyboard-operable and
-          it still works if this form is rendered without hydration. */}
+          it still works if this form is rendered without hydration. A scan
+          that fills a term opens it once (`openTermsAfterScan`). */}
       <details
         className="group rounded-xl border-[1.5px] border-dashed border-border px-3.5 py-3"
-        open={termsOpen}
+        open={termsOpen || openTermsAfterScan}
       >
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
           <span>{t('Điều khoản hợp đồng')}</span>
@@ -299,9 +410,10 @@ export function WarrantyForm({
           <div className="space-y-2">
             <Label htmlFor="component">{t('Bộ phận được bảo hành')}</Label>
             <Input
+              key={termKey('component')}
               id="component"
               name="component"
-              defaultValue={initial?.component ?? ''}
+              defaultValue={textDefault('component')}
               placeholder={t('vd: Màn hình (bỏ trống = toàn bộ máy)')}
             />
             <FieldError errors={errors.component} />
@@ -310,9 +422,10 @@ export function WarrantyForm({
           <div className="space-y-2">
             <Label htmlFor="region">{t('Khu vực áp dụng')}</Label>
             <Input
+              key={termKey('region')}
               id="region"
               name="region"
-              defaultValue={initial?.region ?? ''}
+              defaultValue={textDefault('region')}
               placeholder={t('vd: Toàn quốc')}
             />
             <FieldError errors={errors.region} />
@@ -321,9 +434,10 @@ export function WarrantyForm({
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="scope">{t('Phạm vi bảo hành')}</Label>
             <Textarea
+              key={termKey('scope')}
               id="scope"
               name="scope"
-              defaultValue={initial?.scope ?? ''}
+              defaultValue={textDefault('scope')}
               placeholder={t('vd: lỗi phần cứng, cháy nổ do điện')}
               rows={2}
             />
@@ -332,15 +446,21 @@ export function WarrantyForm({
 
           <div className="space-y-2">
             <Label htmlFor="cap">{t('Mức chi trả tối đa (VND)')}</Label>
-            <MoneyInput id="cap" defaultValue={initial?.cap} name="cap" />
+            <MoneyInput
+              key={termKey('cap')}
+              id="cap"
+              defaultValue={numberDefault('cap', initial?.cap)}
+              name="cap"
+            />
             <FieldError errors={errors.cap} />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="deductible">{t('Khấu trừ mỗi lần (VND)')}</Label>
             <MoneyInput
+              key={termKey('deductible')}
               id="deductible"
-              defaultValue={initial?.deductible}
+              defaultValue={numberDefault('deductible', initial?.deductible)}
               name="deductible"
             />
             <FieldError errors={errors.deductible} />
@@ -349,13 +469,14 @@ export function WarrantyForm({
           <div className="space-y-2">
             <Label htmlFor="claimsAllowed">{t('Số lượt yêu cầu tối đa')}</Label>
             <Input
+              key={termKey('claimsAllowed')}
               id="claimsAllowed"
               name="claimsAllowed"
               type="number"
               min={0}
               step={1}
               inputMode="numeric"
-              defaultValue={initial?.claimsAllowed ?? ''}
+              defaultValue={numberDefault('claimsAllowed', initial?.claimsAllowed) ?? ''}
               placeholder="0"
             />
             <FieldError errors={errors.claimsAllowed} />
@@ -364,13 +485,14 @@ export function WarrantyForm({
           <div className="space-y-2">
             <Label htmlFor="claimsUsed">{t('Số lượt đã dùng')}</Label>
             <Input
+              key={termKey('claimsUsed')}
               id="claimsUsed"
               name="claimsUsed"
               type="number"
               min={0}
               step={1}
               inputMode="numeric"
-              defaultValue={initial?.claimsUsed ?? 0}
+              defaultValue={numberDefault('claimsUsed', initial?.claimsUsed) ?? 0}
             />
             {/* The server's own rule is `claimsUsed > claimsAllowed` → 400 on
                 this key; showing its error here is the whole point of
@@ -380,7 +502,15 @@ export function WarrantyForm({
 
           <div className="space-y-2">
             <Label htmlFor="transferable">{t('Chuyển nhượng được')}</Label>
-            <Select name="transferable" defaultValue={transferableDefault}>
+            <Select
+              key={termKey('transferable')}
+              name="transferable"
+              defaultValue={
+                scanOverrides.transferable != null
+                  ? String(scanOverrides.transferable)
+                  : transferableDefault
+              }
+            >
               <SelectTrigger id="transferable">
                 <SelectValue />
               </SelectTrigger>
@@ -396,9 +526,10 @@ export function WarrantyForm({
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="exclusions">{t('Loại trừ')}</Label>
             <Textarea
+              key={termKey('exclusions')}
               id="exclusions"
               name="exclusions"
-              defaultValue={initial?.exclusions ?? ''}
+              defaultValue={textDefault('exclusions')}
               placeholder={t('vd: rơi vỡ, vào nước, hao mòn tự nhiên')}
               rows={2}
             />

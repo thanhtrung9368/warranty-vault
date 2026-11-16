@@ -8,16 +8,32 @@ import WarrlyKit
 // Port of SettingsScreen in screens-3.jsx.
 // ============================================================
 
-/// 1.0.0 product decision: the AI receipt-scan opt-in is not offered.
+/// The AI opt-in switch — re-enabled for 1.2 (FEATURE_RESEARCH_2026-11 §6.3).
 ///
-/// The switch is the only control that lets decrypted receipt images leave the
-/// device for a third-party model, and 1.0.0 ships without it. This is ONE
-/// constant, read by both this screen's row and the "Quét hoá đơn" entry point
-/// in `DeviceFormView`, so the two surfaces cannot disagree: a scan button that
-/// offers to "enable it in Settings" must never outlive the row it points at.
-/// Turning the feature back on is this line, and nothing else.
+/// It was hidden in 1.0.0/1.1 while `NSCameraUsageDescription` claimed images
+/// never leave the device, which was false: the OCR and claim-assessment paths
+/// already sent decrypted data to Anthropic. Re-enabling it is only acceptable
+/// together with the two truthful disclosures that ship in this same change:
+///
+///  1. the Settings footer below states WHAT leaves (decrypted receipt/warranty-
+///     card photos, PDFs and, for claim assessment, repair details + contract
+///     terms), WHERE it goes (Anthropic, a US service outside Vietnam) and HOW
+///     LONG it is kept (Anthropic deletes API inputs/outputs within 30 days
+///     unless required otherwise; Warrly keeps only the searchable transcript
+///     until the file is deleted); and
+///  2. `NSCameraUsageDescription` no longer says images stay on the device.
+///
+/// Those claims are not marketing copy. The retention/training wording comes
+/// from Anthropic's own commercial-data pages
+/// (privacy.claude.com/en/articles/7996866 and .../7996868, read 2026-11). If
+/// either fact stops being true, this constant goes back to `false` — the scan
+/// entry points in `DeviceFormView` and `WarrantyFormView` key off it, so one
+/// line removes every surface that promises the feature.
+///
+/// The constant stays (rather than deleting it) so the pairing between the
+/// switch and the scan buttons is still enforced in one place.
 enum AIOptInSurface {
-    static let isVisible = false
+    static let isVisible = true
 }
 
 /// Single-file wrapper for `.fileExporter`: the one export mechanism in the
@@ -254,7 +270,13 @@ struct SettingsView: View {
                 // Session revocation above and the backup warning below stay.
                 if AIOptInSurface.isVisible {
                     aiSection
-                    WVSectionFooter(L.t("Khi bật, ảnh hoá đơn (đã giải mã) và thông tin lần sửa chữa sẽ được gửi tới dịch vụ AI bên thứ ba để tự điền thông tin hoặc đánh giá bảo hành. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt."))
+                    // Consent copy, not a feature description. It names the
+                    // recipient (Anthropic), where it is (the US, outside
+                    // Vietnam), the retention (30 days, with the documented
+                    // exceptions) and what Warrly itself keeps. Every claim here
+                    // is sourced — see `AIOptInSurface` above; do not soften or
+                    // extend it without a source.
+                    WVSectionFooter(L.t("Khi bật, ảnh/PDF hoá đơn hoặc thẻ bảo hành đã giải mã — và khi bạn dùng đánh giá bảo hành, nội dung phiếu sửa chữa cùng điều khoản hợp đồng — sẽ được gửi tới Anthropic, dịch vụ AI ở Mỹ (ngoài Việt Nam), để đọc và trả kết quả. Anthropic tự động xoá đầu vào/đầu ra trong vòng 30 ngày, trừ khi pháp luật hoặc chính sách của họ yêu cầu giữ lâu hơn, và mặc định không dùng dữ liệu API để huấn luyện. Phía Warrly, ảnh/PDF vẫn được mã hoá; chỉ văn bản đọc được lưu dạng plaintext trong cơ sở dữ liệu để tìm kiếm (xoá tệp là xoá văn bản). Mọi kết quả chỉ là bản nháp để bạn kiểm tra trước khi lưu. Mặc định tắt."))
                 }
 
                 dataSection
@@ -451,12 +473,12 @@ struct SettingsView: View {
             HStack(spacing: WVSpacing.md) {
                 WVLeadingIcon(icon: "sparkles", color: WVColor.purple, tinted: true)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(L.t("Quét hoá đơn & đánh giá bảo hành"))
+                    Text(L.t("Quét hoá đơn, thẻ bảo hành & đánh giá bảo hành"))
                         .wvFont(.body)
                         .foregroundStyle(WVColor.label)
                     Text(aiOptIn
-                         ? L.t("Đang bật — ảnh hoá đơn được gửi tới dịch vụ AI")
-                         : L.t("Đang tắt — không gửi gì ra ngoài"))
+                         ? L.t("Đang bật — ảnh/PDF được gửi tới Anthropic (dịch vụ AI ở Mỹ)")
+                         : L.t("Đang tắt — không gửi gì tới dịch vụ AI"))
                         .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                 }

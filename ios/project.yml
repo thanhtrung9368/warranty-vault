@@ -148,10 +148,19 @@ targets:
             localhost:
               NSExceptionAllowsInsecureHTTPLoads: true
         NSFaceIDUsageDescription: Warrly dùng Face ID để mở khoá ứng dụng và bảo vệ dữ liệu bảo hành của bạn. Sinh trắc học chỉ được xác thực trên thiết bị, không gửi đi đâu cả.
-        # Quét serial/IMEI bằng DataScannerViewController (VisionKit). Chuỗi
-        # nhận được chỉ là bản nháp điền vào biểu mẫu — người dùng vẫn kiểm tra
-        # và bấm lưu; hình ảnh camera không rời khỏi thiết bị.
-        NSCameraUsageDescription: Warrly dùng camera để quét mã vạch hoặc đọc serial/IMEI in trên hộp hay mặt máy, giúp bạn điền đúng số mà không phải gõ tay. Hình ảnh chỉ được xử lý trên thiết bị và không gửi đi đâu cả.
+        # Camera is used by the serial scanner (DataScannerViewController),
+        # the capture-first inbox, and the warranty-card scan sheet.
+        #
+        # This description used to claim "images are processed only on the
+        # device and never sent anywhere". That was FALSE: the AI receipt/claim
+        # paths had already shipped sending decrypted images to Anthropic, and
+        # §6.3 of FEATURE_RESEARCH_2026-11 calls the mismatch an App Review risk.
+        # The wording below is the truthful version: stored images are encrypted
+        # on the Warrly server, and a decrypted copy reaches Anthropic only after
+        # the user turns the AI opt-in on. Keep it in step with the Settings
+        # consent copy and with `NSCameraUsageDescription` in App/Info.plist
+        # (XcodeGen regenerates that file from this block).
+        NSCameraUsageDescription: Warrly dùng camera để quét mã vạch/serial, chụp hoá đơn hoặc thẻ bảo hành và chụp ảnh cho hồ sơ thiết bị. Ảnh được mã hoá và lưu trên máy chủ Warrly; ảnh đã giải mã chỉ được gửi tới Anthropic (dịch vụ AI ở Mỹ) để đọc khi bạn tự bật Trợ lý AI trong Cài đặt.
         # ── Google AdMob ────────────────────────────────────────────────────
         # App id. The TILDE form (`~`), not the ad-unit SLASH form — mixing the
         # two is the classic setup bug. This is the AdMob app registered for

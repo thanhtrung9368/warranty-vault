@@ -132,6 +132,17 @@ type imageSource struct {
 
 type messageResp struct {
 	Content []contentBlock `json:"content"`
+	// Usage is the model's token accounting, present on every successful
+	// Messages API response. It is parsed for the cost/accuracy log only
+	// (services/ai_warranty_card.go): no client ever sees it, and no decision is
+	// made from it.
+	Usage *usage `json:"usage"`
+}
+
+// usage mirrors the Anthropic response's `usage` object.
+type usage struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
 }
 
 // ExtractReceipt sends the document to the Messages API with a forced tool call

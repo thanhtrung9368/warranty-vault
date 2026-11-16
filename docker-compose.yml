@@ -102,6 +102,10 @@ services:
       # nếu không thì đặt key trong .env cũng vô tác dụng khi chạy Docker.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
+      # Đọc thẻ bảo hành (§6.3). MẶC ĐỊNH TẮT = tính năng miễn phí cho tài khoản
+      # đã bật opt-in AI; chỉ đặt =1/true khi đã đạt cổng độ chính xác ≥80% và
+      # muốn trả 403 premium_required cho tài khoản Free.
+      WARRANTY_CARD_PREMIUM: ${WARRANTY_CARD_PREMIUM:-}
 
       # ── Rate limit ────────────────────────────────────────────────
       RATE_LIMITER: ${RATE_LIMITER:-memory}

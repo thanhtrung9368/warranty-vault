@@ -1,6 +1,499 @@
 {
   "sourceLanguage" : "vi",
   "strings" : {
+    "Quét hoá đơn, thẻ bảo hành & đánh giá bảo hành" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan receipts, warranty cards & assess warranties"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quét hoá đơn, thẻ bảo hành & đánh giá bảo hành"
+          }
+        }
+      }
+    },
+    "Đang bật — ảnh/PDF được gửi tới Anthropic (dịch vụ AI ở Mỹ)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On — photos/PDFs are sent to Anthropic (a US AI service)"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang bật — ảnh/PDF được gửi tới Anthropic (dịch vụ AI ở Mỹ)"
+          }
+        }
+      }
+    },
+    "Đang tắt — không gửi gì tới dịch vụ AI" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off — nothing is sent to the AI service"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang tắt — không gửi gì tới dịch vụ AI"
+          }
+        }
+      }
+    },
+    "Khi bật, ảnh/PDF hoá đơn hoặc thẻ bảo hành đã giải mã — và khi bạn dùng đánh giá bảo hành, nội dung phiếu sửa chữa cùng điều khoản hợp đồng — sẽ được gửi tới Anthropic, dịch vụ AI ở Mỹ (ngoài Việt Nam), để đọc và trả kết quả. Anthropic tự động xoá đầu vào/đầu ra trong vòng 30 ngày, trừ khi pháp luật hoặc chính sách của họ yêu cầu giữ lâu hơn, và mặc định không dùng dữ liệu API để huấn luyện. Phía Warrly, ảnh/PDF vẫn được mã hoá; chỉ văn bản đọc được lưu dạng plaintext trong cơ sở dữ liệu để tìm kiếm (xoá tệp là xoá văn bản). Mọi kết quả chỉ là bản nháp để bạn kiểm tra trước khi lưu. Mặc định tắt." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When on, decrypted invoice/warranty-card photos or PDFs — and, if you use warranty assessment, the repair ticket details and contract terms — are sent to Anthropic, a US AI service outside Vietnam, to be read and answered. Anthropic automatically deletes inputs and outputs within 30 days unless required to keep them longer by law or its Usage Policy, and does not train on API data by default. On the Warrly side the photo/PDF stays encrypted; only the text read from it is stored as plaintext in the database so it can be searched (deleting the file deletes the text). Every result is a draft for you to review before saving. Off by default."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Khi bật, ảnh/PDF hoá đơn hoặc thẻ bảo hành đã giải mã — và khi bạn dùng đánh giá bảo hành, nội dung phiếu sửa chữa cùng điều khoản hợp đồng — sẽ được gửi tới Anthropic, dịch vụ AI ở Mỹ (ngoài Việt Nam), để đọc và trả kết quả. Anthropic tự động xoá đầu vào/đầu ra trong vòng 30 ngày, trừ khi pháp luật hoặc chính sách của họ yêu cầu giữ lâu hơn, và mặc định không dùng dữ liệu API để huấn luyện. Phía Warrly, ảnh/PDF vẫn được mã hoá; chỉ văn bản đọc được lưu dạng plaintext trong cơ sở dữ liệu để tìm kiếm (xoá tệp là xoá văn bản). Mọi kết quả chỉ là bản nháp để bạn kiểm tra trước khi lưu. Mặc định tắt."
+          }
+        }
+      }
+    },
+    "Đánh giá bảo hành dùng chung một lần bật AI với tính năng quét hoá đơn. Khi bật, thông tin lần sửa chữa (mô tả lỗi, chẩn đoán, chi phí) và điều khoản bảo hành sẽ được gửi tới Anthropic (dịch vụ AI ở Mỹ) để phân tích." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warranty assessment uses the same AI opt-in as receipt scanning. When it is on, the repair details (problem description, diagnosis, cost) and warranty terms are sent to Anthropic (a US AI service) for analysis."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đánh giá bảo hành dùng chung một lần bật AI với tính năng quét hoá đơn. Khi bật, thông tin lần sửa chữa (mô tả lỗi, chẩn đoán, chi phí) và điều khoản bảo hành sẽ được gửi tới Anthropic (dịch vụ AI ở Mỹ) để phân tích."
+          }
+        }
+      }
+    },
+    "Đọc thẻ bảo hành" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read warranty card"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đọc thẻ bảo hành"
+          }
+        }
+      }
+    },
+    "Chụp ảnh hoặc chọn PDF — tự điền 9 điều khoản vào các ô đang trống" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take a photo or choose a PDF — fills the 9 terms into fields that are still empty"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chụp ảnh hoặc chọn PDF — tự điền 9 điều khoản vào các ô đang trống"
+          }
+        }
+      }
+    },
+    "Các ô bạn đã nhập được giữ nguyên. “Trên thẻ” là giá trị đọc được — đối chiếu rồi tự sửa nếu cần." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fields you already filled are kept. “On the card” is the value read from the card — compare it and edit if needed."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Các ô bạn đã nhập được giữ nguyên. “Trên thẻ” là giá trị đọc được — đối chiếu rồi tự sửa nếu cần."
+          }
+        }
+      }
+    },
+    "Trên thẻ: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On the card: %@"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trên thẻ: %@"
+          }
+        }
+      }
+    },
+    "Bản nháp do AI đọc; bạn kiểm tra lại và bấm lưu. Không có gì được lưu tự động." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is a draft read by AI; review it and tap save. Nothing is saved automatically."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bản nháp do AI đọc; bạn kiểm tra lại và bấm lưu. Không có gì được lưu tự động."
+          }
+        }
+      }
+    },
+    "Đã điền các ô còn trống từ thẻ. Các ô bạn đã nhập được giữ nguyên." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filled the empty fields from the card. Fields you already filled were kept."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã điền các ô còn trống từ thẻ. Các ô bạn đã nhập được giữ nguyên."
+          }
+        }
+      }
+    },
+    "Không điền thêm ô nào: thẻ chỉ có các giá trị bạn đã nhập, nhưng có chỗ khác nhau." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No fields added: the card only has values you already entered, but some differ."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không điền thêm ô nào: thẻ chỉ có các giá trị bạn đã nhập, nhưng có chỗ khác nhau."
+          }
+        }
+      }
+    },
+    "Không đọc được điều khoản nào mới từ thẻ này." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No new contract terms were read from this card."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không đọc được điều khoản nào mới từ thẻ này."
+          }
+        }
+      }
+    },
+    "Ảnh/PDF được lưu trong Hộp thư đến và có thể gán vào thiết bị sau. Bản nháp chỉ điền vào các ô bạn còn để trống — bạn vẫn phải bấm lưu." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The photo/PDF is saved in the inbox and can be linked to a device later. The draft only fills fields you left empty — you still have to tap save."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ảnh/PDF được lưu trong Hộp thư đến và có thể gán vào thiết bị sau. Bản nháp chỉ điền vào các ô bạn còn để trống — bạn vẫn phải bấm lưu."
+          }
+        }
+      }
+    },
+    "Đang đọc thẻ bảo hành…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading warranty card…"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang đọc thẻ bảo hành…"
+          }
+        }
+      }
+    },
+    "Chụp ảnh thẻ bảo hành" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photograph the warranty card"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chụp ảnh thẻ bảo hành"
+          }
+        }
+      }
+    },
+    "Chọn ảnh thẻ bảo hành" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a warranty-card photo"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chọn ảnh thẻ bảo hành"
+          }
+        }
+      }
+    },
+    "Đã đọc thẻ — kiểm tra lại trước khi lưu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Card read — review it before saving"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã đọc thẻ — kiểm tra lại trước khi lưu"
+          }
+        }
+      }
+    },
+    "Đã đọc thẻ — độ tin cậy chưa cao, kiểm tra kỹ" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Card read — low confidence, check carefully"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã đọc thẻ — độ tin cậy chưa cao, kiểm tra kỹ"
+          }
+        }
+      }
+    },
+    "Ảnh “%@” đã được lưu trong Hộp thư đến." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” was saved in the inbox."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ảnh “%@” đã được lưu trong Hộp thư đến."
+          }
+        }
+      }
+    },
+    "Không đọc được điều khoản nào trên thẻ này. Bạn vẫn có thể tự nhập các ô bên dưới — ảnh đã được lưu trong Hộp thư." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No contract terms could be read from this card. You can still fill in the fields below yourself — the file is in the inbox."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không đọc được điều khoản nào trên thẻ này. Bạn vẫn có thể tự nhập các ô bên dưới — ảnh đã được lưu trong Hộp thư."
+          }
+        }
+      }
+    },
+    "Không đọc được: %@ — bạn tự nhập các ô này." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not read: %@ — enter these fields yourself."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không đọc được: %@ — bạn tự nhập các ô này."
+          }
+        }
+      }
+    },
+    "Điền vào biểu mẫu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fill the form"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Điền vào biểu mẫu"
+          }
+        }
+      }
+    },
+    "Tệp “%@” vẫn nằm trong Hộp thư đến — mở Hộp thư để gán vào thiết bị." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” is still in the inbox — open the inbox to link it to a device."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tệp “%@” vẫn nằm trong Hộp thư đến — mở Hộp thư để gán vào thiết bị."
+          }
+        }
+      }
+    },
+    "Cần bật Trợ lý AI để đọc thẻ bảo hành" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on the AI assistant to read a warranty card"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cần bật Trợ lý AI để đọc thẻ bảo hành"
+          }
+        }
+      }
+    },
+    "Mở Cài đặt → Trợ lý AI và bật. Khi bật, ảnh/PDF thẻ bảo hành đã giải mã sẽ được gửi tới Anthropic (dịch vụ AI ở Mỹ) để đọc; Anthropic xoá dữ liệu trong vòng 30 ngày và không dùng để huấn luyện. Mặc định tắt." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings → AI assistant and turn it on. When on, the decrypted warranty-card photo/PDF is sent to Anthropic (a US AI service) to be read; Anthropic deletes data within 30 days and does not train on it. Off by default."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mở Cài đặt → Trợ lý AI và bật. Khi bật, ảnh/PDF thẻ bảo hành đã giải mã sẽ được gửi tới Anthropic (dịch vụ AI ở Mỹ) để đọc; Anthropic xoá dữ liệu trong vòng 30 ngày và không dùng để huấn luyện. Mặc định tắt."
+          }
+        }
+      }
+    },
+    "Cần bật Trợ lý AI trong Cài đặt (Cài đặt → Trợ lý AI) rồi thử lại." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on the AI assistant in Settings (Settings → AI assistant), then try again."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cần bật Trợ lý AI trong Cài đặt (Cài đặt → Trợ lý AI) rồi thử lại."
+          }
+        }
+      }
+    },
+    "Đọc thẻ bảo hành là tính năng Premium — chưa mở cho tài khoản của bạn." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading warranty cards is a Premium feature — not available on your account yet."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đọc thẻ bảo hành là tính năng Premium — chưa mở cho tài khoản của bạn."
+          }
+        }
+      }
+    },
+    "Tính năng đọc thẻ bảo hành chưa khả dụng." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warranty-card reading is not available yet."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tính năng đọc thẻ bảo hành chưa khả dụng."
+          }
+        }
+      }
+    },
     "\"%@\" sẽ bị xoá vĩnh viễn cùng toàn bộ gói bảo hành." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7687,23 +8180,6 @@
         }
       }
     },
-    "Khi bật, ảnh hoá đơn (đã giải mã) và thông tin lần sửa chữa sẽ được gửi tới dịch vụ AI bên thứ ba để tự điền thông tin hoặc đánh giá bảo hành. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "When on, receipt images (decrypted) and repair details are sent to a third-party AI service to fill in fields or assess a warranty. You always review before saving. Off by default."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Khi bật, ảnh hoá đơn (đã giải mã) và thông tin lần sửa chữa sẽ được gửi tới dịch vụ AI bên thứ ba để tự điền thông tin hoặc đánh giá bảo hành. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt."
-          }
-        }
-      }
-    },
     "Khi bật, ứng dụng sẽ yêu cầu Face ID/Touch ID — hoặc mã mở khoá của thiết bị — mỗi lần quay lại ứng dụng. Nếu thiết bị không còn mã mở khoá, khoá sẽ tự tắt để bạn không bị khoá cứng." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -13791,23 +14267,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Quá hạn %dd"
-          }
-        }
-      }
-    },
-    "Quét hoá đơn & đánh giá bảo hành" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Receipt scanning & warranty assessment"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quét hoá đơn & đánh giá bảo hành"
           }
         }
       }
@@ -20108,23 +20567,6 @@
         }
       }
     },
-    "Đánh giá bảo hành dùng chung một lần bật AI với tính năng quét hoá đơn. Khi bật, thông tin lần sửa chữa (mô tả lỗi, chẩn đoán, chi phí) và điều khoản bảo hành sẽ được gửi tới dịch vụ AI bên thứ ba để phân tích." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Warranty assessment uses the same AI opt-in as receipt scanning. When it is on, the repair details (problem description, diagnosis, cost) and warranty terms are sent to a third-party AI service for analysis."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đánh giá bảo hành dùng chung một lần bật AI với tính năng quét hoá đơn. Khi bật, thông tin lần sửa chữa (mô tả lỗi, chẩn đoán, chi phí) và điều khoản bảo hành sẽ được gửi tới dịch vụ AI bên thứ ba để phân tích."
-          }
-        }
-      }
-    },
     "Đánh giá này chỉ đọc dữ liệu và không sửa gì." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -22866,40 +23308,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nạp lại dữ liệu từ file sao lưu"
-          }
-        }
-      }
-    },
-    "Đang bật — ảnh hoá đơn được gửi tới dịch vụ AI" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "On — receipt photos are sent to an AI service"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đang bật — ảnh hoá đơn được gửi tới dịch vụ AI"
-          }
-        }
-      }
-    },
-    "Đang tắt — không gửi gì ra ngoài" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Off — nothing is sent out"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đang tắt — không gửi gì ra ngoài"
           }
         }
       }
