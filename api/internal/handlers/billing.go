@@ -12,6 +12,39 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 )
 
+// ---- GET /api/v1/billing/status ----------------------------------------------
+
+// BillingStatus answers "why is this account (not) Premium, and what does that
+// change right now" without exposing an entitlement row.
+//
+// It is a READ and is deliberately not rate limited or logged per call: a client
+// may poll it on foreground, and per §6.4 the signal that matters is the refusal
+// on the write path, not the number of status reads. During a Billing Grace
+// Period the state is GRACE_PERIOD and the plan is still the Premium one.
+//
+// canExport is always true, including for a lapsed account above the free
+// ceiling. Export reads data the user already owns; losing Premium must never
+// lock it, and the field exists so clients can show that promise instead of
+// guessing from the quota booleans.
+func BillingStatus(d Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := i18n.Attach(r)
+		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
+		if err != nil {
+			unauthorized(w, ctx)
+			return
+		}
+
+		status, err := services.BillingStatusFor(r.Context(), d.DB, us.UserID)
+		if err != nil {
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error",
+				i18n.Text(ctx, "Lỗi hệ thống"), nil)
+			return
+		}
+		httpx.WriteJSONC(w, ctx, http.StatusOK, status)
+	}
+}
+
 // ---- POST /api/v1/billing/verify ------------------------------------------------
 
 type premiumVerifyRequest struct {

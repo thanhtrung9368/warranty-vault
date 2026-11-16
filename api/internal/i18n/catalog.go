@@ -532,6 +532,21 @@ var messages = map[string]message{
 		vi: "Đã đạt giới hạn %d thiết bị lưu trữ (tính cả thiết bị đã bán). Xoá bớt hồ sơ cũ rồi thử lại.",
 		en: "You have reached the %d-device storage limit (sold devices included). Delete some older records and try again.",
 	},
+	// Lapsed Premium (§6.4): the free ceilings now apply on top of data that was
+	// created under the Premium ones. The historic messages above are WRONG here —
+	// "mark a device sold" and "delete older records" describe a choice the user
+	// made, when the actual cause is that the subscription ended. These say what
+	// happened, name the ceiling that now applies, and repeat the §6.4 promise:
+	// existing data can still be read, edited and exported. "không còn hiệu lực"
+	// rather than "đã hết hạn" because a refund/revocation is not an expiry.
+	"Premium không còn hiệu lực nên giới hạn miễn phí %d thiết bị chưa bán đang áp dụng. Dữ liệu hiện có vẫn xem, sửa và xuất được — gia hạn Premium để thêm thiết bị mới.": {
+		vi: "Premium không còn hiệu lực nên giới hạn miễn phí %d thiết bị chưa bán đang áp dụng. Dữ liệu hiện có vẫn xem, sửa và xuất được — gia hạn Premium để thêm thiết bị mới.",
+		en: "Premium is no longer active, so the free limit of %d unsold devices now applies. Your existing data can still be viewed, edited and exported — renew Premium to add more devices.",
+	},
+	"Premium không còn hiệu lực nên giới hạn lưu trữ miễn phí %d thiết bị (tính cả thiết bị đã bán) đang áp dụng. Dữ liệu hiện có vẫn xem, sửa và xuất được — gia hạn Premium để thêm thiết bị mới.": {
+		vi: "Premium không còn hiệu lực nên giới hạn lưu trữ miễn phí %d thiết bị (tính cả thiết bị đã bán) đang áp dụng. Dữ liệu hiện có vẫn xem, sửa và xuất được — gia hạn Premium để thêm thiết bị mới.",
+		en: "Premium is no longer active, so the free %d-device storage limit (sold devices included) now applies. Your existing data can still be viewed, edited and exported — renew Premium to add more devices.",
+	},
 
 	// ── Warranty validation (internal/services/warranties.go).
 	"Loại bảo hành không hợp lệ": {vi: "Loại bảo hành không hợp lệ", en: "Invalid warranty type"},

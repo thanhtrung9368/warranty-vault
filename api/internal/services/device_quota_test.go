@@ -82,8 +82,74 @@ func TestDeviceQuotaMessagesAreTruthful(t *testing.T) {
 	}
 }
 
-func TestDeviceActiveIncomingMatchesTheSQLPredicate(t *testing.T) {
-	// CountActiveDevicesByUser counts `status <> 'SOLD'`, a LITERAL comparison.
+// §6.4 Premium lapse Phase 0 — the copy half.
+//
+// Two accounts can hit the SAME free ceiling with different histories, and the
+// sentence they read must differ:
+//
+//   - never bought Premium → the historic free-path message, BYTE-IDENTICAL to
+//     what shipped before this slice (a refactor of the quota helper must not
+//     quietly reword the free path);
+//   - Premium lapsed → the cause is the lapse, so it must not tell the user to
+//     "mark a device sold". That instruction misdiagnoses the problem and hides
+//     the real fix, which is the exact bug §6.4 exists to remove.
+func TestLapsedDeviceQuotaMessageIsTruthful(t *testing.T) {
+	const (
+		wantFreeActive = "Đã đạt giới hạn 50 thiết bị chưa bán. Thiết bị đã đánh dấu \"Đã bán\" không chiếm suất — đánh dấu đã bán một thiết bị rồi thử lại."
+		wantFreeTotal  = "Đã đạt giới hạn 500 thiết bị lưu trữ (tính cả thiết bị đã bán). Xoá bớt hồ sơ cũ rồi thử lại."
+	)
+
+	// Byte-identical free path: same function, same numbers, no Lapsed flag.
+	freeActive := enforceDeviceQuota(viCtx(), MaxDevicesPerUser, MaxDevicesPerUser+1, 1, 1)
+	if freeActive == nil || freeActive.Error() != wantFreeActive {
+		t.Fatalf("free active refusal = %v, want the unchanged %q", freeActive, wantFreeActive)
+	}
+	freeTotal := enforceDeviceQuota(viCtx(), 0, MaxDevicesTotalPerUser, 0, 1)
+	if freeTotal == nil || freeTotal.Error() != wantFreeTotal {
+		t.Fatalf("free storage refusal = %v, want the unchanged %q", freeTotal, wantFreeTotal)
+	}
+
+	lapsed := FreePlan
+	lapsed.Lapsed = true
+
+	errActive := enforceDeviceQuotaFor(viCtx(), MaxDevicesPerUser, MaxDevicesPerUser+1, 1, 1, lapsed)
+	if errActive == nil {
+		t.Fatal("expected the active ceiling to be enforced for a lapsed account")
+	}
+	svc, ok := As(errActive)
+	if !ok || svc.Code != "LIMIT_REACHED" || svc.HTTPStatus() != 409 {
+		t.Fatalf("lapsed active refusal = %#v, want a 409 LIMIT_REACHED", errActive)
+	}
+	if strings.Contains(errActive.Error(), "đánh dấu đã bán") {
+		t.Errorf("lapsed refusal %q must not tell the user to mark a device sold", errActive.Error())
+	}
+	for _, want := range []string{"Premium", "không còn hiệu lực", "50", "chưa bán", "xuất"} {
+		if !strings.Contains(errActive.Error(), want) {
+			t.Errorf("lapsed active refusal %q must mention %q", errActive.Error(), want)
+		}
+	}
+
+	errTotal := enforceDeviceQuotaFor(viCtx(), 0, MaxDevicesTotalPerUser, 0, 1, lapsed)
+	if errTotal == nil {
+		t.Fatal("expected the storage ceiling to be enforced for a lapsed account")
+	}
+	if strings.Contains(errTotal.Error(), "đánh dấu đã bán") {
+		t.Errorf("lapsed storage refusal %q must not tell the user to mark a device sold", errTotal.Error())
+	}
+	for _, want := range []string{"Premium", "không còn hiệu lực", "500", "lưu trữ", "xuất"} {
+		if !strings.Contains(errTotal.Error(), want) {
+			t.Errorf("lapsed storage refusal %q must mention %q", errTotal.Error(), want)
+		}
+	}
+
+	// A plan with Lapsed=false must never take the lapse copy, even at the same
+	// numbers — that is what keeps the free path pinned above.
+	if got := enforceDeviceQuotaFor(viCtx(), MaxDevicesPerUser, MaxDevicesPerUser+1, 1, 1, FreePlan); got == nil || got.Error() != wantFreeActive {
+		t.Fatalf("explicit FreePlan refusal = %v, want the unchanged %q", got, wantFreeActive)
+	}
+}
+
+func TestDeviceActiveIncomingMatchesTheSQLPredicate(t *testing.T) { // CountActiveDevicesByUser counts `status <> 'SOLD'`, a LITERAL comparison.
 	// This function must agree with it byte for byte, so a padded or lower-cased
 	// status counts as active — the strict direction, which cannot be used to slip
 	// past the ceiling.

@@ -26,7 +26,7 @@ servers:
 
 tags:
   - { name: auth }
-  - { name: billing, description: 'Warrly Premium: verify a StoreKit 2 signed transaction and record the server-side entitlement (migration 0027).' }
+  - { name: billing, description: 'Warrly Premium: server-side StoreKit 2 entitlement (migration 0027) + lifecycle status (migration 0029, §6.4 Phase 0).' }
   - { name: devices }
   - { name: warranties }
   - { name: claims, description: 'Yêu cầu bảo hành / sửa chữa: một thiết bị hỏng đi đâu, bệnh viện nào, ai nói gì, bảo hành có trả tiền không. Migration 0021.' }
@@ -459,6 +459,51 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
 
+  /api/v1/billing/status:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
+    get:
+      tags: [billing]
+      summary: Premium lifecycle state, usage and the limits that apply now
+      description: |
+        Trạng thái vòng đời Premium của tài khoản hiện tại (migration 0029) và
+        mức sử dụng so với giới hạn **đang áp dụng**. Client dùng endpoint này
+        để hiển thị banner "sắp hết hạn / đã hết hạn" thay vì suy đoán từ
+        `GET /auth/me` (endpoint đó chỉ trả một boolean).
+
+        `state`:
+
+        | state | nghĩa |
+        |---|---|
+        | `NEVER` | tài khoản chưa từng mua Premium — **không phải** "hết hạn" |
+        | `PREMIUM` | `expiresAt` còn ở tương lai |
+        | `GRACE_PERIOD` | kỳ trả phí đã hết nhưng `gracePeriodExpiresAt` còn ở tương lai — Apple vẫn coi là đang đăng ký, nên quyền lợi Premium vẫn có hiệu lực |
+        | `REVOKED` | entitlement mới nhất đã bị thu hồi/hoàn tiền (thắng `BILLING_RETRY` nếu cả hai cùng đúng) |
+        | `BILLING_RETRY` | đã hết hạn và Apple đang thử thu tiền lại (`inBillingRetryPeriod`) |
+        | `EXPIRED` | có entitlement, không bị thu hồi, và đã hết hạn |
+
+        `NEVER` chỉ xảy ra khi tài khoản không có dòng entitlement nào, nên nó
+        không tranh chấp với các state còn lại.
+
+        `GRACE_PERIOD` cũng là Premium: trong thời gian grace, `limits` là giới
+        hạn Premium và mọi write path vẫn cho phép như đang trả phí.
+
+        Hai boolean cố ý khác nhau:
+
+        * `overCap`: mức sử dụng đã **vượt** giới hạn (chỉ xảy ra khi tài khoản
+          từng Premium rồi mất quyền lợi, hoặc sau khi bỏ đánh dấu đã bán).
+        * `addsBlocked`: một lần thêm mới **sẽ bị từ chối ngay bây giờ** — đúng
+          cả khi mức sử dụng đang **bằng** giới hạn.
+
+        `canExport` luôn là `true`. Xuất dữ liệu là đọc dữ liệu người dùng đã sở
+        hữu; mất Premium không bao giờ chặn export (kể cả khi `overCap = true`).
+      responses:
+        '200':
+          description: Trạng thái Premium + mức sử dụng + giới hạn
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /api/v1/brands/{brandId}/service-info:
     parameters:
       - { $ref: '#/components/parameters/BrandIdPath' }
@@ -592,6 +637,12 @@ paths:
           lịch sử chi tiêu. Chỉ **hạn mức** thay đổi, không phải luật báo cáo.
         * Thông báo lỗi nói rõ đang chạm trần nào và còn cách nào (đánh dấu đã bán, hay
           xoá hồ sơ cũ).
+        * **Tài khoản từng mua Premium mà quyền lợi đã hết** nhận một câu 409 khác:
+          câu cũ ("hãy đánh dấu đã bán") chẩn đoán sai nguyên nhân. Câu mới nói
+          Premium không còn hiệu lực, nêu giới hạn miễn phí đang áp dụng, và nhắc
+          rằng dữ liệu hiện có vẫn đọc/sửa/xuất được. Trong **Billing Grace
+          Period** tài khoản vẫn được coi là Premium, nên không rơi vào trường hợp
+          này. Trạng thái hiện tại xem ở `GET /api/v1/billing/status`.
 
         Body là `DeviceCreateInput`: toàn bộ trường chung của `DeviceInput` cộng
         `fromWishlistId` — trường **chỉ có nghĩa khi tạo** một thiết bị từ một món
@@ -3728,6 +3779,60 @@ components:
           type: string
           enum: [Production, Sandbox]
           description: 'Môi trường Apple của transaction gần nhất. Sandbox được chấp nhận để App Review mua thử.'
+
+    # GET /api/v1/billing/status (migration 0029, §6.4 Phase 0).
+    BillingStatus:
+      type: object
+      required: [state, usage, limits, overCap, addsBlocked, canExport]
+      properties:
+        state:
+          type: string
+          enum: [PREMIUM, GRACE_PERIOD, BILLING_RETRY, EXPIRED, REVOKED, NEVER]
+          description: |
+            Trạng thái vòng đời. `GRACE_PERIOD` vẫn được coi là Premium (Apple
+            còn bảo lãnh thời gian gia hạn), còn `NEVER` là tài khoản chưa từng
+            mua — client không được hiển thị copy "hết hạn" cho `NEVER`.
+        usage:
+          $ref: '#/components/schemas/BillingUsage'
+        limits:
+          $ref: '#/components/schemas/BillingLimits'
+        overCap:
+          type: boolean
+          description: |
+            `true` khi mức sử dụng **vượt** ít nhất một giới hạn trong `limits`.
+            Một tài khoản từng Premium rồi mất quyền lợi có thể ở trạng thái
+            này; khi đó mọi dữ liệu cũ vẫn đọc/sửa/xuất được, chỉ việc thêm mới
+            là bị từ chối.
+        addsBlocked:
+          type: boolean
+          description: |
+            `true` khi một lần thêm mới sẽ bị từ chối ngay bây giờ — kể cả khi
+            mức sử dụng đang **bằng** giới hạn (50/500/100/200). Khác `overCap`
+            ở đúng điểm đó.
+        canExport:
+          type: boolean
+          description: |
+            Luôn `true` trong 1.1. Export không bao giờ bị chặn bởi Premium —
+            kể cả khi `overCap = true` — vì đó là dữ liệu người dùng đã sở hữu.
+
+    BillingUsage:
+      type: object
+      required: [devicesActive, devicesTotal, subscriptions, wishlist]
+      properties:
+        devicesActive: { type: integer, format: int64, description: 'Thiết bị chưa bán (status <> SOLD).' }
+        devicesTotal: { type: integer, format: int64, description: 'Tổng thiết bị, kể cả đã bán.' }
+        subscriptions: { type: integer, format: int64 }
+        wishlist: { type: integer, format: int64 }
+
+    BillingLimits:
+      type: object
+      required: [devicesActive, devicesTotal, subscriptions, wishlist]
+      description: Giới hạn của gói đang áp dụng (Free hoặc Premium, tuỳ `state`).
+      properties:
+        devicesActive: { type: integer, format: int64 }
+        devicesTotal: { type: integer, format: int64 }
+        subscriptions: { type: integer, format: int64 }
+        wishlist: { type: integer, format: int64 }
 
     # Body of PATCH /api/v1/auth/me. Email change is NOT part of this contract.
     UpdateProfileInput:

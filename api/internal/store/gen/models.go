@@ -127,6 +127,19 @@ type DeviceShare struct {
 	CreatedAt     wire.Instant `json:"createdAt"`
 }
 
+type EntitlementEvent struct {
+	ID                    string       `json:"id"`
+	OriginalTransactionId string       `json:"originalTransactionId"`
+	UserId                *string      `json:"userId"`
+	Source                string       `json:"source"`
+	EventType             string       `json:"eventType"`
+	EffectiveAt           wire.Instant `json:"effectiveAt"`
+	Applied               bool         `json:"applied"`
+	ApplyNote             *string      `json:"applyNote"`
+	PayloadHash           *string      `json:"payloadHash"`
+	ReceivedAt            wire.Instant `json:"receivedAt"`
+}
+
 type PasswordReset struct {
 	ID           string       `json:"id"`
 	UserId       string       `json:"userId"`
@@ -147,6 +160,20 @@ type PremiumEntitlement struct {
 	Environment           string       `json:"environment"`
 	CreatedAt             wire.Instant `json:"createdAt"`
 	UpdatedAt             wire.Instant `json:"updatedAt"`
+	AutoRenewStatus       *string      `json:"autoRenewStatus"`
+	ExpirationIntent      *int32       `json:"expirationIntent"`
+	InBillingRetryPeriod  bool         `json:"inBillingRetryPeriod"`
+	GracePeriodExpiresAt  wire.Instant `json:"gracePeriodExpiresAt"`
+	RevocationReason      *int32       `json:"revocationReason"`
+	LastEventType         *string      `json:"lastEventType"`
+	LastEventAt           wire.Instant `json:"lastEventAt"`
+}
+
+type PremiumNotice struct {
+	UserId    string       `json:"userId"`
+	PeriodEnd wire.Instant `json:"periodEnd"`
+	Kind      string       `json:"kind"`
+	SentAt    wire.Instant `json:"sentAt"`
 }
 
 type PushSubscription struct {

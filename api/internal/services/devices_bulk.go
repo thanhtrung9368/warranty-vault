@@ -278,7 +278,7 @@ func BulkCreateDevices(ctx context.Context, db *pgxpool.Pool, userID string, inp
 	}
 	tq := store.New(tx)
 	if err := assertDeviceQuotaWithLimits(ctx, tq, userID, incomingActive, incomingTotal,
-		quotaPlan.MaxActiveDevices, quotaPlan.MaxTotalDevices); err != nil {
+		quotaPlan); err != nil {
 		return nil, err
 	}
 

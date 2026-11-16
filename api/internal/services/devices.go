@@ -902,7 +902,7 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 	// Cheap pre-check, kept at its historic position for error precedence. It is
 	// NOT the concurrency-safe check; the one under the lock below is.
 	if err := assertDeviceQuotaWithLimits(ctx, q, userID, deviceActiveIncoming(in.Status), 1,
-		quotaPlan.MaxActiveDevices, quotaPlan.MaxTotalDevices); err != nil {
+		quotaPlan); err != nil {
 		return DeviceVND{}, err
 	}
 
@@ -925,7 +925,7 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 	// serialised per user, so two concurrent creates cannot both pass a 49→50
 	// read and write a 51st active row.
 	if err := assertDeviceQuotaWithLimits(ctx, tq, userID, deviceActiveIncoming(in.Status), 1,
-		quotaPlan.MaxActiveDevices, quotaPlan.MaxTotalDevices); err != nil {
+		quotaPlan); err != nil {
 		return DeviceVND{}, err
 	}
 
@@ -1387,9 +1387,11 @@ type deviceQuotaCounter interface {
 // about to add `incomingActive` active rows and `incomingTotal` rows in total.
 // FEATURE_IDEAS #14.
 //
-// The caller supplies the ceilings because they differ by plan: a free account
-// gets 50 active / 500 total, a Premium account 200 / 2.000. The refusal
-// messages name the numbers that actually apply.
+// The caller supplies the plan because its ceilings differ: a free account gets
+// 50 active / 500 total, a Premium account 200 / 2.000. The plan also carries
+// `Lapsed`, which does not change a number — a lapsed account is on the free
+// plan — but selects the refusal copy: an account that lost Premium must not be
+// told to "mark a device sold" as if the sale were the cause.
 //
 // Two independent ceilings, because "sold devices are free" on its own is
 // gameable (mark sold → add → un-sell → repeat):
@@ -1413,7 +1415,7 @@ type deviceQuotaCounter interface {
 // read later so a nil context is impossible to pass by accident: this is called
 // from the HTTP handlers AND from the backup importer / wishlist transitions,
 // and all of them already carry one.
-func assertDeviceQuotaWithLimits(ctx context.Context, q deviceQuotaCounter, userID string, incomingActive, incomingTotal, maxActive, maxTotal int64) error {
+func assertDeviceQuotaWithLimits(ctx context.Context, q deviceQuotaCounter, userID string, incomingActive, incomingTotal int64, plan Plan) error {
 	if incomingTotal <= 0 {
 		return nil
 	}
@@ -1422,13 +1424,13 @@ func assertDeviceQuotaWithLimits(ctx context.Context, q deviceQuotaCounter, user
 		return fmt.Errorf("count all devices: %w", err)
 	}
 	if incomingActive <= 0 {
-		return enforceDeviceQuotaWithLimits(ctx, 0, total, 0, incomingTotal, maxActive, maxTotal)
+		return enforceDeviceQuotaFor(ctx, 0, total, 0, incomingTotal, plan)
 	}
 	active, err := q.CountActiveDevicesByUser(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("count active devices: %w", err)
 	}
-	return enforceDeviceQuotaWithLimits(ctx, active, total, incomingActive, incomingTotal, maxActive, maxTotal)
+	return enforceDeviceQuotaFor(ctx, active, total, incomingActive, incomingTotal, plan)
 }
 
 // lockUserDeviceWrites serialises every device-creating transaction for one
@@ -1486,6 +1488,36 @@ func lockUserDeviceWrites(ctx context.Context, tx pgx.Tx, userID string) error {
 func enforceDeviceQuota(ctx context.Context, active, total, incomingActive, incomingTotal int64) error {
 	return enforceDeviceQuotaWithLimits(ctx, active, total, incomingActive, incomingTotal,
 		MaxDevicesPerUser, MaxDevicesTotalPerUser)
+}
+
+// enforceDeviceQuotaFor is the plan-aware entry point used by every real write
+// path. It splits on Plan.Lapsed, because the two situations need different
+// sentences even though the ceilings are the same free ones:
+//
+//   - never bought Premium → the historic free-path message, byte for byte;
+//   - Premium lapsed → say that Premium is no longer active and that the free
+//     ceiling now applies, plus that reading/editing/exporting still work. The
+//     old message told this user to "mark a device sold", which misdiagnoses the
+//     cause and hides the only real fix (§6.4).
+func enforceDeviceQuotaFor(ctx context.Context, active, total, incomingActive, incomingTotal int64, plan Plan) error {
+	if !plan.Lapsed {
+		return enforceDeviceQuotaWithLimits(ctx, active, total, incomingActive, incomingTotal,
+			plan.MaxActiveDevices, plan.MaxTotalDevices)
+	}
+	if incomingTotal <= 0 {
+		return nil
+	}
+	if total+incomingTotal > plan.MaxTotalDevices {
+		return ErrLimit(i18n.T(ctx,
+			"Premium không còn hiệu lực nên giới hạn lưu trữ miễn phí %d thiết bị (tính cả thiết bị đã bán) đang áp dụng. Dữ liệu hiện có vẫn xem, sửa và xuất được — gia hạn Premium để thêm thiết bị mới.",
+			plan.MaxTotalDevices))
+	}
+	if incomingActive > 0 && active+incomingActive > plan.MaxActiveDevices {
+		return ErrLimit(i18n.T(ctx,
+			"Premium không còn hiệu lực nên giới hạn miễn phí %d thiết bị chưa bán đang áp dụng. Dữ liệu hiện có vẫn xem, sửa và xuất được — gia hạn Premium để thêm thiết bị mới.",
+			plan.MaxActiveDevices))
+	}
+	return nil
 }
 
 // enforceDeviceQuotaWithLimits takes the ceilings as parameters so a premium

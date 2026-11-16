@@ -1183,8 +1183,8 @@ func assertBackupDeviceQuota(ctx context.Context, db *pgxpool.Pool, userID strin
 		incomingTotal++
 		incomingActive += deviceActiveIncoming(d.Status)
 	}
-	return enforceDeviceQuotaWithLimits(ctx, baseActive, baseTotal, incomingActive, incomingTotal,
-		quotaPlan.MaxActiveDevices, quotaPlan.MaxTotalDevices)
+	return enforceDeviceQuotaFor(ctx, baseActive, baseTotal, incomingActive, incomingTotal,
+		quotaPlan)
 }
 
 // assertBackupClaimQuota applies MAX_CLAIMS_PER_USER to an import before

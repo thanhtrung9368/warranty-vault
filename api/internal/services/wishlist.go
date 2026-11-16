@@ -418,7 +418,7 @@ func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in
 			return store.WishlistItem{}, perr
 		}
 		if qerr := assertDeviceQuotaWithLimits(ctx, tq, userID, 1, 1,
-			quotaPlan.MaxActiveDevices, quotaPlan.MaxTotalDevices); qerr != nil {
+			quotaPlan); qerr != nil {
 			return store.WishlistItem{}, qerr
 		}
 		// Map wishlist fields → device. Use currentPrice ?? initialPrice as

@@ -49,11 +49,33 @@ productId              TEXT NOT NULL
 expiresAt              TIMESTAMPTZ NOT NULL
 revokedAt              TIMESTAMPTZ NULL
 environment            TEXT NOT NULL       -- Production | Sandbox
+-- migration 0029 (additive, App Store lifecycle - §6.4 Phase 0)
+gracePeriodExpiresAt   TIMESTAMPTZ NULL
+inBillingRetryPeriod   BOOLEAN NOT NULL DEFAULT false
+autoRenewStatus        TEXT NULL
+expirationIntent       INTEGER NULL
+revocationReason       INTEGER NULL
+lastEventType          TEXT NULL
+lastEventAt            TIMESTAMPTZ NULL
 createdAt / updatedAt  TIMESTAMPTZ NOT NULL
 ```
 
 Index: `(userId, expiresAt DESC)`, `(originalTransactionId)`.
-Premium = có ít nhất một dòng `revokedAt IS NULL AND expiresAt > now()`.
+Premium = có ít nhất một dòng còn hiệu lực, predicate **grace-aware** (migration
+0029):
+
+```
+revokedAt IS NULL
+AND (expiresAt > now() OR (gracePeriodExpiresAt IS NOT NULL AND gracePeriodExpiresAt > now()))
+```
+
+Row của 0027 có `gracePeriodExpiresAt IS NULL` nên hành xử y như trước. Refund
+(`revokedAt`) thắng cả hai mốc thời gian. So sánh dùng `now() AT TIME ZONE 'UTC'`
+của database, không cache, không dùng đồng hồ Go.
+
+`EntitlementEvent` (append-only) và `PremiumNotice` cũng được tạo trong 0029 để
+ASN V2/email sau này không phải thêm migration thứ hai; Phase 0 chưa ghi hai bảng
+này.
 
 ### Endpoint
 
@@ -86,6 +108,37 @@ Response:
 ```
 
 `GET /api/v1/auth/me` thêm `"premium": true|false` (additive; client cũ bỏ qua).
+Trong **Billing Grace Period**, `premium` vẫn là `true`: Apple còn coi subscription
+là đang hoạt động, nên khoảng thời gian grace không được làm mất quyền lợi.
+
+### `GET /api/v1/billing/status` (Phase 0)
+
+Trả trạng thái vòng đời + mức sử dụng so với giới hạn đang áp dụng, để client
+hiển thị banner thay vì suy đoán từ boolean của `/auth/me`:
+
+```json
+{
+  "state": "GRACE_PERIOD",
+  "usage": { "devicesActive": 61, "devicesTotal": 61, "subscriptions": 3, "wishlist": 10 },
+  "limits": { "devicesActive": 200, "devicesTotal": 2000, "subscriptions": 500, "wishlist": 1000 },
+  "overCap": false,
+  "addsBlocked": false,
+  "canExport": true
+}
+```
+
+`state` ∈ `NEVER | PREMIUM | GRACE_PERIOD | REVOKED | BILLING_RETRY | EXPIRED`.
+`NEVER` chỉ xảy ra khi không có dòng entitlement nào; `REVOKED` thắng
+`BILLING_RETRY` nếu entitlement mới nhất vừa bị thu hồi vừa ở trạng thái retry.
+`GRACE_PERIOD` vẫn dùng giới hạn Premium.
+`overCap` = usage đã **vượt** một giới hạn; `addsBlocked` = một lần thêm mới sẽ
+bị từ chối **ngay bây giờ** (đúng cả khi usage **bằng** giới hạn). `canExport`
+luôn `true` — mất Premium không bao giờ chặn export.
+
+Câu 409 khi một tài khoản **từng** Premium (nay `EXPIRED`/`REVOKED`/
+`BILLING_RETRY`) vượt trần miễn phí cũng đổi theo: nói Premium không còn hiệu
+lực, nêu giới hạn miễn phí đang áp dụng, và nhắc dữ liệu cũ vẫn đọc/sửa/xuất
+được. Tài khoản **chưa từng** mua Premium giữ nguyên câu cũ từng byte.
 
 ### Xác minh JWS
 
@@ -93,17 +146,22 @@ Response:
 - Header `x5c` chứa chain; verify chain bằng `crypto/x509` với Apple Root CA G3
   embed trong `api/internal/appstore/apple_root_ca_g3.pem`.
 - Không gọi App Store Server API ở v1 — không cần thêm API key.
-- **Chưa có App Store Server Notifications V2**: renewal/refund được đồng bộ khi
-  app mở/foreground qua `Transaction.currentEntitlements` / `Transaction.updates`.
-  Server luôn kiểm `expiresAt` nên entitlement tự hết hạn; refund có thể trễ đến
-  lần app mở kế tiếp. Đây là giới hạn đã biết của v1, không phải bug.
+- **Chưa có App Store Server Notifications V2**: renewal/refund/grace được đồng bộ
+  khi app mở/foreground qua `Transaction.currentEntitlements` /
+  `Transaction.updates`. Server luôn kiểm predicate grace-aware nên entitlement
+  tự hết hạn (hoặc tự vào grace nếu `gracePeriodExpiresAt` đã được ghi); refund
+  có thể trễ đến lần app mở kế tiếp. Phase 0 của §6.4 mới thêm schema + predicate
+  + `GET /billing/status`; ASN V2 (endpoint notification, ledger replay) vẫn là
+  việc của phase sau. Đây là giới hạn đã biết, không phải bug.
 
 ### Giới hạn
 
-`services.Plan` = `{MaxActiveDevices, MaxTotalDevices, MaxSubscriptions, MaxWishlist}`.
+`services.Plan` = `{MaxActiveDevices, MaxTotalDevices, MaxSubscriptions, MaxWishlist, Premium, Lapsed}`.
 `PlanFor(ctx, db, userID)` trả `FreePlan`/`PremiumPlan`; các write path
-(create device, bulk, wishlist→purchased, create subscription, create wishlist)
-dùng plan thay vì hằng số free.
+(create device, bulk, wishlist→purchased, create subscription, create wishlist,
+backup import) dùng plan thay vì hằng số free. `Lapsed` **không** đổi con số —
+tài khoản từng Premium vẫn ở `FreePlan` khi hết hạn — nó chỉ chọn câu từ chối
+đúng sự thật (xem §6.4 Phase 0 ở trên).
 
 ## iOS
 
