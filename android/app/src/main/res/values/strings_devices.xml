@@ -155,6 +155,19 @@
     <string name="devdetail_sale_date">Sale date</string>
     <string name="devdetail_sale_price">Sale price</string>
     <string name="devdetail_profit_loss">Profit/loss</string>
+    <!-- Installment plan (FEATURE_RESEARCH_2026-11 §6.5, migration 0031).
+         Read-only on Android: the plan is edited on the web only. The wording
+         never says a payment is late — `paidCount` is self-reported. -->
+    <string name="devdetail_installment">Installments</string>
+    <string name="devdetail_installment_progress">Paid %1$d/%2$d payments</string>
+    <string name="devdetail_installment_per_period">month</string>
+    <string name="devdetail_installment_completed">Fully paid</string>
+    <string name="devdetail_installment_remaining">Still owed</string>
+    <string name="devdetail_installment_total">Total cost of ownership</string>
+    <string name="devdetail_installment_next_due">Next payment</string>
+    <string name="devdetail_installment_lender">Lender</string>
+    <string name="devdetail_installment_unknown_fees">The fees are not recorded, so the total is a lower bound.</string>
+    <string name="devdetail_installment_edit_on_web">Edit on the web</string>
     <string name="devdetail_reminder_turned_off">Reminder turned off</string>
     <string name="devdetail_starts">Starts</string>
     <string name="devdetail_ends">Ends</string>

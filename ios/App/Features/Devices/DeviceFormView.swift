@@ -619,15 +619,23 @@ struct DeviceFormView: View {
         }
     }
 
-    /// Lãi/lỗ so với giá mua, live as the user types. `nil` until a sale price
-    /// exists — the API never returns this (the client computes it on purpose).
+    /// Lãi/lỗ so với chi phí sở hữu, live as the user types. `nil` until a sale
+    /// price exists — the API never returns this (the client computes it on
+    /// purpose).
+    ///
+    /// The cost basis follows the same rule as the detail screen: the installment
+    /// plan's total when the device has one (§6.5 — the sticker price excludes
+    /// the fees a financed purchase pays), otherwise the price being edited.
+    /// While the form is open the plan is not editable (it has its own sheet), so
+    /// the loaded total is stable.
     ///
     /// Passes the device currency through so a $999 → $800 sale reads
     /// `"Lỗ 199 USD"`, not `"199 ₫"`.
     private var liveProfitLoss: SaleProfitLoss? {
-        DeviceResale.profitLoss(purchasePrice: price ?? 0,
-                                soldPrice: saleFields.soldPrice,
-                                currency: currency)
+        let basis = device?.installment?.totalCost ?? price ?? 0
+        return DeviceResale.profitLoss(costBasis: basis,
+                                       soldPrice: saleFields.soldPrice,
+                                       currency: currency)
     }
 
     /// Colour for a profit/loss line: green gains, red losses, neutral break-even.

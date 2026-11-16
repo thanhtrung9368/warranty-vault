@@ -196,17 +196,36 @@ internal fun deviceSoldPriceVnd(device: Device): Long? {
 }
 
 /**
- * Profit/loss in dong: `soldPriceVnd − purchasePriceVnd`, or `null` when either
+ * The device's **ownership cost** in dong — the money basis every total must
+ * use (FEATURE_RESEARCH_2026-11 §6.5, migration 0031).
+ *
+ * The server's `ownershipCostVnd` when present: for a device bought on
+ * instalments that is the plan's total (down payment + every monthly payment +
+ * the fees), not the sticker price. Falls back to [devicePurchasePriceVnd] for a
+ * server that predates the field, which is exactly what this client computed
+ * before — so a payload without a plan is unchanged.
+ *
+ * `null` keeps its meaning: the VND value genuinely cannot be known (a non-VND
+ * row with no usable locked rate). It is never faked at par.
+ */
+internal fun deviceOwnershipCostVnd(device: Device): Long? =
+    device.ownershipCostVnd ?: devicePurchasePriceVnd(device)
+
+/**
+ * Profit/loss in dong: `soldPriceVnd − ownershipCostVnd`, or `null` when either
  * side is unavailable.
  *
- * For a VND device this is the old `soldPrice − purchasePrice`. For a foreign
- * device it deliberately does **not** subtract the native numbers from a VND
- * value or from each other's converted values: the two server fields are already
- * at the same locked rate, so their difference is the honest dong figure.
+ * For a VND device with no plan this is the old `soldPrice − purchasePrice`. For
+ * a financed device the cost side is the PLAN's total (§6.5): subtracting the
+ * sticker price would understate the cost by the fees and can flip a real loss
+ * into an apparent gain. For a foreign device it deliberately does **not**
+ * subtract the native numbers from a VND value or from each other's converted
+ * values: both server fields are already at the same locked rate, so their
+ * difference is the honest dong figure.
  */
 internal fun deviceSaleProfitVnd(device: Device): Long? {
     val sold = deviceSoldPriceVnd(device) ?: return null
-    val bought = devicePurchasePriceVnd(device) ?: return null
+    val bought = deviceOwnershipCostVnd(device) ?: return null
     return sold - bought
 }
 

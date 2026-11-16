@@ -540,6 +540,52 @@ var messages = map[string]message{
 		vi: "Số ngày đổi trả phải từ %d tới %d",
 		en: "The return window must be between %d and %d days",
 	},
+	// Installment plan (migration 0031, FEATURE_RESEARCH_2026-11 §6.5). The plan
+	// is the user's own declaration, so every message is about a value the user
+	// typed, not about a bank answer the app has no access to.
+	"Số tháng phải từ 1 đến 60": {
+		vi: "Số tháng phải từ 1 đến 60",
+		en: "The number of months must be between 1 and 60",
+	},
+	"Số tiền mỗi tháng phải lớn hơn 0": {
+		vi: "Số tiền mỗi tháng phải lớn hơn 0",
+		en: "The monthly payment must be greater than 0",
+	},
+	"Trả trước không hợp lệ": {
+		vi: "Trả trước không hợp lệ",
+		en: "Invalid down payment",
+	},
+	"Phí hồ sơ không hợp lệ": {
+		vi: "Phí hồ sơ không hợp lệ",
+		en: "Invalid arrangement fee",
+	},
+	"Phí hàng tháng không hợp lệ": {
+		vi: "Phí hàng tháng không hợp lệ",
+		en: "Invalid monthly fee",
+	},
+	"Số kỳ đã trả không hợp lệ": {
+		vi: "Số kỳ đã trả không hợp lệ",
+		en: "Invalid number of payments made",
+	},
+	"Ngày kỳ đầu bắt buộc": {
+		vi: "Ngày kỳ đầu bắt buộc",
+		en: "First payment date is required",
+	},
+	"Ngày kỳ đầu không hợp lệ": {
+		vi: "Ngày kỳ đầu không hợp lệ",
+		en: "Invalid first payment date",
+	},
+	"Nơi trả góp tối đa 100 ký tự": {
+		vi: "Nơi trả góp tối đa 100 ký tự",
+		en: "The lender must be at most 100 characters",
+	},
+	// The currency lock. The plan's amounts are denominated in the device's
+	// currency, so a later currency change would silently reinterpret every one
+	// of them; the refusal names the reason and the way out.
+	"Không đổi được loại tiền khi thiết bị đang có kế hoạch trả góp": {
+		vi: "Không đổi được loại tiền khi thiết bị đang có kế hoạch trả góp",
+		en: "The currency cannot be changed while the device has an installment plan",
+	},
 	// Reminder lead days (migration 0015), shared by Device and Subscription.
 	// The Vietnamese is the source text and the catalog key; the English says the
 	// same rule in the same number order, because the form renders one line under

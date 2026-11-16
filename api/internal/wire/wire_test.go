@@ -56,6 +56,8 @@ var calendarDays = map[string]bool{
 	// RetailerPolicy (migration 0030) — the day the retailer policy was read.
 	// Distinct from Device.brandCheckedAt, which is an instant.
 	"CheckedAt": true,
+	// InstallmentPlan (migration 0031)
+	"FirstDueAt": true,
 }
 
 // responseModels is every generated row that can reach a JSON response. Models
@@ -67,6 +69,7 @@ var responseModels = []any{
 	store.DecisionSnooze{},
 	store.Device{},
 	store.DeviceShare{},
+	store.InstallmentPlan{},
 	store.PasswordReset{},
 	store.PushSubscription{},
 	store.Reminder{},

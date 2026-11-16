@@ -6,10 +6,22 @@
 // `warranty.ts` / `subscription-types.ts`.
 //
 // Attribution rules:
-//   - a device's `purchasePriceVnd` counts in the month/year of `purchaseDate`;
+//   - a device's OWNERSHIP cost in VND counts in the month/year of
+//     `purchaseDate`;
 //   - a warranty package's `cost` counts in the month/year of its `startDate`
 //     (that's when the money was spent) and rolls up into the category of the
 //     device it protects.
+//
+// ── What "the device's cost" means (installment plans, §6.5) ──────────────
+//
+// Every device-level total here uses `ownershipCostVnd(device)` from
+// `lib/installment.ts`, which is the server's `ownershipCostVnd` when present
+// and `purchasePriceVnd` otherwise. For a device bought on instalments the
+// server sends the PLAN's total (down payment + N monthly payments + fees), so
+// the sticker price — which excludes fees and is not what the user pays — no
+// longer leaks into the spend ledger, the asset value or the đ/ngày ranking.
+// The field is additive: a payload from before 1.2 falls back to the sticker
+// price, which is exactly what it computed before.
 //
 // ── Currency ──────────────────────────────────────────────────────────────
 //
@@ -41,6 +53,7 @@ import { categoryLabel } from '@/lib/i18n/labels';
 import type { Locale } from '@/lib/i18n/locale';
 import { formatVND } from '@/lib/format';
 import { needsFxRate } from '@/lib/currency';
+import { ownershipCostVnd } from '@/lib/installment';
 
 export type SpendEntry = {
   amount: number;
@@ -77,7 +90,11 @@ export function buildSpendEntries(
       // value means the server could not know it (a foreign row with no stored
       // rate): it contributes 0 and `countUnknownPurchaseVnd` reports it, so the
       // page never quietly treats the raw number as đồng.
-      amount: d.purchasePriceVnd ?? 0,
+      //
+      // The basis is the OWNERSHIP cost (§6.5): the instalment total when the
+      // device has a plan, the sticker price otherwise. Both are already VND and
+      // already computed by the server.
+      amount: ownershipCostVnd(d) ?? 0,
       // `purchaseDate` is a calendar day. `new Date(day)` is UTC midnight, so a
       // purchase on the 1st of a month landed in the previous month (and year)
       // for every reader west of UTC; `toDayDate` anchors a day at local
@@ -123,13 +140,17 @@ export function countUnconvertedWarrantyCosts(
 }
 
 /**
- * Devices whose server-computed `purchasePriceVnd` is `null` — a foreign row
- * with no stored rate, reachable only through hand-edited data. Their purchase
- * price is unknown, not zero; the stats page says the total is incomplete
- * instead of adding the raw figure at par.
+ * Devices whose server-computed VND ownership cost is `null` — a foreign row
+ * with no stored rate, reachable only through hand-edited data. Their cost is
+ * unknown, not zero; the stats page says the total is incomplete instead of
+ * adding the raw figure at par.
+ *
+ * The function keeps its name (call sites and tests use it), but the value it
+ * looks at is now `ownershipCostVnd`, i.e. the same basis the totals above sum.
+ * A device whose instalment total is `null` for that reason is counted here too.
  */
 export function countUnknownPurchaseVnd(devices: readonly DeviceListItem[]): number {
-  return devices.filter((d) => d.purchasePriceVnd == null).length;
+  return devices.filter((d) => ownershipCostVnd(d) == null).length;
 }
 
 export function monthlySpendBuckets(entries: SpendEntry[], months = 12, locale: Locale) {
@@ -213,8 +234,8 @@ export function allTimeSpend(entries: SpendEntry[]): SpendTotals {
 }
 
 // Devices still covered by *some* warranty that hasn't ended yet. Value is the
-// device's server-computed VND purchase price — warranties are a service, not
-// an asset.
+// device's server-computed VND ownership cost (§6.5) — warranties are a service,
+// not an asset.
 export function activeAssetValue(devices: DeviceListItem[]) {
   const now = new Date();
   const active = devices.filter(
@@ -228,18 +249,19 @@ export function activeAssetValue(devices: DeviceListItem[]) {
       daysUntil(d.effectiveWarrantyEnd, now) >= 0,
   );
   return {
-    total: active.reduce((sum, d) => sum + (d.purchasePriceVnd ?? 0), 0),
+    total: active.reduce((sum, d) => sum + (ownershipCostVnd(d) ?? 0), 0),
     count: active.length,
   };
 }
 
-// Ranked by the server's VND value, not the raw numeric price: a $999 phone
-// (25,000,000 ₫) is more expensive than a 20,000,000 ₫ one even though 999 <
-// 20,000,000. A null (unknown) VND value sorts as 0 rather than being compared
-// as if it were a price.
+// Ranked by the server's VND ownership cost (§6.5), not the raw numeric price: a
+// $999 phone (25,000,000 ₫) is more expensive than a 20,000,000 ₫ one even though
+// 999 < 20,000,000, and a phone financed over 12 months costs more than its
+// sticker. A null (unknown) VND value sorts as 0 rather than being compared as if
+// it were a price.
 export function topExpensiveRollup(devices: DeviceListItem[], limit = 5): DeviceListItem[] {
   return [...devices]
-    .sort((a, b) => (b.purchasePriceVnd ?? 0) - (a.purchasePriceVnd ?? 0))
+    .sort((a, b) => (ownershipCostVnd(b) ?? 0) - (ownershipCostVnd(a) ?? 0))
     .slice(0, limit);
 }
 
@@ -255,8 +277,9 @@ export function yearsWithData(devices: DeviceListItem[]): number[] {
 // ---- Cost of ownership per day (đ/ngày, FEATURE_IDEAS #7) --------------------
 //
 // The one number every cumulative rollup above cannot answer: "món này có đáng
-// tiền không". `(purchasePriceVnd + Σ converted warranty cost − soldPriceVnd) ÷
-// days owned`.
+// tiền không". `(ownershipCostVnd + Σ converted warranty cost − soldPriceVnd) ÷
+// days owned`. `ownershipCostVnd` is the server's installment-aware basis (§6.5)
+// and equals `purchasePriceVnd` for a device that was paid for outright.
 //
 // Currency rule: only the server's `…Vnd` device values are used. A foreign
 // warranty package has no `costVnd` in the frozen contract, so it is left out
@@ -304,10 +327,25 @@ export function yearsWithData(devices: DeviceListItem[]): number[] {
 // 7. `0 ₫` SPENT MEANS "CHƯA GHI GIÁ", NOT "FREE". `hasNoRecordedCost` marks it
 //    and the ranking excludes those rows (a 0 ₫/ngày winner would be noise).
 
-/** Minimal structural input — the detail page's `DeviceDetail` also fits. */
+/**
+ * Minimal structural input — the detail page's `DeviceDetail` also fits.
+ *
+ * `purchasePrice`/`ownershipCostVnd` joined the pick with the installment ledger
+ * (§6.5): the numerator is the OWNERSHIP cost, so a financed device's đ/ngày is
+ * based on what it will actually have cost, not the sticker price. Both are
+ * optional on the wire, and `ownershipCostVnd` falls back to `purchasePriceVnd`
+ * (see `lib/installment.ts`), so a pre-1.2 payload computes exactly what it did
+ * before.
+ */
 export type CostPerDayDevice = Pick<
   DeviceListItem,
-  'purchaseDate' | 'currency' | 'purchasePriceVnd' | 'soldAt' | 'soldPriceVnd'
+  | 'purchaseDate'
+  | 'currency'
+  | 'purchasePrice'
+  | 'purchasePriceVnd'
+  | 'ownershipCostVnd'
+  | 'soldAt'
+  | 'soldPriceVnd'
 >;
 
 export type DeviceCostPerDay = {
@@ -428,8 +466,18 @@ export function costPerDay(
   const fromDay = dayKey(device.purchaseDate);
   if (fromDay == null) return null;
 
-  const purchasePart = nonNegative(device.purchasePriceVnd);
-  const hasUnknownPurchaseValue = device.purchasePriceVnd == null;
+  // The ownership basis, not the sticker price: for a device bought on
+  // instalments the server's `ownershipCostVnd` is the plan total (down payment
+  // + payments + fees). The value is signed-checked because a negative or
+  // non-finite value must never make a device look cheaper than it was.
+  const ownedVnd = ownershipCostVnd({
+    purchasePrice: device.purchasePrice,
+    purchasePriceVnd: device.purchasePriceVnd,
+    currency: device.currency,
+    ownershipCostVnd: device.ownershipCostVnd,
+  });
+  const purchasePart = nonNegative(ownedVnd);
+  const hasUnknownPurchaseValue = ownedVnd == null;
   const foreignCurrency = needsFxRate(device.currency);
 
   let warrantyPart = 0;

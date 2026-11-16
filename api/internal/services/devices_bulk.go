@@ -355,7 +355,7 @@ func BulkCreateDevices(ctx context.Context, db *pgxpool.Pool, userID string, inp
 		warByDevice[w.DeviceId] = append(warByDevice[w.DeviceId], w)
 	}
 	for _, d := range created {
-		result.Created = append(result.Created, withVNDAndWarranties(d, warByDevice[d.ID]))
+		result.Created = append(result.Created, withVNDAndWarranties(d, warByDevice[d.ID], nil))
 	}
 
 	if err := tx.Commit(ctx); err != nil {

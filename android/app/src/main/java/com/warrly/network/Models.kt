@@ -472,6 +472,33 @@ data class Device(
      */
     val soldPriceVnd: Long? = null,
     /**
+     * The device's installment plan ("trả góp", FEATURE_RESEARCH_2026-11 §6.5,
+     * migration 0031), or `null` when it was paid for outright.
+     *
+     * This is the USER's own record of a financing schedule — a down payment, N
+     * monthly payments, optional fees and how many payments they say they have
+     * made. It is **not** a bank ledger: the app cannot see a transaction, which
+     * is why there is no "overdue" flag anywhere and no reminder in this wave.
+     *
+     * Money inside the plan is in [currency], the same unit as [purchasePrice].
+     *
+     * **Read-only on Android.** There is no editor here on purpose (§6.5: the
+     * Android editor was cut from wave 1); the detail card shows the plan and
+     * points at the web app to change it. The write path is
+     * `PUT /api/v1/devices/{id}/installment`, never the device PATCH.
+     */
+    val installment: InstallmentPlan? = null,
+    /**
+     * The server-computed VND money basis for this device: the plan's total when
+     * [installment] exists, `purchasePriceVnd` otherwise.
+     *
+     * This is what every dong total must use (see [deviceOwnershipCostVnd]).
+     * `null` means "cannot be known" (a non-VND row with no usable rate), never
+     * zero. Optional because a server that predates the field omits it, in which
+     * case the client falls back to `purchasePriceVnd`.
+     */
+    val ownershipCostVnd: Long? = null,
+    /**
      * Exchange / return window ("1 đổi 1") length in days, recorded by the user
      * for **this** device (migration 0010). Three states, and they are all
      * different:
@@ -657,6 +684,55 @@ data class Device(
 )
 
 @Serializable
+/**
+ * One device's financing schedule (openapi `InstallmentPlan`, migration 0031,
+ * FEATURE_RESEARCH_2026-11 §6.5).
+ *
+ * Every amount is in the DEVICE's currency (`Device.currency`), not necessarily
+ * dong. The only VND figure is [`Device.ownershipCostVnd`].
+ *
+ * `totalCost`, `paidAmount`, `remainingAmount`, `nextDueAt`, `completed` and
+ * `hasUnknownFees` are derived **server-side** on every read (including the
+ * month-clamp rule for `nextDueAt`) — this client displays them and never
+ * re-adds the parts.
+ *
+ * `paidCount` is self-reported, so nothing here may be phrased as "overdue".
+ */
+data class InstallmentPlan(
+    val deviceId: String = "",
+    /** Paid at signing, in the device's currency. `0` is a real answer. */
+    val downPayment: Int = 0,
+    /** Number of monthly payments, 1..60. */
+    val months: Int = 0,
+    /** Scheduled payment per month, > 0. */
+    val monthlyAmount: Int = 0,
+    /** Calendar day (`YYYY-MM-DD`) the FIRST payment is due — never an instant. */
+    val firstDueAt: String = "",
+    /** Optional fee; `null` = the user did not say, NOT zero. */
+    val fileFee: Int? = null,
+    /** Optional per-payment fee; same `null` rule. */
+    val monthlyFee: Int? = null,
+    /** Payments the user says they made, 0..[months]. */
+    val paidCount: Int = 0,
+    val lender: String? = null,
+    /** Reserved reminder dedup stamp; always `null` in 1.2. */
+    val notifiedDueAt: String? = null,
+    /** The lead day [notifiedDueAt] belongs to; always `null` in 1.2. */
+    val notifiedLeadDay: Int? = null,
+    /** Derived: total ownership cost in the device's currency (lower bound if fees unknown). */
+    val totalCost: Int = 0,
+    /** Derived: part of [totalCost] already paid. */
+    val paidAmount: Int = 0,
+    /** Derived: money still owed in instalments; `0` when complete. */
+    val remainingAmount: Int = 0,
+    /** Derived: `firstDueAt + paidCount` months, day-clamped. `null` when complete. */
+    val nextDueAt: String? = null,
+    /** Derived: [paidCount] == [months]. */
+    val completed: Boolean = false,
+    /** Derived: a fee is unknown, so every total is a LOWER BOUND. */
+    val hasUnknownFees: Boolean = false,
+)
+
 data class DeviceListResponse(val devices: List<Device>)
 
 /**

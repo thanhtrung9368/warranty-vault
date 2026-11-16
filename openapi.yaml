@@ -844,6 +844,78 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /api/v1/devices/{id}/installment:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
+    put:
+      tags: [devices]
+      summary: Lưu (hoặc thay thế) kế hoạch trả góp của thiết bị
+      description: |
+        **Idempotent** — gửi lại cùng payload cho cùng kết quả: kế hoạch được
+        khoá theo `deviceId` nên đây là upsert, không phải "tạo".
+
+        Đây là **đường ghi duy nhất** của kế hoạch. Nó cố ý không nằm trong
+        `DeviceUpdateInput`: PATCH thiết bị thay thế toàn bộ thiết bị, và client
+        chưa biết trường này (build 23) sẽ xoá mất kế hoạch mỗi lần sửa. Vì vậy
+        kế hoạch **không thể** bị xoá bởi một lần sửa thiết bị.
+
+        Số tiền trong payload là **đơn vị tiền của thiết bị** (`Device.currency`).
+        Vì thế **không đổi được `currency` của thiết bị khi đang có kế hoạch**:
+        PATCH thiết bị trả 400 `fieldErrors.currency` cho tới khi xoá kế hoạch.
+        Đổi đơn vị mà giữ số sẽ âm thầm đổi nghĩa từng khoản.
+
+        Trả về **toàn bộ thiết bị** (cùng hình dạng `GET /api/v1/devices/{id}`),
+        nên client nhận luôn `installment` và `ownershipCostVnd` đã tính lại.
+
+        Validation (400 `fieldErrors`, cùng hình dạng mọi endpoint khác):
+          * `months` 1–60 — `0` không phải "không có kế hoạch"; dùng `DELETE`;
+          * `monthlyAmount > 0`;
+          * `paidCount` 0…`months` (trả trước hợp lệ, vượt số kỳ thì không);
+          * `downPayment`, `fileFee`, `monthlyFee` ≥ 0;
+          * `firstDueAt` bắt buộc, đọc được;
+          * `lender` ≤ 100 ký tự.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InstallmentInput' }
+      responses:
+        '200':
+          description: Đã lưu. Kèm thiết bị đã đọc lại với `installment` + `ownershipCostVnd`.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  device: { $ref: '#/components/schemas/DeviceDetail' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+    delete:
+      tags: [devices]
+      summary: Xoá kế hoạch trả góp của thiết bị
+      description: |
+        **Idempotent**: thiết bị không có kế hoạch vẫn trả 200 — trạng thái đích
+        đã đạt. Thiết bị của tài khoản khác vẫn là 404 (kiểm tra quyền sở hữu
+        thiết bị trước), nên endpoint không dùng để dò id được.
+
+        Sau khi xoá, mọi con số tiền quay lại cơ sở `purchasePrice` /
+        `purchasePriceVnd`, và `currency` của thiết bị đổi được trở lại.
+      responses:
+        '200':
+          description: Đã xoá (hoặc vốn không có). Kèm thiết bị đã đọc lại.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  device: { $ref: '#/components/schemas/DeviceDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
   /api/v1/devices/{id}/warranties:
     parameters:
       - { $ref: '#/components/parameters/IdPath' }
@@ -4329,6 +4401,38 @@ components:
           description: 'Mốc `leadDays` của `extendedCoverNotifiedAt`; null ở payload cũ hoặc khi chưa nhắc.'
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+        installment:
+          type: object
+          nullable: true
+          required: [downPayment, months, monthlyAmount, firstDueAt, paidCount, createdAt, updatedAt]
+          description: |
+            Kế hoạch trả góp của thiết bị (migration 0031). **Vắng mặt** ở thiết
+            bị không trả góp **và** ở mọi file backup xuất trước 0031 — đó là lý
+            do payload vẫn giữ version 5/6 (một file cũ import **đúng**, nghĩa là
+            "không có kế hoạch"). Nhờ vậy payload của người dùng không trả góp
+            vẫn byte-for-byte giống bản trước 0031.
+
+            Mang theo trường này là bắt buộc về mặt ý nghĩa: kế hoạch là bản ghi
+            duy nhất về số tiền thiết bị thực sự tốn (trả trước + N kỳ + phí);
+            mất nó khi khôi phục sẽ âm thầm đưa cơ sở tiền của cost-per-day,
+            lãi/lỗ khi bán lại và `/stats` về giá niêm yết.
+
+            Số tiền là **đơn vị tiền của thiết bị**, không phải VND. Giống
+            `currency`/`fxRate`, đây là nhóm trường additive: file cũ không có
+            khoá này vẫn import được.
+          properties:
+            downPayment: { type: integer, minimum: 0 }
+            months: { type: integer, minimum: 1, maximum: 60 }
+            monthlyAmount: { type: integer, minimum: 1 }
+            firstDueAt: { type: string, format: date-time, description: 'Ngày kỳ đầu đến hạn. Trong file backup mọi ngày là RFC 3339 (cùng quy ước với `soldAt` ở đây); chỉ NGÀY được giữ.' }
+            fileFee: { type: integer, nullable: true, minimum: 0, description: 'Phí hồ sơ; null = chưa nói (không phải 0).' }
+            monthlyFee: { type: integer, nullable: true, minimum: 0, description: 'Phí mỗi kỳ; null = chưa nói.' }
+            paidCount: { type: integer, minimum: 0, description: 'Số kỳ người dùng tự khai đã trả; import từ chối cả file nếu lớn hơn `months`.' }
+            lender: { type: string, nullable: true, maxLength: 100 }
+            notifiedDueAt: { type: string, format: date-time, nullable: true, description: 'Dấu nhắc kỳ tới (wave sau). Luôn null ở wave 1; mang theo để khôi phục không nhắc lại.' }
+            notifiedLeadDay: { type: integer, nullable: true }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
         warranties:
           type: array
           items:
@@ -4789,7 +4893,7 @@ components:
 
     Device:
       type: object
-      required: [id, name, category, purchaseDate, purchasePrice, currency, purchasePriceVnd, status, activationRequired, leadDays, warrantyMismatch]
+      required: [id, name, category, purchaseDate, purchasePrice, currency, purchasePriceVnd, ownershipCostVnd, installment, status, activationRequired, leadDays, warrantyMismatch]
       properties:
         id: { type: string }
         userId: { type: string }
@@ -5121,6 +5225,173 @@ components:
             ghi ngày hãng; hoặc có `brandWarrantyEnd` nhưng thiết bị không có gói
             bảo hành toàn máy nào). Chỉ **một** chênh lệch được trả về; thứ tự ưu
             tiên nằm trong mô tả `WarrantyMismatch`.
+        ownershipCostVnd:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            **Trường tính sẵn, chỉ đọc** — cơ sở tiền mà mọi phép cộng phải
+            dùng (FEATURE_RESEARCH_2026-11 §6.5, migration 0031):
+
+            * thiết bị **có** kế hoạch trả góp ⇒ **tổng chi phí sở hữu** quy ra
+              VND bằng tỷ giá đã khoá: `downPayment + months×monthlyAmount +
+              fileFee + months×monthlyFee` (nhân `fxRate` khi `currency` khác
+              VND);
+            * **không** có kế hoạch ⇒ đúng bằng `purchasePriceVnd`.
+
+            Vì sao cần: `purchasePrice` là giá niêm yết, còn người mua trả góp
+            thực trả nhiều hơn (phí + lãi trả chậm). Dùng giá niêm yết ở
+            cost-per-day, lãi/lỗ khi bán lại và `/stats` làm cả ba con số đó sai
+            — và làm lãi/lỗ có thể **đảo dấu**.
+
+            `null` trong đúng trường hợp `purchasePriceVnd` là `null` (dòng
+            ngoại tệ thiếu tỷ giá). Client cũ chỉ đọc `purchasePriceVnd` vẫn
+            chạy; client mới phải đọc trường này.
+
+            Chi phí là **cận dưới** khi `installment.hasUnknownFees = true`.
+        installment:
+          allOf: [{ $ref: '#/components/schemas/InstallmentPlan' }]
+          nullable: true
+          description: |
+            Kế hoạch trả góp của thiết bị, **đọc từ bảng riêng** (migration
+            0031). `null` = không trả góp.
+
+            **Chỉ đọc ở đây.** Kế hoạch được ghi **duy nhất** qua
+            `PUT /api/v1/devices/{id}/installment` và xoá qua `DELETE` cùng
+            đường dẫn — **không** nằm trong `DeviceCreateInput` /
+            `DeviceUpdateInput`. Lý do: PATCH thiết bị thay thế toàn bộ thiết bị,
+            nên một client không biết trường này (build 23 đang chờ duyệt) sẽ
+            **xoá mất kế hoạch** mỗi lần sửa thiết bị. Trường này luôn có mặt
+            (`null` khi không có kế hoạch) để client render vô điều kiện.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    # The user's self-reported financing schedule (migration 0031, §6.5).
+    # Derived money fields are computed on every read — no stored totals.
+    InstallmentPlan:
+      type: object
+      required: [deviceId, downPayment, months, monthlyAmount, firstDueAt, paidCount, totalCost, paidAmount, remainingAmount, completed, hasUnknownFees]
+      description: |
+        Kế hoạch trả góp (FEATURE_RESEARCH_2026-11 §6.5). Đây là **lời khai của
+        người dùng**, không phải sổ giao dịch ngân hàng: app không thấy giao dịch
+        nào và server không suy ra lần nào đã trả.
+
+        Vì vậy wave 1 **không có nhắc và không có push**, và **không có cờ
+        "quá hạn"**. `paidCount` do người dùng tự khai, nên một câu "quá hạn" sai
+        sẽ là lỗi phá niềm tin nhất của một tính năng tiền. `nextDueAt` chỉ nói
+        lịch; giao diện có thể nói ngày đó đã qua, nhưng server không gọi người
+        dùng là chậm.
+
+        Mọi trường `…Amount` / `…Cost` ở đây là **đơn vị tiền của thiết bị**
+        (`Device.currency`), cùng đơn vị với `purchasePrice`. Con số VND duy nhất
+        là `Device.ownershipCostVnd`.
+
+        Tổng, số đã trả, số còn nợ và kỳ tới **không được lưu**: chúng được tính
+        lại trên mỗi lần đọc, nên không thể lệch với kế hoạch đã nhập.
+      properties:
+        deviceId: { type: string }
+        downPayment:
+          type: integer
+          minimum: 0
+          description: |
+            Số tiền trả trước tại lúc ký, đơn vị tiền của thiết bị. `0` là câu
+            trả lời thật (khuyến mãi 0% trả trước).
+        months:
+          type: integer
+          minimum: 1
+          maximum: 60
+          description: Số kỳ trả góp theo tháng, 1–60.
+        monthlyAmount:
+          type: integer
+          minimum: 1
+          description: Số tiền mỗi kỳ, đơn vị tiền của thiết bị; phải > 0.
+        firstDueAt:
+          type: string
+          format: date
+          description: |
+            Ngày **kỳ đầu tiên** đến hạn — **ngày lịch** (`YYYY-MM-DD`), không
+            phải instant. Một ngày đến hạn không được đổi theo múi giờ.
+        fileFee:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: |
+            Phí hồ sơ (một lần), nếu người dùng có ghi. `null` = **chưa nói**,
+            **không** phải 0 — phí chưa biết làm tổng chi phí thành **cận dưới**
+            (xem `hasUnknownFees`).
+        monthlyFee:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: |
+            Phí mỗi kỳ (phí chuyển đổi/bảo hiểm khoản vay…), nếu có ghi. `null` =
+            chưa nói, cùng quy tắc `fileFee`.
+        paidCount:
+          type: integer
+          minimum: 0
+          description: |
+            Số kỳ người dùng **tự khai** đã trả, `0…months`. Trả trước (nhiều kỳ
+            hơn lịch) hợp lệ; vượt quá `months` là 400.
+        lender:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: Nơi trả góp, chữ tự do ("Home Credit", "FPT Shop trả góp"…); `null` = chưa ghi.
+        notifiedDueAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Dấu chống trùng cho nhắc kỳ tới (dành cho wave sau). Wave 1 **không
+            push** nên trường này luôn `null`; nó tồn tại để wave sau thêm nhắc
+            mà không cần migration mới. Là chi tiết vận hành.
+        notifiedLeadDay:
+          type: integer
+          nullable: true
+          description: Mốc nhắc (số ngày trước hạn) ứng với `notifiedDueAt`. Luôn `null` ở wave 1.
+        totalCost:
+          type: integer
+          format: int64
+          description: |
+            **Tính sẵn.** Tổng chi phí sở hữu theo kế hoạch, đơn vị tiền của
+            thiết bị:
+            `downPayment + months×monthlyAmount + fileFee + months×monthlyFee`
+            (phí vắng mặt tính là 0, nên tổng là **cận dưới** khi
+            `hasUnknownFees`). Đây là cơ sở để tính lãi/lỗ khi bán lại và
+            cost-per-day.
+        paidAmount:
+          type: integer
+          format: int64
+          description: |
+            **Tính sẵn.** Phần đã trả trong `totalCost`: tiền trả trước + phí hồ
+            sơ (trả lúc ký) + `paidCount` kỳ. Bằng `totalCost` khi
+            `completed = true`.
+        remainingAmount:
+          type: integer
+          format: int64
+          description: |
+            **Tính sẵn.** Số tiền **còn nợ** theo kế hoạch:
+            `(months − paidCount) × (monthlyAmount + monthlyFee)`. `0` khi
+            `completed = true`. Không bao gồm phần đã trả lúc ký.
+        nextDueAt:
+          type: string
+          format: date
+          nullable: true
+          description: |
+            **Tính sẵn.** Ngày kỳ kế tiếp: `firstDueAt` cộng `paidCount` tháng,
+            **kẹp vào ngày cuối tháng** khi tháng đích ngắn hơn (31/01 + 1 tháng
+            = 28/02, hoặc 29/02 năm nhuận). `null` khi `completed = true` — không
+            còn kỳ nào để trễ.
+        completed:
+          type: boolean
+          description: "**Tính sẵn.** `paidCount == months` — kế hoạch đã trả xong."
+        hasUnknownFees:
+          type: boolean
+          description: |
+            **Tính sẵn.** `true` khi `fileFee` hoặc `monthlyFee` là `null`: người
+            dùng chưa nói, nên `totalCost` (và do đó `ownershipCostVnd`, số còn
+            nợ, cơ sở lãi/lỗ) là **cận dưới**, không phải con số chắc chắn. Giao
+            diện phải nói rõ điều đó thay vì trình bày một con số như sự thật.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -5732,6 +6003,54 @@ components:
     # field. PATCH uses DeviceUpdateInput below — a wishlist item is consumed by
     # a NEW device, so `fromWishlistId` has no meaning on update and the strict
     # decoder rejects it there.
+    InstallmentInput:
+      type: object
+      required: [downPayment, months, monthlyAmount, firstDueAt, paidCount]
+      description: |
+        Body của `PUT /api/v1/devices/{id}/installment` (FEATURE_RESEARCH_2026-11
+        §6.5). Chỉ chứa những gì **người dùng khai**; `notifiedDueAt` /
+        `notifiedLeadDay` là dấu vận hành của wave sau, không ghi được từ đây.
+
+        Số tiền là **đơn vị tiền của thiết bị** (`Device.currency`) — cùng đơn vị
+        với `purchasePrice`.
+      properties:
+        downPayment:
+          type: integer
+          minimum: 0
+          description: Trả trước tại lúc ký, đơn vị tiền của thiết bị. `0` hợp lệ.
+        months:
+          type: integer
+          minimum: 1
+          maximum: 60
+          description: Số kỳ theo tháng, 1–60.
+        monthlyAmount:
+          type: integer
+          minimum: 1
+          description: Số tiền mỗi kỳ, > 0.
+        firstDueAt:
+          type: string
+          format: date
+          description: Ngày kỳ đầu đến hạn — ngày lịch `YYYY-MM-DD` (hoặc ISO đầy đủ; chỉ ngày được giữ).
+        fileFee:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: Phí hồ sơ một lần. Vắng mặt/`null` = **chưa nói**, không phải 0.
+        monthlyFee:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: Phí mỗi kỳ. Vắng mặt/`null` = **chưa nói**, không phải 0.
+        paidCount:
+          type: integer
+          minimum: 0
+          description: Số kỳ đã trả (tự khai), 0…`months`.
+        lender:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: Nơi trả góp, chữ tự do.
+
     DeviceCreateInput:
       allOf:
         - $ref: '#/components/schemas/DeviceInput'
@@ -6789,10 +7108,18 @@ components:
               type: integer
               format: int64
               description: |
-                Tổng giá mua của **mọi** thiết bị, quy ra VND bằng tỷ giá đã khoá
-                trên từng dòng (migration 0022) — chính là tổng của
-                `Device.purchasePriceVnd`. Với tài khoản chỉ dùng VND, con số này
-                **bằng đúng** `SUM(purchasePrice)` như trước 0022.
+                Tổng **chi phí sở hữu** của mọi thiết bị, quy ra VND bằng tỷ giá
+                đã khoá trên từng dòng (migration 0022, 0031) — chính là tổng
+                của `Device.ownershipCostVnd`: tổng kế hoạch trả góp khi thiết bị
+                có kế hoạch (§6.5), `purchasePriceVnd` khi không. Với tài khoản
+                chỉ dùng VND và không trả góp, con số này **bằng đúng**
+                `SUM(purchasePrice)` như trước 0022.
+
+                Vì sao không chỉ là giá niêm yết: người mua trả góp thực trả
+                nhiều hơn (phí, lãi trả chậm), nên cộng giá niêm yết làm con số
+                này lệch với `Device.ownershipCostVnd` mà cùng server trả về và
+                lệch với rollup của web/iOS — đúng kiểu ba client lệch nhau mà
+                §6.5 cảnh báo. Khi thiếu phí đã khai, tổng là **cận dưới**.
 
                 Thiết bị ngoại tệ mà thiếu tỷ giá (chỉ dữ liệu sửa tay) đóng góp
                 **0** — giá trị VND của nó là không biết, và cộng nó theo giá mặt

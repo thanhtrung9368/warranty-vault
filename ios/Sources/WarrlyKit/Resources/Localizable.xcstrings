@@ -1,6 +1,491 @@
 {
   "sourceLanguage" : "vi",
   "strings" : {
+    "Trả góp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installments"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trả góp"
+          }
+        }
+      }
+    },
+
+    "Còn nợ" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still owed"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Còn nợ"
+          }
+        }
+      }
+    },
+
+    "Chưa ghi phí, nên đây là mức tối thiểu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No fees recorded, so this is a lower bound"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa ghi phí, nên đây là mức tối thiểu"
+          }
+        }
+      }
+    },
+
+    "Đã trả xong" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fully paid"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã trả xong"
+          }
+        }
+      }
+    },
+
+    "Kỳ tới" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next payment"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kỳ tới"
+          }
+        }
+      }
+    },
+
+    "Kỳ đầu %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "First payment %@"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kỳ đầu %@"
+          }
+        }
+      }
+    },
+
+    "Tổng chi phí sở hữu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total cost of ownership"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tổng chi phí sở hữu"
+          }
+        }
+      }
+    },
+
+    "Sửa kế hoạch trả góp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit installment plan"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sửa kế hoạch trả góp"
+          }
+        }
+      }
+    },
+
+    "Chưa ghi trả góp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No installment plan recorded"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa ghi trả góp"
+          }
+        }
+      }
+    },
+
+    "Ghi kế hoạch để chi phí sở hữu và lãi/lỗ khi bán lại tính đúng số tiền bạn thật sự trả." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record a plan so ownership cost and resale profit/loss use what you actually pay."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ghi kế hoạch để chi phí sở hữu và lãi/lỗ khi bán lại tính đúng số tiền bạn thật sự trả."
+          }
+        }
+      }
+    },
+
+    "Ghi kế hoạch trả góp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Record an installment plan"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ghi kế hoạch trả góp"
+          }
+        }
+      }
+    },
+
+    "Chưa ghi phí hồ sơ / phí hàng tháng, nên tổng chi phí là mức tối thiểu." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The arrangement and monthly fees are not recorded, so the total cost is a lower bound."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa ghi phí hồ sơ / phí hàng tháng, nên tổng chi phí là mức tối thiểu."
+          }
+        }
+      }
+    },
+
+    "Đã trả %d/%d kỳ" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paid %d of %d payments"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã trả %d/%d kỳ"
+          }
+        }
+      }
+    },
+
+    "%@/kỳ" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/month"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/kỳ"
+          }
+        }
+      }
+    },
+
+    "Kế hoạch bạn tự ghi: trả trước, số kỳ và số tiền mỗi kỳ. App không biết ngân hàng đã trừ hay chưa." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A plan you record yourself: down payment, number of payments, amount per month. The app cannot see whether the bank actually charged you."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kế hoạch bạn tự ghi: trả trước, số kỳ và số tiền mỗi kỳ. App không biết ngân hàng đã trừ hay chưa."
+          }
+        }
+      }
+    },
+
+    "Trả trước" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Down payment"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trả trước"
+          }
+        }
+      }
+    },
+
+    "Số kỳ (tháng)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Number of months"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Số kỳ (tháng)"
+          }
+        }
+      }
+    },
+
+    "Mỗi kỳ trả" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amount per payment"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mỗi kỳ trả"
+          }
+        }
+      }
+    },
+
+    "Phí hồ sơ" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrangement fee"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Phí hồ sơ"
+          }
+        }
+      }
+    },
+
+    "Phí mỗi kỳ" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly fee"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Phí mỗi kỳ"
+          }
+        }
+      }
+    },
+
+    "Đã trả (số kỳ)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payments made"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã trả (số kỳ)"
+          }
+        }
+      }
+    },
+
+    "Nơi trả góp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lender"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nơi trả góp"
+          }
+        }
+      }
+    },
+
+    "Ví dụ: Home Credit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For example: Home Credit"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ví dụ: Home Credit"
+          }
+        }
+      }
+    },
+
+    "Để trống một khoản phí nghĩa là “chưa biết”, không phải 0 — khi đó tổng chi phí chỉ là mức tối thiểu." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leaving a fee blank means “not known”, not 0 — without it the total cost is only a lower bound."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Để trống một khoản phí nghĩa là “chưa biết”, không phải 0 — khi đó tổng chi phí chỉ là mức tối thiểu."
+          }
+        }
+      }
+    },
+
+    "Số tiền tính theo đơn vị tiền của thiết bị (%@)." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amounts are in the device’s currency (%@)."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Số tiền tính theo đơn vị tiền của thiết bị (%@)."
+          }
+        }
+      }
+    },
+
+    "Xoá kế hoạch trả góp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete installment plan"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xoá kế hoạch trả góp"
+          }
+        }
+      }
+    },
+
+    "Ngày kỳ đầu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "First payment date"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngày kỳ đầu"
+          }
+        }
+      }
+    },
     "\"%@\" sẽ bị xoá vĩnh viễn cùng toàn bộ gói bảo hành." : {
       "extractionState" : "manual",
       "localizations" : {

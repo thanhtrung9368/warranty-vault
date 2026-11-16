@@ -142,6 +142,18 @@
     <string name="devdetail_sale_date">Ngày bán</string>
     <string name="devdetail_sale_price">Giá bán</string>
     <string name="devdetail_profit_loss">Lãi/lỗ</string>
+    <!-- Kế hoạch trả góp (§6.5). Chỉ đọc trên Android — sửa trên web. Không câu
+         nào nói "quá hạn": `paidCount` là người dùng tự khai. -->
+    <string name="devdetail_installment">Trả góp</string>
+    <string name="devdetail_installment_progress">Đã trả %1$d/%2$d kỳ</string>
+    <string name="devdetail_installment_per_period">kỳ</string>
+    <string name="devdetail_installment_completed">Đã trả xong</string>
+    <string name="devdetail_installment_remaining">Còn nợ</string>
+    <string name="devdetail_installment_total">Tổng chi phí sở hữu</string>
+    <string name="devdetail_installment_next_due">Kỳ tới</string>
+    <string name="devdetail_installment_lender">Nơi trả góp</string>
+    <string name="devdetail_installment_unknown_fees">Chưa ghi phí, nên tổng chi phí là mức tối thiểu.</string>
+    <string name="devdetail_installment_edit_on_web">Sửa trên web</string>
     <string name="devdetail_reminder_turned_off">Đã tắt nhắc</string>
     <string name="devdetail_starts">Bắt đầu</string>
     <string name="devdetail_ends">Kết thúc</string>

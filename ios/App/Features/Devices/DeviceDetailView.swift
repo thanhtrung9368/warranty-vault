@@ -251,9 +251,14 @@ struct DeviceDetailView: View {
         // Only what can actually be drawn: a date that reads as a calendar day, or
         // a price. Anything else would render an empty section.
         guard day != nil || price != nil else { return nil }
+        // The basis is what the device COST, not the sticker price: for a
+        // financed device that is the installment plan's total (down payment +
+        // every payment + fees, §6.5). Subtracting the sticker price would
+        // understate the cost by the fees and can flip a real loss into an
+        // apparent gain.
         return (day,
                 price,
-                DeviceResale.profitLoss(purchasePrice: currentDevice.purchasePrice,
+                DeviceResale.profitLoss(costBasis: currentDevice.ownershipCost,
                                         soldPrice: price,
                                         currency: currentDevice.currency))
     }
@@ -470,6 +475,22 @@ struct DeviceDetailView: View {
                                   title: "Serial / IMEI",
                                   detail: currentDevice.serialNumber ?? "—")
                 }
+
+                // Installment plan ("Trả góp", FEATURE_RESEARCH_2026-11 §6.5,
+                // migration 0031). Read-only rows plus its own edit sheet: the
+                // plan is written by a dedicated endpoint so a device save can
+                // never erase it. Shown for every device — when there is no plan
+                // the row is the way to record one.
+                InstallmentSection(
+                    client: client,
+                    device: currentDevice,
+                    onChanged: {
+                        // The card, the resale profit/loss and the money totals
+                        // all read the list projection, so re-read it rather than
+                        // trusting a local copy.
+                        Task { await devicesStore.refresh() }
+                    }
+                )
 
                 // Warranty activation / extended cover (Feature A). Read-only;
                 // the three fields are edited in the device form. The activation
@@ -1397,7 +1418,11 @@ private struct DeviceDetailSkeleton: View {
 /// roles §8.2 asks for and `WVRow` does not carry: the trailing value is
 /// `rowValue` (17 **medium**, `label3`, §2) and the title keeps layout priority
 /// so it is never the thing that truncates first (§10.3 check 8).
-private struct DeviceFactRow: View {
+///
+/// Internal rather than file-private so the other sections of this same screen
+/// that live in their own files — `InstallmentSection` (§6.5) — can use the
+/// identical row instead of copying the geometry.
+struct DeviceFactRow: View {
     var icon: String?
     let title: String
     var subtitle: String?

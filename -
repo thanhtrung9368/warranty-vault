@@ -1,0 +1,13 @@
+{
+  "application-identifier" : "H572CC5N6D.com.warrly",
+  "aps-environment" : "development",
+  "com.apple.developer.team-identifier" : "H572CC5N6D",
+  "com.apple.security.application-groups" : [
+    "group.com.warrly"
+  ],
+  "get-task-allow" : true,
+  "keychain-access-groups" : [
+    "H572CC5N6D.*",
+    "com.apple.token"
+  ]
+}

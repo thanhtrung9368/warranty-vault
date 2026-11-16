@@ -31,6 +31,20 @@ GROUP BY status;
 -- genuinely unknown, so it contributes nothing (NULL) rather than being counted
 -- at par — the same honesty rule the per-device `purchasePriceVnd` follows.
 --
+-- ∎ Installment plans (migration 0031, FEATURE_RESEARCH_2026-11 §6.5).
+-- For a device bought on instalments the sticker price is NOT what the user
+-- pays: the down payment plus every monthly payment plus the fees is. Summing
+-- the sticker price here made `/stats` disagree with the per-device
+-- `ownershipCostVnd` the same server sends (and with the web/iOS rollups, which
+-- read that field) — the exact three-client drift §6.5 warns about.
+--
+-- The expression below is the SQL twin of `services/installment.go::
+-- newInstallmentPlan`: `downPayment + months×monthlyAmount + fileFee +
+-- months×monthlyFee`, with a missing fee counted as 0 (a LOWER BOUND, which is
+-- why clients also carry `hasUnknownFees`). Same precedent as the fx rule
+-- above: stats pushes the per-row rule into SQL so the aggregate and the row
+-- cannot answer differently. Keep the two in step.
+--
 -- ROUND (half away from zero) rather than truncation: 25,860.555369 VND/USD
 -- times 999 USD is 25,834,694.81 VND, and the rollup should not lose a dong to
 -- integer division. numeric in the middle, bigint at the end: the product of two
@@ -39,11 +53,24 @@ SELECT
     COUNT(*)::bigint AS total,
     COALESCE(SUM(
         CASE
-            WHEN d.currency = 'VND' THEN d."purchasePrice"::numeric
-            WHEN d."fxRate" IS NOT NULL THEN ROUND(d."purchasePrice"::numeric * d."fxRate")
+            WHEN d.currency = 'VND' THEN COALESCE(
+                p."downPayment"::numeric
+                    + p.months::numeric * p."monthlyAmount"::numeric
+                    + COALESCE(p."fileFee", 0)::numeric
+                    + p.months::numeric * COALESCE(p."monthlyFee", 0)::numeric,
+                d."purchasePrice"::numeric
+            )
+            WHEN d."fxRate" IS NOT NULL THEN ROUND(COALESCE(
+                p."downPayment"::numeric
+                    + p.months::numeric * p."monthlyAmount"::numeric
+                    + COALESCE(p."fileFee", 0)::numeric
+                    + p.months::numeric * COALESCE(p."monthlyFee", 0)::numeric,
+                d."purchasePrice"::numeric
+            ) * d."fxRate")
         END
     ), 0)::bigint AS total_purchase_price
 FROM "Device" d
+LEFT JOIN "InstallmentPlan" p ON p."deviceId" = d.id
 WHERE d."userId" = $1;
 
 -- name: StatsTopExpensiveDevices :many

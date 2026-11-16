@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { DeviceForm } from '@/components/device-form';
+import { InstallmentCard } from '@/components/installment-card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
@@ -120,6 +121,22 @@ export default async function EditDevicePage({
         }}
         brandLookupUrl={brandLookup.lookupUrl}
       />
+
+      {/* The installment plan has its OWN form under the device form, on
+          purpose (FEATURE_RESEARCH_2026-11 §6.5). It is never part of the device
+          PATCH: that request replaces the whole device, and a client that does
+          not know the plan (build 23) would erase it. Two forms also means a
+          validation error in one cannot block the other. */}
+      <div className="mt-6 space-y-3">
+        <h2 className="text-base font-semibold text-ink">
+          {t('Trả góp')}
+        </h2>
+        <InstallmentCard
+          deviceId={device.id}
+          plan={device.installment ?? null}
+          currency={device.currency}
+        />
+      </div>
     </PageShell>
   );
 }

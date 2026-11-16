@@ -218,6 +218,27 @@ type DeviceVND struct {
 	// "nothing to compare". The key is always present (null when nil), matching
 	// the contract's "an object or null" shape.
 	WarrantyMismatch *BrandWarrantyMismatch `json:"warrantyMismatch"`
+	// Installment is the device's financing plan ("trả góp",
+	// FEATURE_RESEARCH_2026-11 §6.5, migration 0031) with its derived totals, or
+	// nil when the device was paid for outright.
+	//
+	// It is READ-ONLY here. The plan is written exclusively through
+	// `PUT /api/v1/devices/{id}/installment`, never through the device PATCH:
+	// that endpoint replaces the whole device, and a client that predates this
+	// field (build 23 is in App Review) would erase the plan on every edit. The
+	// key is always present (`null` when there is no plan) so a client can
+	// render the section unconditionally.
+	Installment *InstallmentPlan `json:"installment"`
+	// OwnershipCostVnd is the money basis the rollups use, in VND: the
+	// instalment total when a plan exists, the sticker price otherwise. It is
+	// computed HERE, once, so cost-per-day, resale profit and /stats cannot
+	// disagree about what the device cost — and clients never re-do the fee
+	// arithmetic.
+	//
+	// ALWAYS present and nullable on exactly the same condition as
+	// `purchasePriceVnd` (a non-VND row with no usable locked rate). A client
+	// that predates the field keeps using `purchasePriceVnd`.
+	OwnershipCostVnd *int64 `json:"ownershipCostVnd"`
 }
 
 // withVND attaches the computed VND values to a stored device row. Callers that
@@ -225,7 +246,10 @@ type DeviceVND struct {
 // computed mismatch is attached in the same place; withVND alone leaves it nil,
 // which is the correct answer for a caller that genuinely has nothing to compare
 // (and the pre-0023 device read shape).
-func withVND(d store.Device) DeviceVND {
+//
+// `plan` is the device's installment plan, or nil when it has none; it decides
+// both `installment` and the `ownershipCostVnd` basis (see ownershipCostVnd).
+func withVND(d store.Device, plan *store.InstallmentPlan) DeviceVND {
 	out := DeviceVND{
 		Device:           d,
 		PurchasePriceVnd: vndValue(d.PurchasePrice, d.Currency, d.FxRate),
@@ -233,15 +257,20 @@ func withVND(d store.Device) DeviceVND {
 	if d.SoldPrice != nil {
 		out.SoldPriceVnd = vndValue(*d.SoldPrice, d.Currency, d.FxRate)
 	}
+	if plan != nil {
+		v := newInstallmentPlan(*plan)
+		out.Installment = v
+	}
+	out.OwnershipCostVnd = ownershipCostVnd(d, out.Installment)
 	return out
 }
 
 // withVNDAndWarranties is the device-read constructor: the VND values plus the
 // computed brand-warranty mismatch. Every read that has the warranty rows in
 // hand (list, detail, search, create, update) must use this so no endpoint
-// returns a device without the computed field.
-func withVNDAndWarranties(d store.Device, warranties []store.Warranty) DeviceVND {
-	out := withVND(d)
+// returns a device without the computed fields.
+func withVNDAndWarranties(d store.Device, warranties []store.Warranty, plan *store.InstallmentPlan) DeviceVND {
+	out := withVND(d, plan)
 	out.WarrantyMismatch = warrantyMismatchFor(d, warranties)
 	return out
 }
@@ -254,14 +283,23 @@ func withVNDAndWarranties(d store.Device, warranties []store.Warranty) DeviceVND
 // A missing/zero rate on a non-VND row returns nil: the VND value is unknown,
 // and reporting the face value (999 USD → 999 VND) would be the original bug.
 func vndValue(amount int32, currency string, rate *int32) *int64 {
+	return vndValue64(int64(amount), currency, rate)
+}
+
+// vndValue64 is vndValue for a 64-bit amount. The installment total is a sum of
+// many int32 amounts and is computed as int64 (a 60-month plan can legitimately
+// exceed int32), so the conversion has to accept the wider type. Same rule: VND
+// passes through, a non-VND row without a usable locked rate is nil (unknown),
+// never at par.
+func vndValue64(amount int64, currency string, rate *int32) *int64 {
 	if currency == "" || currency == "VND" {
-		v := int64(amount)
+		v := amount
 		return &v
 	}
 	if rate == nil || *rate <= 0 {
 		return nil
 	}
-	v := int64(amount) * int64(*rate)
+	v := amount * int64(*rate)
 	return &v
 }
 
@@ -781,6 +819,14 @@ func ListDevices(ctx context.Context, db *pgxpool.Pool, userID string, f DeviceF
 		}
 	}
 
+	// Installment plans (§6.5): one batch query for the same device ids, the
+	// same fan-out pattern as warranties/attachment counts. A device without a
+	// plan is simply absent from the map.
+	planByDevice, err := installmentPlansByDevice(ctx, q, userID, deviceIDs)
+	if err != nil {
+		return nil, fmt.Errorf("list installment plans: %w", err)
+	}
+
 	// Repair clock (§6.1 wave 1): one batch query for the same device ids.
 	// Devices with no closed claim are absent from the map and read as 0.
 	repairDays, err := repairExtensionsByDevice(ctx, q, userID, deviceIDs)
@@ -792,7 +838,7 @@ func ListDevices(ctx context.Context, db *pgxpool.Pool, userID string, f DeviceF
 		effectiveEnd := wholeUnitWarrantyEnd(warByDevice[d.ID])
 		days := repairDays[d.ID]
 		out = append(out, DeviceListItem{
-			DeviceVND:            withVNDAndWarranties(d, warByDevice[d.ID]),
+			DeviceVND:            withVNDAndWarranties(d, warByDevice[d.ID], planByDevice[d.ID]),
 			AttachmentCount:      countByDevice[d.ID],
 			EffectiveWarrantyEnd: effectiveEnd,
 			ReturnDeadline:       deviceReturnDeadline(d),
@@ -915,6 +961,12 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 	if err != nil {
 		return nil, fmt.Errorf("get claim promises: %w", err)
 	}
+	// Installment plan (§6.5). One row at most (the table's PK is deviceId), and
+	// "no plan" is a normal state, not an error.
+	plan, err := installmentPlanForDevice(ctx, q, userID, id)
+	if err != nil {
+		return nil, fmt.Errorf("get installment plan: %w", err)
+	}
 	// Repair clock (§6.1 wave 1). The claim rows above are the source, but the
 	// day arithmetic belongs to SQL: openedAt/closedAt are UTC instants and the
 	// extension is the difference between their VIETNAM calendar days, which is
@@ -927,7 +979,7 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 	effectiveEnd := wholeUnitWarrantyEnd(warranties)
 	days := repairDays[id]
 	return &DeviceDetail{
-		DeviceVND:            withVNDAndWarranties(d, warranties),
+		DeviceVND:            withVNDAndWarranties(d, warranties, plan),
 		EffectiveWarrantyEnd: effectiveEnd,
 		Warranties:           wr,
 		Attachments:          metas,
@@ -1048,7 +1100,10 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 	if err := tx.Commit(ctx); err != nil {
 		return DeviceVND{}, fmt.Errorf("commit: %w", err)
 	}
-	return withVNDAndWarranties(created, warranties), nil
+	// A device created in this call cannot have an installment plan: the plan's
+	// PK is the device id and no id exists before this insert. Passing nil is
+	// therefore a fact, not a shortcut.
+	return withVNDAndWarranties(created, warranties, nil), nil
 }
 
 // deviceCreateValues is the result of the create-only preparation step: every
@@ -1256,6 +1311,31 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 	if err != nil {
 		return DeviceVND{}, err
 	}
+	// Installment plan (§6.5): needed twice below — for the currency-change rule
+	// and for the response payload. The PATCH never WRITES it (that is the whole
+	// reason the plan lives outside DeviceInput), but the response is a device
+	// read, so it must carry the plan exactly like a GET does.
+	installmentPlan, err := installmentPlanForDevice(ctx, q, userID, id)
+	if err != nil {
+		return DeviceVND{}, fmt.Errorf("get installment plan: %w", err)
+	}
+	// The plan's amounts are denominated in the device's currency, so changing
+	// that currency afterwards would silently reinterpret every one of them
+	// (10,000,000 "VND" of monthly payments becoming "USD"). Refusing the change
+	// until the plan is removed keeps the stored numbers honest; the alternative
+	// — silently re-denominating — is the kind of quiet corruption a money
+	// feature cannot afford.
+	if installmentPlan != nil {
+		storedCurrency := current.Currency
+		if storedCurrency == "" {
+			storedCurrency = "VND"
+		}
+		if currency != storedCurrency {
+			return DeviceVND{}, ErrValidationHeadline(FieldErrors{
+				"currency": {i18n.Text(ctx, "Không đổi được loại tiền khi thiết bị đang có kế hoạch trả góp")},
+			})
+		}
+	}
 	brandWarranty, err := brandWarrantyForWrite(ctx, &in)
 	if err != nil {
 		return DeviceVND{}, err
@@ -1417,7 +1497,7 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 	if err := tx.Commit(ctx); err != nil {
 		return DeviceVND{}, fmt.Errorf("commit: %w", err)
 	}
-	return withVNDAndWarranties(updated, warranties), nil
+	return withVNDAndWarranties(updated, warranties, installmentPlan), nil
 }
 
 // DeleteDevice removes the device row (cascade handles warranties / attachments
