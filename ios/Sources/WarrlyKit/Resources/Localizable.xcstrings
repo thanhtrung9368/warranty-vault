@@ -25727,7 +25727,1690 @@
           }
         }
       }
-    }
+    },
+      "%@ – %@": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "%@ – %@"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "%@ – %@"
+            }
+          }
+        }
+      },
+      "%d B": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "%d B"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "%d B"
+            }
+          }
+        }
+      },
+      "%d/%d hoá đơn sẽ đi theo": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "%d/%d receipts will be included"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "%d/%d hoá đơn sẽ đi theo"
+            }
+          }
+        }
+      },
+      "App chỉ chuyển dữ liệu, không phải giấy tờ pháp lý.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The app only moves data; it is not a legal document."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "App chỉ chuyển dữ liệu, không phải giấy tờ pháp lý."
+            }
+          }
+        }
+      },
+      "Bạn cần đăng nhập để nhận thiết bị.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "You need to sign in to claim the device."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Bạn cần đăng nhập để nhận thiết bị."
+            }
+          }
+        }
+      },
+      "Bạn đang đăng nhập tài khoản người bán nên không thể tự nhận thiết bị của mình.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "You are signed in as the seller, so you cannot claim your own device."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Bạn đang đăng nhập tài khoản người bán nên không thể tự nhận thiết bị của mình."
+            }
+          }
+        }
+      },
+      "Bạn đã tạo một mã đang chờ người nhận, nhưng mã chỉ hiện ở lần tạo nên không xem lại được. Huỷ mã cũ rồi tạo mã mới nếu bạn cần gửi lại.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "You already have a code waiting for the recipient, but it is only shown when it is created, so it cannot be viewed again. Cancel the old code and create a new one if you need to send it again."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Bạn đã tạo một mã đang chờ người nhận, nhưng mã chỉ hiện ở lần tạo nên không xem lại được. Huỷ mã cũ rồi tạo mã mới nếu bạn cần gửi lại."
+            }
+          }
+        }
+      },
+      "Bảo hành còn lại": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Remaining warranty"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Bảo hành còn lại"
+            }
+          }
+        }
+      },
+      "Chuyển chủ": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Handoff"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Chuyển chủ"
+            }
+          }
+        }
+      },
+      "Chuyển chủ Warrly cho \"%@\"": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Warrly handoff for \"%@\""
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Chuyển chủ Warrly cho \"%@\""
+            }
+          }
+        }
+      },
+      "Chuyển chủ thiết bị": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Transfer device"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Chuyển chủ thiết bị"
+            }
+          }
+        }
+      },
+      "Chuyển dữ liệu sang tài khoản người mua bằng mã 6 ký tự.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Move the data to the buyer's account with a 6-character code."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Chuyển dữ liệu sang tài khoản người mua bằng mã 6 ký tự."
+            }
+          }
+        }
+      },
+      "Chuyển hồ sơ thiết bị này sang tài khoản của người nhận. Hai tài khoản phải có kết nối mạng; thiết bị của bạn vẫn giữ nguyên, rồi được đánh dấu đã bán khi người nhận xác nhận.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Move this device's record to the recipient's account. Both accounts need an internet connection; your device stays with you and is marked sold once the recipient confirms."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Chuyển hồ sơ thiết bị này sang tài khoản của người nhận. Hai tài khoản phải có kết nối mạng; thiết bị của bạn vẫn giữ nguyên, rồi được đánh dấu đã bán khi người nhận xác nhận."
+            }
+          }
+        }
+      },
+      "Chuyển từ người bán %@": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Transferred from the seller %@"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Chuyển từ người bán %@"
+            }
+          }
+        }
+      },
+      "Chọn hoá đơn cho người nhận xem. Hoá đơn có thể có giá — chỉ chọn tệp bạn muốn chuyển. Bỏ chọn tất cả nghĩa là không tệp nào đi theo.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Choose which receipts the recipient may see. Receipts can show prices — select only the files you want to hand over. Selecting none means no document travels."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Chọn hoá đơn cho người nhận xem. Hoá đơn có thể có giá — chỉ chọn tệp bạn muốn chuyển. Bỏ chọn tất cả nghĩa là không tệp nào đi theo."
+            }
+          }
+        }
+      },
+      "Chọn tất cả": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Select all"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Chọn tất cả"
+            }
+          }
+        }
+      },
+      "Các gói bảo hành còn lại: loại, nhà bảo hành, thời hạn và điều khoản": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Remaining warranty packages: type, provider, dates and terms"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Các gói bảo hành còn lại: loại, nhà bảo hành, thời hạn và điều khoản"
+            }
+          }
+        }
+      },
+      "Cách mã hoạt động": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "How the code works"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Cách mã hoạt động"
+            }
+          }
+        }
+      },
+      "Còn hiệu lực": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Active"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Còn hiệu lực"
+            }
+          }
+        }
+      },
+      "Có thể tạo mã mới từ %@.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "You can create a new code from %@."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Có thể tạo mã mới từ %@."
+            }
+          }
+        }
+      },
+      "Dán mã 6 ký tự hoặc link người bán gửi. Mã chỉ dùng được một lần.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Paste the 6-character code or the link the seller sent. The code can only be used once."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Dán mã 6 ký tự hoặc link người bán gửi. Mã chỉ dùng được một lần."
+            }
+          }
+        }
+      },
+      "Dữ liệu này do người bán chuyển sang. Warrly không xác nhận quyền sở hữu và không phải giấy tờ chuyển nhượng pháp lý.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "This data was transferred from the seller. Warrly does not confirm ownership, and this is not a legal transfer document."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Dữ liệu này do người bán chuyển sang. Warrly không xác nhận quyền sở hữu và không phải giấy tờ chuyển nhượng pháp lý."
+            }
+          }
+        }
+      },
+      "Dữ liệu đi theo thiết bị": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Data that moves with the device"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Dữ liệu đi theo thiết bị"
+            }
+          }
+        }
+      },
+      "Ghi chú riêng của thiết bị và của gói bảo hành": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Private notes on the device and on each warranty package"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Ghi chú riêng của thiết bị và của gói bảo hành"
+            }
+          }
+        }
+      },
+      "Hoá đơn đi kèm (%d)": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Included receipts (%d)"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Hoá đơn đi kèm (%d)"
+            }
+          }
+        }
+      },
+      "Hoá đơn đi theo": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Receipts to include"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Hoá đơn đi theo"
+            }
+          }
+        }
+      },
+      "Huỷ mã chuyển chủ": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Cancel handoff code"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Huỷ mã chuyển chủ"
+            }
+          }
+        }
+      },
+      "Huỷ mã chuyển chủ?": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Cancel this handoff code?"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Huỷ mã chuyển chủ?"
+            }
+          }
+        }
+      },
+      "Không có gói bảo hành nào đi theo.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "No warranty package is included."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Không có gói bảo hành nào đi theo."
+            }
+          }
+        }
+      },
+      "Không có hoá đơn nào đi kèm.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "No receipts are included."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Không có hoá đơn nào đi kèm."
+            }
+          }
+        }
+      },
+      "Không có lịch sử sửa chữa.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "No repair history."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Không có lịch sử sửa chữa."
+            }
+          }
+        }
+      },
+      "Không huỷ được mã chuyển chủ, thử lại sau.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Couldn't cancel the handoff code. Try again later."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Không huỷ được mã chuyển chủ, thử lại sau."
+            }
+          }
+        }
+      },
+      "Không nhận được thiết bị, thử lại sau.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Couldn't claim the device. Try again later."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Không nhận được thiết bị, thử lại sau."
+            }
+          }
+        }
+      },
+      "Không rõ trạng thái": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Status unknown"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Không rõ trạng thái"
+            }
+          }
+        }
+      },
+      "Không tạo được mã chuyển chủ, thử lại sau.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Couldn't create the handoff code. Try again later."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Không tạo được mã chuyển chủ, thử lại sau."
+            }
+          }
+        }
+      },
+      "Không tải được trạng thái chuyển chủ — thử tải lại nhé.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Couldn't load the handoff status — try again."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Không tải được trạng thái chuyển chủ — thử tải lại nhé."
+            }
+          }
+        }
+      },
+      "Không xem trước được thiết bị. Kiểm tra mã và thử lại.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Couldn't preview the device. Check the code and try again."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Không xem trước được thiết bị. Kiểm tra mã và thử lại."
+            }
+          }
+        }
+      },
+      "Không đi theo": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Stays with you"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Không đi theo"
+            }
+          }
+        }
+      },
+      "Link cho người nhận": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Link for the recipient"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Link cho người nhận"
+            }
+          }
+        }
+      },
+      "Lịch sử sửa chữa (%d)": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Repair history (%d)"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Lịch sử sửa chữa (%d)"
+            }
+          }
+        }
+      },
+      "Lịch sử sửa chữa / bảo hành đã ghi": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Repair / warranty history already recorded"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Lịch sử sửa chữa / bảo hành đã ghi"
+            }
+          }
+        }
+      },
+      "Máy chủ chỉ lưu mã băm của mã, nên không ai — kể cả bạn — xem lại được mã này. Hãy sao chép mã và link rồi gửi cho người nhận trước khi đóng. Nếu lỡ đóng mà chưa sao chép, bạn phải huỷ mã và tạo mã mới (nếu còn trong giới hạn 1 lần/30 ngày).": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The server stores only a hash of the code, so nobody — not even you — can view it again. Copy the code and link and send them to the recipient before closing. If you close without copying, you must cancel the code and create a new one (if still within the one-per-30-days limit)."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Máy chủ chỉ lưu mã băm của mã, nên không ai — kể cả bạn — xem lại được mã này. Hãy sao chép mã và link rồi gửi cho người nhận trước khi đóng. Nếu lỡ đóng mà chưa sao chép, bạn phải huỷ mã và tạo mã mới (nếu còn trong giới hạn 1 lần/30 ngày)."
+            }
+          }
+        }
+      },
+      "Máy chủ không trả về link cho mã này. Bạn vẫn có thể gửi mã để người nhận dán vào app.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The server did not return a link for this code. You can still send the code for the recipient to paste into the app."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Máy chủ không trả về link cho mã này. Bạn vẫn có thể gửi mã để người nhận dán vào app."
+            }
+          }
+        }
+      },
+      "Mã 6 ký tự, chỉ dùng một lần, hết hạn sau 14 ngày.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "A 6-character code, single use, expires after 14 days."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã 6 ký tự, chỉ dùng một lần, hết hạn sau 14 ngày."
+            }
+          }
+        }
+      },
+      "Mã chuyển chủ": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Handoff code"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã chuyển chủ"
+            }
+          }
+        }
+      },
+      "Mã chuyển chủ (6 ký tự)": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Handoff code (6 characters)"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã chuyển chủ (6 ký tự)"
+            }
+          }
+        }
+      },
+      "Mã chuyển chủ chỉ hiện một lần": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The handoff code is shown once"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã chuyển chủ chỉ hiện một lần"
+            }
+          }
+        }
+      },
+      "Mã chuyển chủ: %@\nMở Warrly, vào Thiết bị → Nhận thiết bị chuyển chủ và dán mã này.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Handoff code: %@\nOpen Warrly, go to Devices → Claim a transferred device and paste this code."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã chuyển chủ: %@\nMở Warrly, vào Thiết bị → Nhận thiết bị chuyển chủ và dán mã này."
+            }
+          }
+        }
+      },
+      "Mã chuyển chủ: %@\nMở link để xem trước và nhận thiết bị: %@": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Handoff code: %@\nOpen the link to preview and claim the device: %@"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã chuyển chủ: %@\nMở link để xem trước và nhận thiết bị: %@"
+            }
+          }
+        }
+      },
+      "Mã chưa dùng thì hết hạn và không có gì được chuyển.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "An unused code expires and nothing moves."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã chưa dùng thì hết hạn và không có gì được chuyển."
+            }
+          }
+        }
+      },
+      "Mã chưa được lưu. Hãy sao chép mã hoặc link, hoặc tick xác nhận, rồi mới đóng.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The code has not been saved. Copy the code or link, or tick the confirmation, before closing."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã chưa được lưu. Hãy sao chép mã hoặc link, hoặc tick xác nhận, rồi mới đóng."
+            }
+          }
+        }
+      },
+      "Mã gồm 6 ký tự chữ và số.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The code is 6 letters or digits."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã gồm 6 ký tự chữ và số."
+            }
+          }
+        }
+      },
+      "Mã hết hạn %@.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The code expires %@."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã hết hạn %@."
+            }
+          }
+        }
+      },
+      "Mã không còn hiệu lực: có thể đã hết hạn, đã bị huỷ hoặc đã được dùng. Hãy xin người bán mã mới.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "This code is no longer valid: it may have expired, been cancelled or already used. Ask the seller for a new code."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã không còn hiệu lực: có thể đã hết hạn, đã bị huỷ hoặc đã được dùng. Hãy xin người bán mã mới."
+            }
+          }
+        }
+      },
+      "Mã này đã được người khác nhận rồi.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Someone else has already claimed this code."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã này đã được người khác nhận rồi."
+            }
+          }
+        }
+      },
+      "Mã trước đã bị huỷ. Bạn có thể tạo mã mới nếu còn trong giới hạn 30 ngày.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The previous code was cancelled. You can create a new one if you are still inside the 30-day limit."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã trước đã bị huỷ. Bạn có thể tạo mã mới nếu còn trong giới hạn 30 ngày."
+            }
+          }
+        }
+      },
+      "Mã trước đã hết hạn mà chưa ai nhận, nên không có gì được chuyển. Bạn có thể tạo mã mới nếu còn trong giới hạn 30 ngày.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The previous code expired before anyone claimed it, so nothing moved. You can create a new one if you are still inside the 30-day limit."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã trước đã hết hạn mà chưa ai nhận, nên không có gì được chuyển. Bạn có thể tạo mã mới nếu còn trong giới hạn 30 ngày."
+            }
+          }
+        }
+      },
+      "Mã đã bị huỷ": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Code cancelled"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã đã bị huỷ"
+            }
+          }
+        }
+      },
+      "Mã đã hết hạn": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Code expired"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mã đã hết hạn"
+            }
+          }
+        }
+      },
+      "Mỗi thiết bị chỉ chuyển chủ 1 lần trong 30 ngày.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "One handoff per device every 30 days."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mỗi thiết bị chỉ chuyển chủ 1 lần trong 30 ngày."
+            }
+          }
+        }
+      },
+      "Mỗi thiết bị chỉ chuyển chủ 1 lần trong 30 ngày. Thiết bị này đã dùng lượt chuyển trong 30 ngày qua.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "One handoff per device every 30 days. This device has already used its handoff in the past 30 days."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mỗi thiết bị chỉ chuyển chủ 1 lần trong 30 ngày. Thiết bị này đã dùng lượt chuyển trong 30 ngày qua."
+            }
+          }
+        }
+      },
+      "Mở link (xem trước)": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Open link (preview)"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mở link (xem trước)"
+            }
+          }
+        }
+      },
+      "Mở ngày %@": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Opened %@"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mở ngày %@"
+            }
+          }
+        }
+      },
+      "Ngày mua và nơi mua": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Purchase date and place"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Ngày mua và nơi mua"
+            }
+          }
+        }
+      },
+      "Người bán: %@": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Seller: %@"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Người bán: %@"
+            }
+          }
+        }
+      },
+      "Người mua đã nhận thiết bị": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The buyer has claimed this device"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Người mua đã nhận thiết bị"
+            }
+          }
+        }
+      },
+      "Người nhận phải đăng nhập, xem trước rồi tự xác nhận — không có “một chạm”.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The recipient must sign in, preview the device and confirm — there is no one-tap claim."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Người nhận phải đăng nhập, xem trước rồi tự xác nhận — không có “một chạm”."
+            }
+          }
+        }
+      },
+      "Người nhận sẽ không dùng được mã này nữa. Không thể hoàn tác.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The recipient will no longer be able to use this code. This cannot be undone."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Người nhận sẽ không dùng được mã này nữa. Không thể hoàn tác."
+            }
+          }
+        }
+      },
+      "Người nhận đã nhận %@": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The recipient claimed it on %@"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Người nhận đã nhận %@"
+            }
+          }
+        }
+      },
+      "Người nhận đã nhận thiết bị này rồi. Thiết bị được đánh dấu đã bán trong tài khoản của bạn.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The recipient has already claimed this device. It is marked sold in your account."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Người nhận đã nhận thiết bị này rồi. Thiết bị được đánh dấu đã bán trong tài khoản của bạn."
+            }
+          }
+        }
+      },
+      "Nhận thiết bị chuyển chủ": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Claim a transferred device"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Nhận thiết bị chuyển chủ"
+            }
+          }
+        }
+      },
+      "Nhận thiết bị này": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Claim this device"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Nhận thiết bị này"
+            }
+          }
+        }
+      },
+      "Nhận thiết bị này?": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Claim this device?"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Nhận thiết bị này?"
+            }
+          }
+        }
+      },
+      "Những hoá đơn bạn chọn bên dưới": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The receipts you select below"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Những hoá đơn bạn chọn bên dưới"
+            }
+          }
+        }
+      },
+      "Sao chép mã": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Copy code"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Sao chép mã"
+            }
+          }
+        }
+      },
+      "Serial (che giữa)": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Serial (masked)"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Serial (che giữa)"
+            }
+          }
+        }
+      },
+      "Sửa chữa": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Repair"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Sửa chữa"
+            }
+          }
+        }
+      },
+      "Thiết bị này chưa có hoá đơn nào để chọn.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "This device has no receipts to choose from."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Thiết bị này chưa có hoá đơn nào để chọn."
+            }
+          }
+        }
+      },
+      "Thiết bị sẽ được thêm vào tài khoản của bạn cùng bảo hành và tệp đã chọn. Mã chỉ dùng được một lần.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The device, its warranty and the selected files will be added to your account. The code can only be used once."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Thiết bị sẽ được thêm vào tài khoản của bạn cùng bảo hành và tệp đã chọn. Mã chỉ dùng được một lần."
+            }
+          }
+        }
+      },
+      "Thiết bị đã sang tài khoản người mua. Dòng này chỉ ghi nhận dữ liệu đã chuyển, không phải giấy tờ pháp lý.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "The device is now in the buyer's account. This row records data that was moved; it is not a legal document."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Thiết bị đã sang tài khoản người mua. Dòng này chỉ ghi nhận dữ liệu đã chuyển, không phải giấy tờ pháp lý."
+            }
+          }
+        }
+      },
+      "Thông tin thiết bị": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Device details"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Thông tin thiết bị"
+            }
+          }
+        }
+      },
+      "Tài khoản, email và mật khẩu của bạn": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Your account, email and password"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Tài khoản, email và mật khẩu của bạn"
+            }
+          }
+        }
+      },
+      "Tên, loại, hãng, model và serial/IMEI": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Name, type, brand, model and serial/IMEI"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Tên, loại, hãng, model và serial/IMEI"
+            }
+          }
+        }
+      },
+      "Tình trạng": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Condition"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Tình trạng"
+            }
+          }
+        }
+      },
+      "Tôi đã sao chép hoặc lưu mã và link này, và hiểu rằng không xem lại được.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "I have copied or saved this code and link, and understand it cannot be viewed again."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Tôi đã sao chép hoặc lưu mã và link này, và hiểu rằng không xem lại được."
+            }
+          }
+        }
+      },
+      "Tạo mã chuyển chủ": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Create handoff code"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Tạo mã chuyển chủ"
+            }
+          }
+        }
+      },
+      "VD: A7K2Q9": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "e.g. A7K2Q9"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "VD: A7K2Q9"
+            }
+          }
+        }
+      },
+      "Warrly chỉ chuyển dữ liệu thiết bị qua tài khoản. Đây không phải giấy tờ chuyển nhượng pháp lý, không xác nhận quyền sở hữu và không xử lý thanh toán.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Warrly only moves device data between accounts. This is not a legal transfer document, it does not confirm ownership, and it does not handle payment."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Warrly chỉ chuyển dữ liệu thiết bị qua tài khoản. Đây không phải giấy tờ chuyển nhượng pháp lý, không xác nhận quyền sở hữu và không xử lý thanh toán."
+            }
+          }
+        }
+      },
+      "Xem thiết bị": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Preview device"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Xem thiết bị"
+            }
+          }
+        }
+      },
+      "Đang chờ người nhận": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Waiting for the buyer"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Đang chờ người nhận"
+            }
+          }
+        }
+      },
+      "Đang nhận thiết bị…": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Claiming device…"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Đang nhận thiết bị…"
+            }
+          }
+        }
+      },
+      "Đang tìm thiết bị…": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Looking up the device…"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Đang tìm thiết bị…"
+            }
+          }
+        }
+      },
+      "Đang tạo mã…": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Creating code…"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Đang tạo mã…"
+            }
+          }
+        }
+      },
+      "Đang tải hoá đơn…": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Loading receipts…"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Đang tải hoá đơn…"
+            }
+          }
+        }
+      },
+      "Đã chuyển": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Transferred"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Đã chuyển"
+            }
+          }
+        }
+      },
+      "Đã chuyển cho người mua %@": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Transferred to the buyer %@"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Đã chuyển cho người mua %@"
+            }
+          }
+        }
+      },
+      "Đã sao chép. Gửi cho người nhận trước khi đóng.": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Copied. Send it to the recipient before closing."
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Đã sao chép. Gửi cho người nhận trước khi đóng."
+            }
+          }
+        }
+      },
+      "Đóng ngày %@": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Closed %@"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Đóng ngày %@"
+            }
+          }
+        }
+      },
+      "Đổi mã khác": {
+        "extractionState": "manual",
+        "localizations": {
+          "en": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Use another code"
+            }
+          },
+          "vi": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Đổi mã khác"
+            }
+          }
+        }
+      }
   },
   "version": "1.0"
 }

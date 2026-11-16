@@ -50,6 +50,10 @@ struct DevicesScreen: View {
     @State private var captureSucceeded = false
     @State private var showCaptureAlert = false
     @State private var showInbox = false
+    /// Set by `HandoffClaimSheet` after a successful claim. The sheet dismisses
+    /// first (its `onDismiss` runs) and only then is the new device pushed, so
+    /// a sheet dismissal and a navigation push never race.
+    @State private var pendingClaimedDevice: Device?
     /// The add-flow's two pushes. Value-based links inside a menu are
     /// unreliable across iOS versions, so the dialog's buttons drive these flags
     /// and the destinations below own the navigation.
@@ -80,11 +84,15 @@ struct DevicesScreen: View {
     private enum DevicesSheet: Identifiable {
         case filter
         case capture
+        /// The buyer's claim flow. `code` is prefilled when the request came
+        /// from `warrly://handoff/<code>`; `nil` for the paste-code entry.
+        case claim(code: String?)
 
         var id: String {
             switch self {
             case .filter: return "filter"
             case .capture: return "capture"
+            case .claim: return "claim"
             }
         }
     }
@@ -311,6 +319,9 @@ struct DevicesScreen: View {
         ) {
             Button(L.t("Thêm thiết bị")) { showCreateForm = true }
             Button(BulkDeviceCopy.title) { showBulkAdd = true }
+            // The buyer's entry point. It lives here rather than in Settings
+            // because it adds a device, and it takes a code rather than a form.
+            Button(HandoffCopy.claimEntry) { activeSheet = .claim(code: nil) }
             Button(L.t("Huỷ"), role: .cancel) {}
         }
         .navigationDestination(for: DeviceFormNav.self) { nav in
@@ -343,6 +354,13 @@ struct DevicesScreen: View {
         }
         // Dashboard push via DashDeviceNav (cross-tab usage doesn't apply here)
         .sheet(item: $activeSheet, onDismiss: {
+            // A claim pushed its device the moment the sheet began dismissing;
+            // this is the first safe point to show it.
+            if let claimed = pendingClaimedDevice {
+                pendingClaimedDevice = nil
+                deepLinkedDevice = claimed
+                Task { await store.load() }
+            }
             // The capture sheet dismisses itself after a successful upload. Its
             // `onUploaded` only sets the flag; showing an alert while the sheet
             // is still on screen would be a presentation conflict, so the alert
@@ -351,6 +369,9 @@ struct DevicesScreen: View {
                 captureSucceeded = false
                 showCaptureAlert = true
             }
+            // A claim link that arrived while another sheet was up is still
+            // queued in the router; this is the first moment it can be shown.
+            presentPendingHandoffIfNeeded()
         }) { sheet in
             switch sheet {
             case .filter:
@@ -362,6 +383,15 @@ struct DevicesScreen: View {
                 InboxCaptureSheet(client: client) { _ in
                     captureSucceeded = true
                     Task { await inbox.load() }
+                }
+            case .claim(let code):
+                HandoffClaimSheet(client: client, initialCode: code) { device in
+                    // Do not dismiss from here: setting the item to nil dismisses
+                    // the sheet and runs `onDismiss`, which is where the push
+                    // happens. Calling `dismiss()` as well would close the sheet
+                    // before SwiftUI finished presenting it.
+                    pendingClaimedDevice = device
+                    activeSheet = nil
                 }
             }
         }
@@ -376,6 +406,7 @@ struct DevicesScreen: View {
         }
         .task {
             router.restorePendingFromSharedDefaults()
+            presentPendingHandoffIfNeeded()
 #if DEBUG
             if ProcessInfo.processInfo.environment["WV_QA_NEW_DEVICE"] == "1",
                !qaDidOpenCreateForm {
@@ -400,6 +431,21 @@ struct DevicesScreen: View {
             guard id != nil else { return }
             Task { await openPendingDeviceIfNeeded() }
         }
+        // `warrly://handoff/<code>` opened while this tab is already on screen.
+        // The code is consumed only here — the claim sheet needs the
+        // authenticated tree this screen lives in.
+        .onChange(of: router.pendingHandoffCode) { _, code in
+            guard code != nil else { return }
+            presentPendingHandoffIfNeeded()
+        }
+    }
+
+    /// Opens the claim sheet for a code queued by the router. On a cold launch
+    /// (or right after login) the code waited in `AppRouter` until this screen
+    /// existed; consuming it here is what makes that wait useful.
+    private func presentPendingHandoffIfNeeded() {
+        guard activeSheet == nil, let code = router.consumeHandoff() else { return }
+        activeSheet = .claim(code: code)
     }
 
     /// Loads the list and pushes the requested device.
@@ -528,6 +574,12 @@ struct DevicesScreen: View {
                     // device list otherwise dead-ends.
                     WVButton(L.t("Thêm hoá đơn"), icon: "camera", kind: .secondary) {
                         activeSheet = .capture
+                    }
+                    // A brand-new account is also the strongest "I just bought
+                    // a used phone" case. The buyer's entry belongs beside the
+                    // add paths, not buried in Settings.
+                    WVButton(HandoffCopy.claimEntry, icon: "userPlus", kind: .secondary) {
+                        activeSheet = .claim(code: nil)
                     }
                 }
             }
@@ -801,6 +853,19 @@ private struct DeviceListRow: View {
     @ViewBuilder
     private var extraBadges: some View {
         HStack(spacing: WVSpacing.sm) {
+            // Seller's marker on the SOLD row: the device left through a
+            // handoff rather than being recorded as sold by hand. It is a fact
+            // about the record, not a second status — `Đã bán` stays the
+            // deadline column's answer.
+            if device.handoffSentAt != nil {
+                HStack(spacing: WVSpacing.xs) {
+                    WVIcon("send", size: 12)
+                    Text(HandoffCopy.sentBadge)
+                        .wvFont(.footnote)
+                }
+                .foregroundStyle(WVColor.label3)
+                .lineLimit(1)
+            }
             if let count = device.attachmentCount, count > 0 {
                 HStack(spacing: WVSpacing.xs) {
                     WVIcon("paperclip", size: 12)

@@ -603,6 +603,37 @@ public struct Device: Codable, Sendable, Identifiable, Hashable {
     /// native amount only when the device is VND.
     public let purchasePriceVnd: Int?
 
+    // MARK: Handoff provenance (Warrly 2.0 resale handoff)
+
+    /// When this device left the account through a handoff, as the server's
+    /// RFC3339 instant. Set on the SELLER's row when the buyer claims the code
+    /// (the same write moves `status` to `SOLD`); `soldAt` / `soldPrice` are
+    /// deliberately left alone, because the app must not invent a sale price
+    /// for a transfer.
+    ///
+    /// `nil` means "never handed off", not "not returned": the contract sends
+    /// `null` explicitly on every device payload. This is a read-only field —
+    /// it is not accepted by `POST` / `PATCH`, which is why it is absent from
+    /// `DeviceInput`. Read it through `HandoffRules.hasSent` rather than
+    /// comparing dates here.
+    public let handoffSentAt: Date?
+
+    /// When this device ARRIVED through a handoff, on the buyer's new row.
+    /// `nil` for every device that was created normally. The buyer's prices are
+    /// zeroed and notes are not copied, so this is the only trace of the origin
+    /// on the row.
+    public let handoffReceivedAt: Date?
+
+    /// The seller's display name, copied onto the buyer's device (never their
+    /// id or email). Optional on the wire and in the UI: a seller with no
+    /// display name leaves this `null`, and the copy then says "người bán"
+    /// without a name rather than inventing one.
+    ///
+    /// It travels with the buyer's device **only**; the server never returns it
+    /// on a public preview of a pending handoff other than through the
+    /// `sellerName` field there.
+    public let handoffSellerName: String?
+
     // MARK: Installment plan (FEATURE_RESEARCH_2026-11 §6.5, migration 0031)
 
     /// The device's financing schedule, or `nil` when it was paid for outright.
@@ -892,6 +923,13 @@ public struct DeviceDetailBody: Decodable, Sendable {
     /// and only recomputes from claims when the field is absent.
     public let repairExtensionDays: Int?
     public let entitledWarrantyEnd: Date?
+
+    /// Handoff provenance on the detail read — same fields and rules as their
+    /// `Device` counterparts, present here because the detail endpoint embeds
+    /// the whole device. Optional only so a payload from before 2.0 decodes.
+    public let handoffSentAt: Date?
+    public let handoffReceivedAt: Date?
+    public let handoffSellerName: String?
 
     // The multi-currency trio on the detail read. The detail endpoint embeds the
     // whole `store.Device`, so these have the same wire shape and rules as
