@@ -62,6 +62,79 @@ export const dashboard = defineMessages({
   'Tôi đã có hoá đơn': 'I already have the receipt',
   'Có sẵn bảng tính?': 'Have a spreadsheet?',
 
+  // ── Dashboard starter kit (`components/starter-kit.tsx`) ─────────────────
+  //
+  // An empty vault gets a four-step checklist instead of a wall of zeroes. The
+  // steps are checkable states — a device row, a warranty end date, a
+  // subscription, a push target — so the card can say "1/4" instead of showing
+  // four static suggestions. Sample data is an ordinary bulk write; the copy
+  // says it can be removed, and `sample-data-banner.tsx` is where that happens.
+  'Bắt đầu trong 4 bước': 'Start in 4 steps',
+  '{done}/{total} bước': '{done}/{total} steps',
+  'Thêm thiết bị đầu tiên': 'Add your first device',
+  'Tên, loại và ngày mua — mất khoảng 30 giây.':
+    'A name, a category and a purchase date — about 30 seconds.',
+  'Ghi ngày hết bảo hành': 'Record the warranty end date',
+  'Bước 3 của form thiết bị. Đây là ngày Warrly canh giúp bạn.':
+    'Step 3 of the device form. This is the date Warrly watches for you.',
+  'Thêm gói đăng ký': 'Add a subscription',
+  'Netflix, iCloud, phần mềm... để không quên ngày gia hạn.':
+    'Netflix, iCloud, software… so a renewal never slips past you.',
+  'Bật nhắc nhở': 'Turn on reminders',
+  'Nhắc trước 30 và 7 ngày qua thông báo trình duyệt.':
+    'A reminder 30 and 7 days ahead, through browser notifications.',
+  'Dùng thử bằng dữ liệu mẫu': 'Try it with sample data',
+  'Thêm {count} thiết bị mẫu kèm bảo hành để xem bảng tổng quan trông thế nào. Xoá lại bất cứ lúc nào.':
+    {
+      en: 'Add {count} sample devices with warranties to see what the dashboard looks like. Remove them any time.',
+      enOne:
+        'Add {count} sample device with a warranty to see what the dashboard looks like. Remove it any time.',
+    },
+  'Thêm dữ liệu mẫu': 'Add sample data',
+  'Đã thêm dữ liệu mẫu.': 'Sample data added.',
+  'Không thêm được dữ liệu mẫu.': 'Could not add the sample data.',
+  'Đang xem dữ liệu mẫu': 'You are viewing sample data',
+  '{count} thiết bị mẫu — xoá khi không cần nữa.':
+    {
+      en: '{count} sample devices — remove them when you no longer need them.',
+      enOne: '{count} sample device — remove it when you no longer need it.',
+    },
+  'Xoá dữ liệu mẫu': 'Remove sample data',
+  'Đã xoá dữ liệu mẫu.': 'Sample data removed.',
+  'Không xoá được dữ liệu mẫu.': 'Could not remove the sample data.',
+  'Không đọc được danh sách thiết bị để xoá dữ liệu mẫu.':
+    'Could not read the device list to remove sample data.',
+  'Không tìm thấy thiết bị mẫu nào để xoá.': 'No sample devices were found to remove.',
+  'Đã thêm {count} thiết bị mẫu.':
+    { en: 'Added {count} sample devices.', enOne: 'Added {count} sample device.' },
+  'Đã xoá {count} thiết bị mẫu.':
+    { en: 'Removed {count} sample devices.', enOne: 'Removed {count} sample device.' },
+  // The three seed rows. The names are stored as data once, in the language the
+  // account used at creation time, which is why they are translated here rather
+  // than rendered from a runtime locale.
+  'iPhone 15 (mẫu)': 'iPhone 15 (sample)',
+  'MacBook Air M3 (mẫu)': 'MacBook Air M3 (sample)',
+  'Máy giặt cửa trước (mẫu)': 'Front-load washing machine (sample)',
+  'Thiết bị mẫu của Warrly — xoá bất cứ lúc nào.':
+    'A Warrly sample device — remove it any time.',
+
+  // ── Dashboard fix-up step (`components/device-fixup-panel.tsx`) ──────────
+  //
+  // Real gaps on saved rows: missing purchase date, warranty end, price or
+  // receipt. The four field labels are lower-case because they only ever appear
+  // inside "Thiếu {fields}"; they are catalog keys looked up through
+  // `FIXUP_GAP_LABEL_KEYS`, not literals at the call site.
+  'Hoàn tất hồ sơ thiết bị': 'Complete your device details',
+  'Một vài dòng còn thiếu thông tin. Bổ sung để nhắc nhở và báo cáo chi phí đúng.':
+    'A few rows are missing information. Fill them in so reminders and spending reports stay correct.',
+  'Thiếu {fields}': 'Missing {fields}',
+  'ngày mua': 'purchase date',
+  'hạn bảo hành': 'warranty end date',
+  'giá mua': 'purchase price',
+  'hoá đơn': 'receipt',
+  'Bổ sung': 'Fill in',
+  'Thêm hoá đơn': 'Add receipt',
+
   // ── Dashboard subscription / wishlist cards ─────────────────────────────
   'Mỗi tháng': 'Per month',
   '~ {amount} / năm • {count} gói đang hoạt động':

@@ -38,6 +38,8 @@ import {
   clearDeviceWarningsFlash,
   setDeviceWarningsFlash,
 } from '@/lib/device-warnings-flash';
+import { isSampleDevice, sampleDeviceInputs } from '@/lib/starter-kit';
+import { todayDay } from '@/lib/api-day';
 import { requireUser } from '@/lib/auth';
 import type { Translator } from '@/lib/i18n/catalog';
 import { getI18n } from '@/lib/i18n/server';
@@ -734,5 +736,118 @@ export async function bulkCreateDevices(
     failedCount,
     created: res.data.created,
     failed: res.data.failed,
+  };
+}
+
+// ── Starter-kit sample data ─────────────────────────────────────────────────
+//
+// The first-run panel offers "try it with sample data". That is deliberately
+// NOT a new endpoint and NOT a server flag: the three rows are built by
+// `lib/starter-kit.ts` and written through the same bulk endpoint the bulk/paste
+// screens use (`POST /api/v1/devices/bulk`), so the sample rows obey the same
+// validator, the same quota and the same write rate limit as any other row.
+//
+// They stay ordinary devices afterwards. The only thing that marks them is a
+// stable token in `notes` (`SAMPLE_DEVICE_MARKER`), which is what lets
+// `deleteSampleDevices` remove them again in one click and what keeps the
+// fix-up panel from nagging about missing receipts on rows Warrly itself made.
+// Deleting uses the ordinary `DELETE /v1/devices/{id}` per row: there is no
+// bulk-delete endpoint, and inventing one for three demo rows would be a
+// backend change this slice does not need.
+
+export type SampleDataState = {
+  ok: boolean;
+  message?: string;
+};
+
+/**
+ * Create the three sample devices (phone, laptop, washing machine).
+ *
+ * The dates are relative to today so the demo always shows one expiring
+ * warranty; the warranty end itself is still computed by the server from
+ * `warrantyMonths` — nothing here writes a made-up end date into the warranty
+ * table.
+ */
+export async function createSampleDevices(): Promise<SampleDataState> {
+  await requireUser();
+  const { t } = await getI18n();
+
+  const inputs = sampleDeviceInputs(todayDay(), t);
+  const res = await api.devices.bulkCreate(inputs);
+
+  if (!res.ok) {
+    return {
+      ok: false,
+      message: res.message ?? t('Không thêm được dữ liệu mẫu.'),
+    };
+  }
+
+  // Both pages are `force-dynamic`; the calls are defensive and make the
+  // client-side `router.refresh()` land on a freshly rendered dashboard.
+  revalidatePath('/dashboard');
+  revalidatePath('/devices');
+
+  const created = res.data.created.length;
+  if (created === 0) {
+    // A 200 with zero created rows means every sample row failed validation.
+    // That should be impossible for a fixed seed, so surface the server's own
+    // per-row message instead of pretending data was added.
+    const firstFailure = res.data.failed[0];
+    const fieldMessage = firstFailure
+      ? Object.values(firstFailure.fieldErrors ?? {}).flat()[0]
+      : undefined;
+    return {
+      ok: false,
+      message: fieldMessage ?? firstFailure?.message ?? t('Không thêm được dữ liệu mẫu.'),
+    };
+  }
+
+  return {
+    ok: true,
+    message: t('Đã thêm {count} thiết bị mẫu.', { count: created }),
+  };
+}
+
+/**
+ * Delete every sample device this account still holds.
+ *
+ * Rows are identified by the marker in `notes` (see `isSampleDevice`), never by
+ * name — the names are translated at creation time. A user who edited a sample
+ * row's note but kept the marker still gets the row removed; a real device can
+ * never match unless the marker was typed into its notes by hand.
+ */
+export async function deleteSampleDevices(): Promise<SampleDataState> {
+  await requireUser();
+  const { t } = await getI18n();
+
+  const list = await api.devices.list();
+  if (!list.ok) {
+    return {
+      ok: false,
+      message: list.message ?? t('Không đọc được danh sách thiết bị để xoá dữ liệu mẫu.'),
+    };
+  }
+
+  const samples = list.data.filter(isSampleDevice);
+  if (samples.length === 0) {
+    return { ok: false, message: t('Không tìm thấy thiết bị mẫu nào để xoá.') };
+  }
+
+  let removed = 0;
+  for (const sample of samples) {
+    const res = await api.devices.remove(sample.id);
+    if (res.ok) removed += 1;
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath('/devices');
+
+  if (removed === 0) {
+    return { ok: false, message: t('Không xoá được dữ liệu mẫu.') };
+  }
+
+  return {
+    ok: true,
+    message: t('Đã xoá {count} thiết bị mẫu.', { count: removed }),
   };
 }
