@@ -53,4 +53,18 @@ export const staples = defineMessages({
   'Văn phòng': 'Office',
   'Chọn nhóm': 'Choose a category',
   'Nhóm khác...': 'Other category...',
+
+  // ── Purchase log / price history ────────────────────────────────────────
+  // Shared labels are reused from their existing owner instead of repeated
+  // here: 'Giá thấp nhất' + 'Giá mua (VND)' + 'Ngày mua' + 'Nơi mua'
+  // (devices), 'Lịch sử giá' + 'Nhập giá hợp lệ' + 'Không lưu được'
+  // (wishlist), 'Ghi chú', 'Đang tải…', 'Đóng', 'Thử lại' (common).
+  'Giá gần nhất': 'Latest price',
+  'Giá trung bình': 'Average price',
+  '{count} lần mua': { en: '{count} purchases', enOne: '{count} purchase' },
+  'Thêm lần mua': 'Record a purchase',
+  'Lưu giá mỗi lần mua lại để theo dõi chi phí.':
+    'Save the price each time you restock to track what it costs.',
+  'Chưa có lần mua nào': 'No purchases recorded yet',
+  'Không tải được lịch sử giá': 'Could not load the price history',
 });
