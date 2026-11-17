@@ -71,6 +71,72 @@ func (q *Queries) CreateStaple(ctx context.Context, arg CreateStapleParams) (Sta
 	return i, err
 }
 
+const createStaplePurchase = `-- name: CreateStaplePurchase :one
+INSERT INTO "StaplePurchase" (
+    id,
+    "stapleId",
+    "userId",
+    price,
+    "purchasedAt",
+    store,
+    note,
+    "createdAt"
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, NOW()
+)
+RETURNING
+    id,
+    "stapleId",
+    price,
+    "purchasedAt",
+    store,
+    note,
+    "createdAt"
+`
+
+type CreateStaplePurchaseParams struct {
+	ID          string   `json:"id"`
+	StapleId    string   `json:"stapleId"`
+	UserId      string   `json:"userId"`
+	Price       int32    `json:"price"`
+	PurchasedAt wire.Day `json:"purchasedAt"`
+	Store       *string  `json:"store"`
+	Note        *string  `json:"note"`
+}
+
+type CreateStaplePurchaseRow struct {
+	ID          string       `json:"id"`
+	StapleId    string       `json:"stapleId"`
+	Price       int32        `json:"price"`
+	PurchasedAt wire.Day     `json:"purchasedAt"`
+	Store       *string      `json:"store"`
+	Note        *string      `json:"note"`
+	CreatedAt   wire.Instant `json:"createdAt"`
+}
+
+func (q *Queries) CreateStaplePurchase(ctx context.Context, arg CreateStaplePurchaseParams) (CreateStaplePurchaseRow, error) {
+	row := q.db.QueryRow(ctx, createStaplePurchase,
+		arg.ID,
+		arg.StapleId,
+		arg.UserId,
+		arg.Price,
+		arg.PurchasedAt,
+		arg.Store,
+		arg.Note,
+	)
+	var i CreateStaplePurchaseRow
+	err := row.Scan(
+		&i.ID,
+		&i.StapleId,
+		&i.Price,
+		&i.PurchasedAt,
+		&i.Store,
+		&i.Note,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const deleteStaple = `-- name: DeleteStaple :execrows
 DELETE FROM "Staple"
 WHERE id = $1 AND "userId" = $2
@@ -120,6 +186,140 @@ func (q *Queries) GetStapleByID(ctx context.Context, arg GetStapleByIDParams) (S
 	return i, err
 }
 
+const listStaplePurchaseSummariesByUser = `-- name: ListStaplePurchaseSummariesByUser :many
+SELECT
+    s.id AS "stapleId",
+    (array_agg(p.price ORDER BY p."purchasedAt" DESC, p."createdAt" DESC))[1]::int AS "lastPrice",
+    MIN(p.price)::int AS "lowestPrice",
+    ROUND(AVG(p.price))::int AS "averagePrice",
+    COUNT(*)::int AS "purchaseCount"
+FROM "Staple" s
+JOIN "StaplePurchase" p
+  ON p."stapleId" = s.id
+ AND p."userId" = s."userId"
+WHERE s."userId" = $1
+  AND (NULLIF($2::text, '') IS NULL OR s.id = $2)
+GROUP BY s.id
+`
+
+type ListStaplePurchaseSummariesByUserParams struct {
+	UserId  string `json:"userId"`
+	Column2 string `json:"column_2"`
+}
+
+type ListStaplePurchaseSummariesByUserRow struct {
+	StapleId      string `json:"stapleId"`
+	LastPrice     int32  `json:"lastPrice"`
+	LowestPrice   int32  `json:"lowestPrice"`
+	AveragePrice  int32  `json:"averagePrice"`
+	PurchaseCount int32  `json:"purchaseCount"`
+}
+
+// The list screen's three price numbers + purchase count, for every staple the
+// user owns that has at least one purchase. Staples with no purchases are simply
+// absent; the service renders them as `null` money + count 0, which is the
+// contract ("0 when none") and keeps "never bought" distinct from "free".
+//
+// The JOIN starts from Staple so the planner uses `Staple_user_state_idx` for
+// the owner filter and `StaplePurchase_staple_purchased_idx` for each item's
+// rows. `$2` is the optional single-staple filter: ” lists every staple, an id
+// returns 0 or 1 row (the POST response and any future detail endpoint).
+//
+// `array_agg(...)[1]` is the latest price (same ordering the history uses);
+// `ROUND(AVG(...))` is a whole đồng because VND has no minor unit and the
+// contract's summary fields are ints. Both are non-null here: the GROUP BY only
+// emits a group that has at least one purchase row.
+func (q *Queries) ListStaplePurchaseSummariesByUser(ctx context.Context, arg ListStaplePurchaseSummariesByUserParams) ([]ListStaplePurchaseSummariesByUserRow, error) {
+	rows, err := q.db.Query(ctx, listStaplePurchaseSummariesByUser, arg.UserId, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStaplePurchaseSummariesByUserRow
+	for rows.Next() {
+		var i ListStaplePurchaseSummariesByUserRow
+		if err := rows.Scan(
+			&i.StapleId,
+			&i.LastPrice,
+			&i.LowestPrice,
+			&i.AveragePrice,
+			&i.PurchaseCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaplePurchases = `-- name: ListStaplePurchases :many
+
+SELECT
+    id,
+    "stapleId",
+    price,
+    "purchasedAt",
+    store,
+    note,
+    "createdAt"
+FROM "StaplePurchase"
+WHERE "stapleId" = $1 AND "userId" = $2
+ORDER BY "purchasedAt" DESC, "createdAt" DESC
+`
+
+type ListStaplePurchasesParams struct {
+	StapleId string `json:"stapleId"`
+	UserId   string `json:"userId"`
+}
+
+type ListStaplePurchasesRow struct {
+	ID          string       `json:"id"`
+	StapleId    string       `json:"stapleId"`
+	Price       int32        `json:"price"`
+	PurchasedAt wire.Day     `json:"purchasedAt"`
+	Store       *string      `json:"store"`
+	Note        *string      `json:"note"`
+	CreatedAt   wire.Instant `json:"createdAt"`
+}
+
+// ── Purchases (migration 0034) ──────────────────────────────────────────────
+//
+// The response shape is the contract's field list, not `SELECT *`: `userId` is
+// an ownership key the client never needs, so it is not selected into the row
+// struct that reaches JSON. Newest first is the only order the history screen
+// uses; `createdAt` breaks a same-day tie so two bags of coffee on one day stay
+// in the order they were recorded.
+func (q *Queries) ListStaplePurchases(ctx context.Context, arg ListStaplePurchasesParams) ([]ListStaplePurchasesRow, error) {
+	rows, err := q.db.Query(ctx, listStaplePurchases, arg.StapleId, arg.UserId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStaplePurchasesRow
+	for rows.Next() {
+		var i ListStaplePurchasesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.StapleId,
+			&i.Price,
+			&i.PurchasedAt,
+			&i.Store,
+			&i.Note,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStaplesByUser = `-- name: ListStaplesByUser :many
 
 SELECT id, "userId", name, category, unit, "cadenceDays", "lastBoughtAt", state, notes, "createdAt", "updatedAt"
@@ -141,6 +341,13 @@ type ListStaplesByUserParams struct {
 //
 // Ordered for the screen: things to buy first (OUT then LOW), then the rest.
 // The app groups the rows again, but this order is what a plain list gets.
+//
+// The purchase-price summary lives in its own query (bottom of this file), not
+// as correlated subqueries on the list. One grouped read covers every staple the
+// user owns, and sqlc can type its four numbers exactly: a scalar subquery is
+// always generated as a non-null int even when it returns no row, so computing
+// the summary there would either lie about "not bought yet" or force the Go DTO
+// back to `interface{}`.
 func (q *Queries) ListStaplesByUser(ctx context.Context, arg ListStaplesByUserParams) ([]Staple, error) {
 	rows, err := q.db.Query(ctx, listStaplesByUser, arg.UserId, arg.Column2)
 	if err != nil {
@@ -171,6 +378,52 @@ func (q *Queries) ListStaplesByUser(ctx context.Context, arg ListStaplesByUserPa
 		return nil, err
 	}
 	return items, nil
+}
+
+const touchStapleAfterPurchase = `-- name: TouchStapleAfterPurchase :one
+UPDATE "Staple" SET
+    "lastBoughtAt" = GREATEST("lastBoughtAt", $3),
+    state = 'ENOUGH',
+    "updatedAt" = NOW()
+WHERE id = $1 AND "userId" = $2
+RETURNING id, "userId", name, category, unit, "cadenceDays", "lastBoughtAt", state, notes, "createdAt", "updatedAt"
+`
+
+type TouchStapleAfterPurchaseParams struct {
+	ID           string   `json:"id"`
+	UserId       string   `json:"userId"`
+	LastBoughtAt wire.Day `json:"lastBoughtAt"`
+}
+
+// One purchase has two side effects on the staple, and they must commit with the
+// purchase row (the service wraps all of it in one transaction):
+//
+//   - `state` becomes ENOUGH — the user just bought it, that is the observation.
+//   - `lastBoughtAt` moves to the LATER of the stored day and this purchase's
+//     day. GREATEST (which ignores NULL in Postgres) rather than a blind
+//     assignment, so back-filling an old receipt cannot move the "last bought"
+//     day backwards. Doing it in SQL, not in Go, keeps it correct under two
+//     concurrent purchases: each UPDATE evaluates the row it locks.
+//
+// RETURNING * so the POST response can show the updated state/lastBoughtAt; 0
+// rows means the id is not this user's staple, and the caller rolls back.
+func (q *Queries) TouchStapleAfterPurchase(ctx context.Context, arg TouchStapleAfterPurchaseParams) (Staple, error) {
+	row := q.db.QueryRow(ctx, touchStapleAfterPurchase, arg.ID, arg.UserId, arg.LastBoughtAt)
+	var i Staple
+	err := row.Scan(
+		&i.ID,
+		&i.UserId,
+		&i.Name,
+		&i.Category,
+		&i.Unit,
+		&i.CadenceDays,
+		&i.LastBoughtAt,
+		&i.State,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateStaple = `-- name: UpdateStaple :one

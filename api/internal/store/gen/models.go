@@ -282,6 +282,17 @@ type Staple struct {
 	UpdatedAt    wire.Instant `json:"updatedAt"`
 }
 
+type StaplePurchase struct {
+	ID          string       `json:"id"`
+	StapleId    string       `json:"stapleId"`
+	UserId      string       `json:"userId"`
+	Price       int32        `json:"price"`
+	PurchasedAt wire.Day     `json:"purchasedAt"`
+	Store       *string      `json:"store"`
+	Note        *string      `json:"note"`
+	CreatedAt   wire.Instant `json:"createdAt"`
+}
+
 type Store struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`

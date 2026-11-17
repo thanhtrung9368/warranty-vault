@@ -2483,7 +2483,10 @@ paths:
       summary: Đồ dùng thiết yếu (restock list)
       description: |
         Danh sách đồ dùng lặp lại (dầu gội, kem đánh răng, giấy…). Tách khỏi
-        WishlistItem vì mua đồ dùng **không** tạo Device và không có lịch sử giá.
+        WishlistItem vì mua đồ dùng **không** tạo Device. Từ migration 0034 mỗi
+        lần mua lại ghi được giá, nên mỗi dòng ở đây mang sẵn summary
+        `lastPrice`/`lowestPrice`/`averagePrice`/`purchaseCount` (ba trường tiền
+        là `null` khi chưa mua lần nào, `purchaseCount` là `0`).
         `state` là quan sát của người dùng (ENOUGH/LOW/OUT); `cadenceDays` chỉ là
         khoảng nhắc, không phải dự đoán hết hàng. `lastBoughtAt` là ngày mua lại
         gần nhất (`YYYY-MM-DD`).
@@ -2551,6 +2554,74 @@ paths:
       tags: [wishlist]
       responses:
         '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/staples/{id}/purchases:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
+    get:
+      tags: [wishlist]
+      summary: Lịch sử mua của một món (mới nhất trước)
+      description: |
+        Migration 0034. Mỗi dòng là một lần mua lại: giá đã trả (VND, số nguyên),
+        ngày mua (ngày lịch `YYYY-MM-DD`, không phải instant) và tuỳ chọn cửa
+        hàng / ghi chú. **Không có nhân chia theo đơn vị**: `Staple.unit` chỉ là
+        nhãn, `price` là giá của MỘT lần mua.
+
+        Thứ tự: `purchasedAt` giảm dần, cùng ngày thì `createdAt` giảm dần. Món
+        không thuộc người gọi trả 404 (không phải mảng rỗng) để không dùng được
+        để dò id của tài khoản khác.
+      responses:
+        '200':
+          description: Lịch sử mua
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/StaplePurchase' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [wishlist]
+      summary: Ghi một lần mua lại (và cập nhật món trong cùng transaction)
+      description: |
+        **Một transaction**, ba việc:
+
+        1. chèn dòng `StaplePurchase`;
+        2. đặt `Staple.lastBoughtAt` thành ngày **muộn hơn** giữa giá trị đang
+           lưu và `purchasedAt` (mua bù một hoá đơn cũ không kéo lùi ngày), và
+        3. đặt `Staple.state = ENOUGH` — người dùng vừa mua, đó là quan sát.
+
+        Response trả cả `purchase` (biên lai vừa tạo) và `item` (món sau khi
+        cập nhật, kèm summary `lastPrice`/`lowestPrice`/`averagePrice`/
+        `purchaseCount`) để client không phải gọi thêm GET.
+
+        Không có endpoint xoá: biên lai là lịch sử; xoá món thì cascade xoá cả
+        lịch sử của nó.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StaplePurchaseInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [purchase, item]
+                properties:
+                  purchase: { $ref: '#/components/schemas/StaplePurchase' }
+                  item: { $ref: '#/components/schemas/Staple' }
+        '400': { $ref: '#/components/responses/BadInput' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/RateLimited' }
@@ -7270,7 +7341,7 @@ components:
 
     Staple:
       type: object
-      required: [id, userId, name, state, createdAt, updatedAt]
+      required: [id, userId, name, state, createdAt, updatedAt, lastPrice, lowestPrice, averagePrice, purchaseCount]
       properties:
         id: { type: string }
         userId: { type: string }
@@ -7292,6 +7363,54 @@ components:
         notes: { type: string, nullable: true }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+        lastPrice:
+          type: integer
+          nullable: true
+          description: |
+            Giá của lần mua gần nhất (VND). `null` khi chưa ghi lần mua nào.
+            Bốn trường summary có mặt trên MỌI response trả về một món (list, tạo,
+            sửa, và `item` của POST `/staples/{id}/purchases`).
+        lowestPrice:
+          type: integer
+          nullable: true
+          description: Giá thấp nhất từng trả cho món này (VND); `null` khi chưa mua lần nào.
+        averagePrice:
+          type: integer
+          nullable: true
+          description: Giá trung bình mỗi lần mua (VND, đã làm tròn); `null` khi chưa mua lần nào.
+        purchaseCount:
+          type: integer
+          minimum: 0
+          description: Số lần đã mua; `0` khi chưa có lần nào.
+
+    StaplePurchase:
+      type: object
+      description: Một lần mua lại đồ dùng thiết yếu (biên lai).
+      required: [id, stapleId, price, purchasedAt, createdAt]
+      properties:
+        id: { type: string }
+        stapleId: { type: string }
+        price:
+          type: integer
+          minimum: 0
+          description: Giá đã trả cho MỘT lần mua, VND. `0` là hợp lệ (hàng tặng).
+        purchasedAt:
+          type: string
+          format: date
+          description: Ngày mua (`YYYY-MM-DD`) — ngày lịch, không đổi theo múi giờ.
+        store: { type: string, nullable: true }
+        note: { type: string, maxLength: 500, nullable: true }
+        createdAt: { type: string, format: date-time }
+        # `userId` là khoá sở hữu nội bộ, không nằm trong payload.
+
+    StaplePurchaseInput:
+      type: object
+      required: [price, purchasedAt]
+      properties:
+        price: { type: integer, minimum: 0 }
+        purchasedAt: { type: string, format: date }
+        store: { type: string, maxLength: 200, nullable: true }
+        note: { type: string, maxLength: 500, nullable: true }
 
     StapleInput:
       type: object
