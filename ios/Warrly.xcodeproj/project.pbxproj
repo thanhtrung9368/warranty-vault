@@ -60,6 +60,7 @@
 		8BB2B7657157FD6C79510684 /* AdsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE60A2ECF047B6527478F4A6 /* AdsController.swift */; };
 		8D2F1A7A91E9883302BD2E21 /* ClaimsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B85109B7D2AECA8EAFBD450 /* ClaimsSection.swift */; };
 		8D886912F7AB3BE46EB87E36 /* WarrantyTermsBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98BA507A3214DC81D4416E2A /* WarrantyTermsBlock.swift */; };
+		8D89507BE872EE20D1A12142 /* StaplePurchaseSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03F31164FCFF93502498AB9E /* StaplePurchaseSheet.swift */; };
 		8FD5CE7347CA8D7EF09E69B1 /* ReceiptCaptureControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA865C757F590D1A613B7DE /* ReceiptCaptureControl.swift */; };
 		916AD8901DF4ECD125358782 /* BulkDeviceAddView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A042C35BC3C17A27F6A73A59 /* BulkDeviceAddView.swift */; };
 		949008EF4067BEB48336D6CE /* StapleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9535797B7111A2A0299DA7BE /* StapleStore.swift */; };
@@ -78,6 +79,7 @@
 		C1330D82F0F68FD467C4F867 /* WarrantyFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DCDE32D624D890090538C46 /* WarrantyFormView.swift */; };
 		C4868C2AA09986BBB5627FF3 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60CE06298DACE1DDBD26D736 /* Formatters.swift */; };
 		C5EBDFF0AF59F28C06CEFA16 /* LocalizationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32BE9FC3440CF94FF17362FA /* LocalizationStore.swift */; };
+		C60DF813768918A113295EF2 /* StaplePurchaseHistorySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BBA48865449FFDE354777A6 /* StaplePurchaseHistorySheet.swift */; };
 		C73A7DCDDF1BAB51A47971EC /* Fonts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92DBBD8571A8AAA6922D911 /* Fonts.swift */; };
 		C7AC3247EAFD17CC03FB0798 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 569E34979FCE797CC256EF82 /* Components.swift */; };
 		CCF8B9EE27949317AB45DE66 /* SubscriptionsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3552F34924BA68A7F154BE7 /* SubscriptionsStore.swift */; };
@@ -151,9 +153,11 @@
 /* Begin PBXFileReference section */
 		00F0C6B251B83320A9A05248 /* BrandWarrantySection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandWarrantySection.swift; sourceTree = "<group>"; };
 		02AE835619DA3ECDE28FD7DE /* WishlistScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistScreen.swift; sourceTree = "<group>"; };
+		03F31164FCFF93502498AB9E /* StaplePurchaseSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaplePurchaseSheet.swift; sourceTree = "<group>"; };
 		077A5846A2839CADC33BEE4D /* StapleCategoryPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StapleCategoryPickerSheet.swift; sourceTree = "<group>"; };
 		0937C68493CB01905B03134B /* WarrlyWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = WarrlyWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		09877AAA02E03009FC63EF7B /* ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ios; path = .; sourceTree = SOURCE_ROOT; };
+		0BBA48865449FFDE354777A6 /* StaplePurchaseHistorySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaplePurchaseHistorySheet.swift; sourceTree = "<group>"; };
 		0DCDE32D624D890090538C46 /* WarrantyFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyFormView.swift; sourceTree = "<group>"; };
 		118660EBEABDC48A7BDCA123 /* AttachmentPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentPreview.swift; sourceTree = "<group>"; };
 		11C9A2418F23E0EA06A4B9B5 /* ClaimFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimFormView.swift; sourceTree = "<group>"; };
@@ -581,6 +585,8 @@
 				077A5846A2839CADC33BEE4D /* StapleCategoryPickerSheet.swift */,
 				278E4BB59DB8DC12A5609A23 /* StapleFormView.swift */,
 				FF6E487D2BEC93B9FC1C9C76 /* StapleNotifications.swift */,
+				0BBA48865449FFDE354777A6 /* StaplePurchaseHistorySheet.swift */,
+				03F31164FCFF93502498AB9E /* StaplePurchaseSheet.swift */,
 				2D79751F541447C7A16AEDEE /* StaplesView.swift */,
 			);
 			path = Staples;
@@ -869,6 +875,8 @@
 				50DD623401C67BC6529B5C90 /* StapleCategoryPickerSheet.swift in Sources */,
 				BBCA5DCC3DA2F0EAA4AFFB0D /* StapleFormView.swift in Sources */,
 				BF84CAB453C95F776DAFDD45 /* StapleNotifications.swift in Sources */,
+				C60DF813768918A113295EF2 /* StaplePurchaseHistorySheet.swift in Sources */,
+				8D89507BE872EE20D1A12142 /* StaplePurchaseSheet.swift in Sources */,
 				949008EF4067BEB48336D6CE /* StapleStore.swift in Sources */,
 				75D8FBB22994FEC99E72AFBD /* StaplesView.swift in Sources */,
 				99725CA6FAD2BB436E164772 /* StatsStore.swift in Sources */,

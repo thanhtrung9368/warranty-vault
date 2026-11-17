@@ -172,16 +172,6 @@ struct StapleFormView: View {
                         .padding(.top, WVSpacing.sm)
                 }
 
-                if item != nil {
-                    WVButton(L.t("Đã mua lại"), kind: .secondary) {
-                        lastBoughtAt = Date()
-                        state = .ENOUGH
-                        Task { await submit() }
-                    }
-                    .padding(.horizontal, WVSpacing.gutter)
-                    .padding(.top, WVSpacing.lg)
-                }
-
                 Spacer().frame(height: WVSpacing.xl)
             }
         }

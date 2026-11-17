@@ -52,18 +52,22 @@ final class StapleStore: ObservableObject {
         try await update(id: item.id, input)
     }
 
-    /// Quick action: bought it again. Resets the cadence clock from today and
-    /// puts it back in the "Đủ dùng" group.
-    func restock(_ item: Staple) async throws {
-        var input = input(for: item)
-        input.state = .ENOUGH
-        input.lastBoughtAt = Self.apiDay(Date())
-        try await update(id: item.id, input)
+    /// Records a purchase. The server inserts the row, moves `lastBoughtAt`
+    /// forward (only when the purchase day is later) and sets `state = ENOUGH`
+    /// in one transaction; reloading afterwards shows the new price summary.
+    func addPurchase(id: String, _ input: StaplePurchaseInput) async throws {
+        _ = try await client.createStaplePurchase(id: id, input)
+        await load()
+    }
+
+    /// Purchase history for one essential, newest first.
+    func purchases(id: String) async throws -> [StaplePurchase] {
+        try await client.listStaplePurchases(id: id)
     }
 
     /// Reuse everything the user already saved when a quick action changes only
-    /// `state` (or `lastBoughtAt`). The API PATCH is a full replacement, so
-    /// dropping a field here would silently clear it.
+    /// `state`. The API PATCH is a full replacement, so dropping a field here
+    /// would silently clear it — including the `lastBoughtAt` a purchase set.
     func input(for item: Staple) -> StapleInput {
         var input = StapleInput(name: item.name)
         input.category = item.category

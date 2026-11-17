@@ -908,6 +908,28 @@ extension APIClient {
         let _: EmptyResponse = try await request("DELETE", "/api/v1/staples/\(id)")
     }
 
+    /// The recorded purchases of one essential, newest first (the server orders
+    /// them; the history sheet keeps that order).
+    public func listStaplePurchases(id: String) async throws -> [StaplePurchase] {
+        struct Wrapper: Decodable { let items: [StaplePurchase] }
+        let w: Wrapper = try await request("GET", "/api/v1/staples/\(id)/purchases")
+        return w.items
+    }
+
+    /// Records a purchase. In one transaction the server inserts the row, moves
+    /// `lastBoughtAt` forward (only when the purchase day is later), sets
+    /// `state = ENOUGH`, and returns the updated essential with its new summary.
+    public func createStaplePurchase(
+        id: String,
+        _ input: StaplePurchaseInput
+    ) async throws -> (StaplePurchase, Staple) {
+        struct Wrapper: Decodable { let purchase: StaplePurchase; let item: Staple }
+        let w: Wrapper = try await request(
+            "POST", "/api/v1/staples/\(id)/purchases", body: input
+        )
+        return (w.purchase, w.item)
+    }
+
     // MARK: - Action queue ("Việc cần xử lý")
 
     /// The derived queue of things that need a decision.
