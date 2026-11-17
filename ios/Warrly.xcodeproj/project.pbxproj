@@ -35,6 +35,7 @@
 		4AA650E2E9999B6296460CE4 /* LeadDaysSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 888F7704865BD2666E99290B /* LeadDaysSection.swift */; };
 		4C5CE511D0E4807822A335A0 /* AttachmentSearchPreviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1901A96E2C27AD419DF881E /* AttachmentSearchPreviewSheet.swift */; };
 		4E5031AC2B316EED0CA496C3 /* ServiceDirectorySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32B17B4E0FDB45A93ECCB48B /* ServiceDirectorySection.swift */; };
+		50DD623401C67BC6529B5C90 /* StapleCategoryPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 077A5846A2839CADC33BEE4D /* StapleCategoryPickerSheet.swift */; };
 		518874433CE8A23D988958DE /* RegisterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F47C1974502CB1C3B5831E36 /* RegisterView.swift */; };
 		5339B998E6614AA044485023 /* DevicesScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E524A44E85B68F979F8E4089 /* DevicesScreen.swift */; };
 		57F129A92B0689D9F286D129 /* ActionQueueScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F489E872F9722B82F024442 /* ActionQueueScreen.swift */; };
@@ -150,6 +151,7 @@
 /* Begin PBXFileReference section */
 		00F0C6B251B83320A9A05248 /* BrandWarrantySection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandWarrantySection.swift; sourceTree = "<group>"; };
 		02AE835619DA3ECDE28FD7DE /* WishlistScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistScreen.swift; sourceTree = "<group>"; };
+		077A5846A2839CADC33BEE4D /* StapleCategoryPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StapleCategoryPickerSheet.swift; sourceTree = "<group>"; };
 		0937C68493CB01905B03134B /* WarrlyWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = WarrlyWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		09877AAA02E03009FC63EF7B /* ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ios; path = .; sourceTree = SOURCE_ROOT; };
 		0DCDE32D624D890090538C46 /* WarrantyFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyFormView.swift; sourceTree = "<group>"; };
@@ -576,6 +578,7 @@
 		AE7F3338484503E064617E20 /* Staples */ = {
 			isa = PBXGroup;
 			children = (
+				077A5846A2839CADC33BEE4D /* StapleCategoryPickerSheet.swift */,
 				278E4BB59DB8DC12A5609A23 /* StapleFormView.swift */,
 				FF6E487D2BEC93B9FC1C9C76 /* StapleNotifications.swift */,
 				2D79751F541447C7A16AEDEE /* StaplesView.swift */,
@@ -863,6 +866,7 @@
 				FB947B9445F3FB0590863136 /* SessionsView.swift in Sources */,
 				44DBCC2CAF1DFF5FFE11B708 /* SettingsView.swift in Sources */,
 				474C2F2F54BE62619CED3AD0 /* ShareCertificatesSection.swift in Sources */,
+				50DD623401C67BC6529B5C90 /* StapleCategoryPickerSheet.swift in Sources */,
 				BBCA5DCC3DA2F0EAA4AFFB0D /* StapleFormView.swift in Sources */,
 				BF84CAB453C95F776DAFDD45 /* StapleNotifications.swift in Sources */,
 				949008EF4067BEB48336D6CE /* StapleStore.swift in Sources */,
@@ -941,7 +945,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1052,7 +1056,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

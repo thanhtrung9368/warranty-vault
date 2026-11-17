@@ -19,6 +19,7 @@ struct StapleFormView: View {
     @State private var lastBoughtAt: Date
     @State private var state: StapleState
     @State private var notes: String
+    @State private var showCategoryPicker = false
     @State private var busy = false
     @State private var errorMessage: String?
 
@@ -47,6 +48,15 @@ struct StapleFormView: View {
         return (1...3650).contains(n)
     }
 
+    /// Categories already used by this account, so a custom category from an
+    /// older item reappears in the picker instead of demanding retyping.
+    private var existingCategories: [String] {
+        var seen = Set<String>()
+        return store.items
+            .compactMap { $0.category?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && seen.insert($0).inserted }
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -60,9 +70,19 @@ struct StapleFormView: View {
                     }
                     WVDivider()
                     fieldRow(L.t("Nhóm")) {
-                        TextField(L.t("Đồ dùng cá nhân..."), text: $category)
-                            .wvFont(.body)
-                            .multilineTextAlignment(.trailing)
+                        Button { showCategoryPicker = true } label: {
+                            HStack(spacing: 6) {
+                                Text(category.isEmpty
+                                     ? L.t("Chọn nhóm")
+                                     : StapleCategories.label(category))
+                                    .wvFont(.body)
+                                    .foregroundStyle(category.isEmpty ? WVColor.label3 : WVColor.label)
+                                    .lineLimit(1)
+                                WVIcon("arrowRight", size: 13, weight: .semibold)
+                                    .foregroundStyle(WVColor.label4)
+                            }
+                        }
+                        .buttonStyle(.plain)
                     }
                     WVDivider()
                     fieldRow(L.t("Đơn vị")) {
@@ -178,6 +198,15 @@ struct StapleFormView: View {
                     .fontWeight(.semibold)
                     .disabled(!canSave)
             }
+        }
+        .sheet(isPresented: $showCategoryPicker) {
+            NavigationStack {
+                StapleCategoryPickerSheet(
+                    selected: $category,
+                    existing: existingCategories
+                )
+            }
+            .presentationDetents([.medium, .large])
         }
         .alert(L.t("Không lưu được"), isPresented: Binding(
             get: { errorMessage != nil },
