@@ -2391,6 +2391,10 @@ public enum StapleState: String, Codable, Sendable, CaseIterable, Hashable {
 /// `lastBoughtAt` is a calendar day (`YYYY-MM-DD` on the wire), not an instant:
 /// the app computes the next check-in from it and `cadenceDays`. `cadenceDays`
 /// is optional; without it the item is a pure manual list entry.
+///
+/// The four price fields are a summary of the item's purchase history. They are
+/// optional because they are nullable on the wire and because an older server
+/// does not send them at all: `nil` means "no summary", never "0 ₫".
 public struct Staple: Codable, Sendable, Identifiable, Hashable {
     public let id: String
     public let name: String
@@ -2398,10 +2402,20 @@ public struct Staple: Codable, Sendable, Identifiable, Hashable {
     public let unit: String?
     public let cadenceDays: Int?
     public let lastBoughtAt: Date?
+    public let lastPrice: Int?
+    public let lowestPrice: Int?
+    public let averagePrice: Int?
+    public let purchaseCount: Int?
     public let state: StapleState
     public let notes: String?
     public let createdAt: Date
     public let updatedAt: Date
+
+    /// True when at least one purchase has been recorded, i.e. the summary is
+    /// worth rendering on the list row.
+    public var hasPurchaseSummary: Bool {
+        (purchaseCount ?? 0) > 0 || lastPrice != nil
+    }
 }
 
 /// Body of `POST/PATCH /api/v1/staples`. `lastBoughtAt` is deliberately a
@@ -2417,6 +2431,45 @@ public struct StapleInput: Encodable, Sendable {
     public var notes: String?
 
     public init(name: String) { self.name = name }
+}
+
+/// One recorded purchase of an essential.
+///
+/// `purchasedAt` is a calendar day (`YYYY-MM-DD` on the wire), not an instant;
+/// the purchase sheet writes it through `WireDay` so a timezone cannot move it
+/// by a day. `price` is a VND integer (≥ 0), and `store` / `note` are free text.
+public struct StaplePurchase: Codable, Sendable, Identifiable, Hashable {
+    public let id: String
+    public let stapleId: String
+    public let price: Int
+    public let purchasedAt: Date
+    public let store: String?
+    public let note: String?
+    public let createdAt: Date
+}
+
+/// Body of `POST /api/v1/staples/{id}/purchases`.
+///
+/// `purchasedAt` is deliberately a string for the same reason as
+/// `StapleInput.lastBoughtAt`: the API contract is a calendar day, so the client
+/// must not send a timestamp whose zone could shift it.
+public struct StaplePurchaseInput: Encodable, Sendable {
+    public var price: Int
+    public var purchasedAt: String
+    public var store: String?
+    public var note: String?
+
+    public init(
+        price: Int,
+        purchasedAt: String,
+        store: String? = nil,
+        note: String? = nil
+    ) {
+        self.price = price
+        self.purchasedAt = purchasedAt
+        self.store = store
+        self.note = note
+    }
 }
 
 // MARK: - Catalog

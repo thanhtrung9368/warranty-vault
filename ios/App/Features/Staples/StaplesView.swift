@@ -12,6 +12,8 @@ struct StaplesView: View {
     @StateObject private var store: StapleStore
     @State private var showCreate = false
     @State private var editing: Staple?
+    @State private var purchasing: Staple?
+    @State private var historyItem: Staple?
     @State private var deleting: Staple?
     @State private var actionError: String?
 
@@ -86,6 +88,12 @@ struct StaplesView: View {
                 StapleFormView(client: client, store: store, item: item)
             }
         }
+        .sheet(item: $purchasing) { item in
+            StaplePurchaseSheet(store: store, item: item)
+        }
+        .sheet(item: $historyItem) { item in
+            StaplePurchaseHistorySheet(store: store, item: item)
+        }
         .confirmationDialog(
             L.t("Xoá đồ dùng?"),
             isPresented: Binding(
@@ -129,12 +137,8 @@ struct StaplesView: View {
                         catch { actionError = error.localizedDescription }
                     }
                 },
-                onRestock: {
-                    Task {
-                        do { try await store.restock(item) }
-                        catch { actionError = error.localizedDescription }
-                    }
-                },
+                onRestock: { purchasing = item },
+                onHistory: { historyItem = item },
                 onDelete: { deleting = item }
             )
         }
@@ -148,6 +152,7 @@ private struct StapleRow: View {
     let onEdit: () -> Void
     let onMark: (StapleState) -> Void
     let onRestock: () -> Void
+    let onHistory: () -> Void
     let onDelete: () -> Void
 
     private var color: Color {
@@ -171,6 +176,21 @@ private struct StapleRow: View {
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         return parts.isEmpty ? L.t("Đồ dùng") : parts.joined(separator: " · ")
+    }
+
+    /// The purchase summary, when at least one purchase has been recorded.
+    /// Two labels, not one total: "last" and "lowest" answer different
+    /// questions, and a nil summary must render nothing rather than "0 ₫".
+    private var priceSummary: String? {
+        guard item.hasPurchaseSummary else { return nil }
+        var parts: [String] = []
+        if let last = item.lastPrice {
+            parts.append(L.t("Lần cuối %@", WVFormat.vnd(last)))
+        }
+        if let lowest = item.lowestPrice {
+            parts.append(L.t("Thấp nhất %@", WVFormat.vnd(lowest)))
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     /// The next check-in, if the item has a cadence and a purchase day. This is
@@ -207,6 +227,13 @@ private struct StapleRow: View {
                         .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .lineLimit(1)
+                    if let priceSummary {
+                        Text(priceSummary)
+                            .wvFont(.caption)
+                            .foregroundStyle(WVColor.label3)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
@@ -234,6 +261,9 @@ private struct StapleRow: View {
                 }
                 Button { onRestock() } label: {
                     Label(L.t("Đã mua lại"), systemImage: "arrow.clockwise")
+                }
+                Button { onHistory() } label: {
+                    Label(L.t("Lịch sử giá"), systemImage: "clock.arrow.circlepath")
                 }
                 Divider()
                 Button { onEdit() } label: {
