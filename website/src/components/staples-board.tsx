@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   AlertTriangle,
+  LineChart as LineChartIcon,
   Loader2,
   MoreHorizontal,
   Package,
@@ -27,13 +28,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { dayToInputValue, daysUntil, formatDay, parseDay } from '@/lib/api-day';
+import { formatVND } from '@/lib/format';
 import type { Staple, StapleState } from '@/lib/api/staples';
-import {
-  deleteStaple,
-  restockStaple,
-  setStapleState,
-} from '@/app/actions/staples';
+import { deleteStaple, setStapleState } from '@/app/actions/staples';
 import { StapleFormDialog } from '@/components/staple-form-dialog';
+import { StaplePriceHistoryDialog } from '@/components/staple-price-history-dialog';
+import { StaplePurchaseDialog } from '@/components/staple-purchase-dialog';
 
 const STATE_META: Record<
   StapleState,
@@ -49,6 +49,8 @@ export function StaplesBoard({ items }: { items: Staple[] }) {
   const locale = useLocale();
   const router = useRouter();
   const [editing, setEditing] = React.useState<Staple | null | undefined>(undefined);
+  const [purchasing, setPurchasing] = React.useState<Staple | null>(null);
+  const [history, setHistory] = React.useState<Staple | null>(null);
   const [pendingId, setPendingId] = React.useState<string | null>(null);
 
   const toBuy = items.filter((item) => item.state !== 'ENOUGH');
@@ -81,12 +83,6 @@ export function StaplesBoard({ items }: { items: Staple[] }) {
 
   async function mark(item: Staple, state: StapleState) {
     await runQuick(item, () => setStapleState(item.id, state));
-  }
-
-  async function restock(item: Staple) {
-    await runQuick(item, () =>
-      restockStaple(item.id, dayToInputValue(new Date())),
-    );
   }
 
   async function remove(item: Staple) {
@@ -138,6 +134,26 @@ export function StaplesBoard({ items }: { items: Staple[] }) {
           <Badge variant={state.variant}>{t(state.label)}</Badge>
         </div>
 
+        {item.purchaseCount > 0 && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <span className="tabular-nums">
+              {t('Giá gần nhất')}:{' '}
+              <span className="font-semibold text-ink">
+                {formatVND(item.lastPrice, locale)}
+              </span>
+            </span>
+            <span aria-hidden className="text-border-strong">
+              ·
+            </span>
+            <span className="tabular-nums">
+              {t('Giá thấp nhất')}:{' '}
+              <span className="font-semibold text-ink">
+                {formatVND(item.lowestPrice, locale)}
+              </span>
+            </span>
+          </div>
+        )}
+
         <div className="mt-auto flex items-center justify-between gap-2 border-t border-dashed border-border pt-3">
           <span className="truncate text-xs text-muted-foreground">
             {schedule(item)}
@@ -173,9 +189,13 @@ export function StaplesBoard({ items }: { items: Staple[] }) {
                 <XCircle className="mr-2 h-4 w-4" />
                 {t('Đã hết')}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void restock(item)}>
+              <DropdownMenuItem onSelect={() => setPurchasing(item)}>
                 <RefreshCcw className="mr-2 h-4 w-4" />
                 {t('Đã mua lại')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setHistory(item)}>
+                <LineChartIcon className="mr-2 h-4 w-4" />
+                {t('Lịch sử giá')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => setEditing(item)}>
@@ -259,6 +279,33 @@ export function StaplesBoard({ items }: { items: Staple[] }) {
             setEditing(undefined);
             toast.success(t('Đã lưu'));
             router.refresh();
+          }}
+        />
+      )}
+
+      {purchasing && (
+        <StaplePurchaseDialog
+          key={purchasing.id}
+          open
+          staple={purchasing}
+          onOpenChange={(open) => {
+            if (!open) setPurchasing(null);
+          }}
+          onSaved={() => {
+            setPurchasing(null);
+            toast.success(t('Đã lưu'));
+            router.refresh();
+          }}
+        />
+      )}
+
+      {history && (
+        <StaplePriceHistoryDialog
+          key={history.id}
+          open
+          staple={history}
+          onOpenChange={(open) => {
+            if (!open) setHistory(null);
           }}
         />
       )}

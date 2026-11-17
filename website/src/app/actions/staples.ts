@@ -3,13 +3,19 @@
 // Thin server actions over the live /v1/staples API.
 //
 // Go owns validation and ownership; these actions only normalize FormData and
-// revalidate the two pages that can show a staple. They never touch Device or
-// WishlistItem — a restock is not a purchase.
+// revalidate the two pages that can show a staple. A purchase records a price
+// against the staple and nothing else — it never touches Device or WishlistItem,
+// and there is deliberately no no-price "restock" path left.
 
 import { revalidatePath } from 'next/cache';
-import { api, toFormState, type FormState } from '@/lib/api';
+import { api, toFormState, type ApiResult, type FormState } from '@/lib/api';
 import { getI18n } from '@/lib/i18n/server';
-import type { Staple, StapleInput, StapleState } from '@/lib/api/staples';
+import type {
+  Staple,
+  StapleInput,
+  StaplePurchase,
+  StapleState,
+} from '@/lib/api/staples';
 
 function s(formData: FormData, key: string): string | null {
   const value = formData.get(key);
@@ -95,19 +101,40 @@ export async function setStapleState(
   return applyUpdate(await api.staples.update(id, input));
 }
 
-export async function restockStaple(
+/**
+ * The staple's price history, newest purchase first (the server's order).
+ * Read-only: the history dialog calls this every time it opens.
+ */
+export async function getStaplePurchases(
   id: string,
-  lastBoughtAt: string,
+): Promise<ApiResult<{ items: StaplePurchase[] }>> {
+  return api.staples.listPurchases(id);
+}
+
+/**
+ * Record one purchase. The insert, the `lastBoughtAt` advance and the reset to
+ * ENOUGH happen in Go's one transaction — this action only normalizes the form
+ * and revalidates. There is no way to restock without a price any more.
+ */
+export async function addStaplePurchase(
+  id: string,
+  formData: FormData,
 ): Promise<FormState> {
-  const item = await findStaple(id);
-  if (!item) {
+  const priceRaw = s(formData, 'price');
+  const price = priceRaw == null ? Number.NaN : Number(priceRaw);
+  if (!Number.isInteger(price) || price < 0) {
     const { t } = await getI18n();
-    return { ok: false, message: t('Không tìm thấy đồ dùng') };
+    return { ok: false, errors: { price: [t('Nhập giá hợp lệ')] } };
   }
-  const input = inputFromStaple(item);
-  input.state = 'ENOUGH';
-  input.lastBoughtAt = lastBoughtAt;
-  return applyUpdate(await api.staples.update(id, input));
+  const res = await api.staples.createPurchase(id, {
+    price,
+    purchasedAt: s(formData, 'purchasedAt') ?? '',
+    store: s(formData, 'store'),
+    note: s(formData, 'note'),
+  });
+  if (!res.ok) return toFormState(res);
+  revalidateStaples();
+  return { ok: true };
 }
 
 export async function deleteStaple(id: string): Promise<FormState> {
