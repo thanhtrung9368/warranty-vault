@@ -58,6 +58,9 @@ var calendarDays = map[string]bool{
 	"CheckedAt": true,
 	// InstallmentPlan (migration 0031)
 	"FirstDueAt": true,
+	// StaplePurchase (migration 0034) — the day the user restocked, not the
+	// instant the row was written (CreatedAt on the same model is an Instant).
+	"PurchasedAt": true,
 }
 
 // responseModels is every generated row that can reach a JSON response. Models
@@ -77,6 +80,7 @@ var responseModels = []any{
 	store.RetailerPolicy{},
 	store.Session{},
 	store.Staple{},
+	store.StaplePurchase{},
 	store.Subscription{},
 	store.SubscriptionPayment{},
 	store.User{},

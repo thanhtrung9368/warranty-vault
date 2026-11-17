@@ -736,6 +736,7 @@ var messages = map[string]message{
 	"Nhóm đồ dùng tối đa 100 ký tự": {vi: "Nhóm đồ dùng tối đa 100 ký tự", en: "Essential category must be at most 100 characters"},
 	"Đơn vị tối đa 30 ký tự":        {vi: "Đơn vị tối đa 30 ký tự", en: "Unit must be at most 30 characters"},
 	"Ghi chú tối đa 2.000 ký tự":    {vi: "Ghi chú tối đa 2.000 ký tự", en: "Note must be at most 2,000 characters"},
+	"Cửa hàng tối đa 200 ký tự":     {vi: "Cửa hàng tối đa 200 ký tự", en: "Store must be at most 200 characters"},
 	"Không tìm thấy đồ dùng":        {vi: "Không tìm thấy đồ dùng", en: "Essential not found"},
 	"Chu kỳ không hợp lệ":           {vi: "Chu kỳ không hợp lệ", en: "Invalid billing cycle"},
 	"Mức ưu tiên không hợp lệ":      {vi: "Mức ưu tiên không hợp lệ", en: "Invalid priority"},

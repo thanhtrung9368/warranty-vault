@@ -61,6 +61,10 @@ sql:
             go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
           - column: "Staple.lastBoughtAt"
             go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
+          # A restock is recorded by the day the user bought it, not the instant
+          # they typed it in. Same rule as Staple.lastBoughtAt above.
+          - column: "StaplePurchase.purchasedAt"
+            go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
           - column: "Claim.expectedReturnAt"
             go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
           - column: "RetailerPolicy.checkedAt"
