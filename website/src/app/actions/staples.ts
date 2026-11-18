@@ -88,7 +88,8 @@ export async function createStaple(formData: FormData): Promise<FormState> {
     });
     revalidateStaples();
     if (!purchaseRes.ok) {
-      return { ok: true, message: toFormState(purchaseRes).message };
+      const purchaseState = await toFormState(purchaseRes);
+      return { ok: true, message: purchaseState.message };
     }
     return { ok: true };
   }
