@@ -10,6 +10,7 @@
 import { revalidatePath } from 'next/cache';
 import { api, toFormState, type ApiResult, type FormState } from '@/lib/api';
 import { getI18n } from '@/lib/i18n/server';
+import { dayToInputValue } from '@/lib/api-day';
 import type {
   Staple,
   StapleInput,
@@ -73,6 +74,25 @@ async function applyUpdate(
 export async function createStaple(formData: FormData): Promise<FormState> {
   const res = await api.staples.create(buildInput(formData));
   if (!res.ok) return toFormState(res);
+
+  // Optional first purchase price from the add form. If it fails, the item
+  // still exists; the user can record the price from the card's menu.
+  const priceRaw = s(formData, 'price');
+  const price = priceRaw == null ? 0 : Number(priceRaw);
+  if (Number.isFinite(price) && price > 0) {
+    const purchaseRes = await api.staples.createPurchase(res.data.item.id, {
+      price: Math.trunc(price),
+      purchasedAt: s(formData, 'lastBoughtAt') ?? dayToInputValue(new Date()),
+      store: s(formData, 'store'),
+      note: s(formData, 'notes'),
+    });
+    revalidateStaples();
+    if (!purchaseRes.ok) {
+      return { ok: true, message: toFormState(purchaseRes).message };
+    }
+    return { ok: true };
+  }
+
   revalidateStaples();
   return { ok: true };
 }

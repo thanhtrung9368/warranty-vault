@@ -30,8 +30,14 @@ final class StapleStore: ObservableObject {
         }
     }
 
-    func create(_ input: StapleInput) async throws {
-        _ = try await client.createStaple(input)
+    func create(
+        _ input: StapleInput,
+        firstPurchase: StaplePurchaseInput? = nil
+    ) async throws {
+        let item = try await client.createStaple(input)
+        if let firstPurchase {
+            _ = try await client.createStaplePurchase(id: item.id, firstPurchase)
+        }
         await load()
     }
 

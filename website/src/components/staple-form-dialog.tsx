@@ -201,6 +201,27 @@ export function StapleFormDialog({
             <input type="hidden" name="state" value={state} />
           </div>
 
+          {!initial && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="staple-price">{t('Giá mua (VND)')}</Label>
+                <Input
+                  id="staple-price"
+                  name="price"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={1000}
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="staple-store">{t('Nơi mua')}</Label>
+                <Input id="staple-store" name="store" />
+              </div>
+            </div>
+          )}
+
           <div className="space-y-3 rounded-lg border border-border bg-surface-2/50 p-3">
             <label className="flex items-center gap-2 text-sm font-medium text-ink">
               <input

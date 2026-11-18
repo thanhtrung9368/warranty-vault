@@ -19,6 +19,8 @@ struct StapleFormView: View {
     @State private var lastBoughtAt: Date
     @State private var state: StapleState
     @State private var notes: String
+    @State private var price: Int?
+    @State private var purchaseStore: String
     @State private var showCategoryPicker = false
     @State private var busy = false
     @State private var errorMessage: String?
@@ -35,6 +37,8 @@ struct StapleFormView: View {
         _lastBoughtAt = State(initialValue: item?.lastBoughtAt ?? Date())
         _state = State(initialValue: item?.state ?? .ENOUGH)
         _notes = State(initialValue: item?.notes ?? "")
+        _price = State(initialValue: nil)
+        _purchaseStore = State(initialValue: "")
     }
 
     private var canSave: Bool {
@@ -101,6 +105,21 @@ struct StapleFormView: View {
                     .padding(WVSpacing.sm)
                 }
                 WVSectionFooter(L.t("“Đủ dùng” là mặc định; “Sắp hết” đưa món vào Cần mua."))
+
+                if item == nil {
+                    WVSectionHeader(L.t("Giá mua"))
+                    WVGroup {
+                        fieldRow(L.t("Giá mua (VND)")) {
+                            WVMoneyField(value: $price)
+                        }
+                        WVDivider()
+                        fieldRow(L.t("Nơi mua")) {
+                            TextField(L.t("Nơi mua"), text: $purchaseStore)
+                                .wvFont(.body)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+                }
 
                 WVSectionHeader(L.t("Nhắc mua lại"))
                 WVGroup {
@@ -265,7 +284,18 @@ struct StapleFormView: View {
             if let item {
                 try await store.update(id: item.id, input)
             } else {
-                try await store.create(input)
+                let first: StaplePurchaseInput?
+                if let price, price > 0 {
+                    first = StaplePurchaseInput(
+                        price: price,
+                        purchasedAt: StapleStore.apiDay(lastBoughtAt),
+                        store: cleaned(purchaseStore),
+                        note: cleaned(notes)
+                    )
+                } else {
+                    first = nil
+                }
+                try await store.create(input, firstPurchase: first)
             }
             dismiss()
         } catch let APIError.server(_, envelope) {
