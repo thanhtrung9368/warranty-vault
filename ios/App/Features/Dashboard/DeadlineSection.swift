@@ -143,9 +143,17 @@ struct DashboardRow<Value: View>: View {
         HStack(spacing: WVSpacing.md) {
             leading
             titleBlock
-                .layoutPriority(1)
             Spacer(minLength: WVSpacing.sm)
+            // The trailing value keeps its 96 pt before the title yields.
+            //
+            // It used to be the other way round (`titleBlock` held priority 1),
+            // which is invisible on a 440 pt iPhone and wrong on the Duo's
+            // 382 pt cover panel: the deadline — the only reason the row
+            // exists — collapsed to "còn 26…" so that a long device name could
+            // stay whole. §10.3's rule is that a row's *title* gives way first;
+            // this is the line that makes it true on the narrowest window.
             value
+                .layoutPriority(1)
                 .frame(maxWidth: 96, alignment: .trailing)
             if chevron { chevronGlyph }
         }

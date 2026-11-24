@@ -41,6 +41,7 @@
 		57F129A92B0689D9F286D129 /* ActionQueueScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F489E872F9722B82F024442 /* ActionQueueScreen.swift */; };
 		5B4EF61B86E168CF518470F3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D11EEAC0E4F8A6C395327AB /* AppDelegate.swift */; };
 		5F6F8924B4C1D6A26F2A8379 /* WishlistDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46B05C8F7416303EECD37904 /* WishlistDetailView.swift */; };
+		5FB04FD8EFA96D9E252E4E48 /* AdaptiveLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9475A3B0E23778893174407A /* AdaptiveLayout.swift */; };
 		605266B4D8EE7B981A281741 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D05C77622BBD295F05C6E1F9 /* LoginView.swift */; };
 		6269797C054E034DCF4D97BC /* SubscriptionAuditStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F055799E348F2DDE968C3E04 /* SubscriptionAuditStore.swift */; };
 		64098F1E020CA14620A80ECF /* MoreScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7B4E664E69C4E53E8D17BF0 /* MoreScreen.swift */; };
@@ -208,6 +209,7 @@
 		888F7704865BD2666E99290B /* LeadDaysSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeadDaysSection.swift; sourceTree = "<group>"; };
 		8B68DB1972C47F9D9D6B3540 /* InboxCaptureSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxCaptureSheet.swift; sourceTree = "<group>"; };
 		8DDFFAB3C88D8425E8016D4A /* InsurancePackSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsurancePackSheet.swift; sourceTree = "<group>"; };
+		9475A3B0E23778893174407A /* AdaptiveLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveLayout.swift; sourceTree = "<group>"; };
 		9535797B7111A2A0299DA7BE /* StapleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StapleStore.swift; sourceTree = "<group>"; };
 		962356363C6D6FB924763757 /* WishlistStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistStore.swift; sourceTree = "<group>"; };
 		98BA507A3214DC81D4416E2A /* WarrantyTermsBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyTermsBlock.swift; sourceTree = "<group>"; };
@@ -498,6 +500,7 @@
 		7FE8D91156E6412EB7510E5B /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (
+				9475A3B0E23778893174407A /* AdaptiveLayout.swift */,
 				118660EBEABDC48A7BDCA123 /* AttachmentPreview.swift */,
 				A8E6C06BC5E2C37AD993156A /* AutocompleteChips.swift */,
 				1C1FBEE7DBBA46C09F5EC2D8 /* Charts.swift */,
@@ -810,6 +813,7 @@
 				E58C901A22989264A0B43B6F /* AccountView.swift in Sources */,
 				57F129A92B0689D9F286D129 /* ActionQueueScreen.swift in Sources */,
 				314D3E283DC579C17545BCD4 /* ActionQueueStore.swift in Sources */,
+				5FB04FD8EFA96D9E252E4E48 /* AdaptiveLayout.swift in Sources */,
 				41C0BF530D6878E6F862E3EB /* AdsBannerView.swift in Sources */,
 				D6B6DF282D652BD514EF21EE /* AdsConfig.swift in Sources */,
 				8BB2B7657157FD6C79510684 /* AdsController.swift in Sources */,

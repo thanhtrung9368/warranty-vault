@@ -35,6 +35,13 @@ struct RootView: View {
                     .zIndex(1)
             }
         }
+        // The one place the window width is measured. Every screen and every
+        // sheet below this view reads the resulting tier from the environment
+        // (`WVWindowTier`), on the Duo's 382 pt cover panel and on its unfolded
+        // 669 pt inner display alike. Measuring at the root rather than per
+        // screen is what keeps the tiers consistent: a fold changes the window,
+        // not the screen.
+        .wvWindowTierReader()
         .sheet(isPresented: $showsCaptureSheet) {
             // `startWithCamera: true` is the whole point of the control: land
             // on the camera, not on a list of ways to pick a file. The sheet
@@ -420,6 +427,32 @@ struct AppLockScreen: View {
     }
 }
 
+/// Chooses the tab shell's presentation for the window it is in.
+///
+/// `sidebarAdaptable` is the one Apple primitive that gives a phone a real
+/// two-posture shell without a second view hierarchy: a compact window (the
+/// Duo's outer 5.4" panel, any iPhone) keeps the tab bar, and a regular one
+/// (the unfolded 7.6" inner display) can take the sidebar, with the same
+/// selection and the same navigation stacks on both sides of the fold.
+///
+/// The `#available` branch is evaluated once per launch, never per resize, so
+/// this modifier cannot swap the container under a running navigation stack.
+/// On iOS 17 the style does not exist and the shell keeps the plain tab bar.
+private struct WVSidebarAdaptableShell: ViewModifier {
+    func body(content: Content) -> some View {
+        // Deliberately phone-only. An iPad already ships this app as a
+        // stretched phone, and turning it into a sidebar app is a product
+        // decision for its own slice — not a side effect of the Duo work. The
+        // Duo's unfolded panel is phone-idiom, so gating on the idiom keeps
+        // the unfold case and leaves the iPad exactly as it was.
+        if #available(iOS 18.0, *), WVLayout.isPhoneIdiom {
+            content.tabViewStyle(.sidebarAdaptable)
+        } else {
+            content
+        }
+    }
+}
+
 /// The five-tab shell from `project/ios/js/app.jsx`:
 /// Tổng quan · Thiết bị · Đăng ký · Wishlist · Thêm.
 ///
@@ -497,6 +530,15 @@ struct MainTabView: View {
             .badge(inboxStore.count + inboxStore.pendingSharedCount)
             .tag(4)
         }
+        // Fold/unfold must not cost the user their place. The style is chosen
+        // by `WVSidebarAdaptableShell` **once per process** (an `#available`
+        // check, not a width check): `sidebarAdaptable` draws the ordinary tab
+        // bar on a compact window and a sidebar on a regular one, so the same
+        // `TabView` — and therefore the same five `NavigationStack`s, their
+        // pushed screens and their scroll positions — survives a fold. A
+        // `if tier == .compact` around two different containers would rebuild
+        // the subtree and silently pop every stack.
+        .modifier(WVSidebarAdaptableShell())
         .tint(WVColor.tint)
         .environmentObject(inboxStore)
         // One launch read feeds every badge. The inbox screen refreshes it on

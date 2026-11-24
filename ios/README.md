@@ -238,6 +238,46 @@ quảng cáo là thay đổi phải review, không phải resolve ngầm.
   impression thật. Việc cần làm trên thiết bị nằm trong báo cáo bàn giao, không phải TODO
   trong repo này.
 
+## iPhone Duo (màn gập) — bố cục hai tư thế
+
+iPhone Duo là iPhone gập đầu tiên: **màn ngoài 5.4"** (1398×2034 px = 466×678 pt) và
+**màn trong 7.6"** (2007×2853 px = 669×951 pt). App chạy trên **cùng một** `WindowGroup`
+ở cả hai tư thế, nên "hỗ trợ Duo" ở đây nghĩa là bố cục tự đổi theo **bề rộng cửa sổ**, và
+trạng thái điều hướng phải sống qua lần gập/mở.
+
+- Trên màn ngoài, iOS giữ **84 pt bên phải** cho camera/bản lề: nội dung chỉ còn **382 pt**
+  (hẹp hơn iPhone SE 3 7 pt), thanh tab và các glyph trên navigation bar được vẽ trong dải
+  84 pt đó. Vì vậy các luật "compact" bên dưới là luật cho một cửa sổ **hẹp**, không phải
+  cho một cái điện thoại to.
+- `App/DesignSystem/AdaptiveLayout.swift` đo **bề rộng cửa sổ** một lần ở `RootView`
+  (`.wvWindowTierReader()`, đo bằng `GeometryReader` trong `.background` và
+  `.ignoresSafeArea()` để lấy 466 chứ không phải 382) rồi phát `WVWindowTier` qua
+  environment:
+  - `compact` < 560 pt — màn ngoài Duo, mọi iPhone dọc. Bố cục **y như trước**, một cột.
+  - `regular` 560…899 pt — màn trong Duo (669 pt), iPad ở split view.
+  - `wide` ≥ 900 pt — iPad ngang, cửa sổ resizable.
+- Trên `regular`/`wide`, `wvScreen()` (mọi màn hình đều đi qua nó) bọc nội dung trong
+  `WVLayout.readableMaxWidth` = **620 pt** rồi căn giữa; nền nhóm vẫn phủ kín cửa sổ. Nhờ
+  vậy một hàng "tên thiết bị … hạn" không bị kéo thành 600 pt, và form vẫn **một cột** ở
+  mọi bề rộng (không có form 2 cột nào cần 1300 pt).
+- Shell: `WVSidebarAdaptableShell` dùng `.tabViewStyle(.sidebarAdaptable)` (iOS 18+) **chỉ
+  trên idiom phone**. Đây là primitive duy nhất đổi được tab bar ↔ sidebar mà **không** dựng
+  lại cây view, nên chọn tab, stack đang push và vị trí scroll sống qua lần gập/mở; một
+  `if tier == .compact` bọc hai container khác nhau sẽ reset sạch mọi stack. iPad cố tình
+  **không** đổi (vẫn tab bar như trước) — biến iPad thành app sidebar là quyết định của một
+  slice riêng.
+- `DashboardRow` (hàng deadline ở Tổng quan): giá trị bên phải được `layoutPriority(1)`
+  trước `titleBlock`. Trước đây ngược lại, và trên 382 pt của màn ngoài hàng hiện
+  "còn 26…" — đúng luật §10.3 của `docs/handoff/WARRLY-visual-direction.md` là **title**
+  nhường chỗ trước, không phải hạn.
+- Hướng màn hình vẫn **chỉ dọc** trên iPhone (`UISupportedInterfaceOrientations`), nên màn
+  trong cũng chỉ dọc: app chưa có bố cục ngang, mở khoá xoay ngang sẽ ship một tư thế vỡ.
+  `UILaunchScreen` là dictionary hệ thống (không storyboard), dùng chung cho cả hai màn.
+- Ảnh chụp thô + giới hạn của máy ảo: `artifacts/appstore/duo/raw/README.md`. Màn trong
+  **không render** được trên toolchain này (chỉ có một `UIScreen`, framebuffer `--display=3`
+  đen tuyền) — phần `regular` được đối chiếu bằng proxy iPad 820 pt trong
+  `artifacts/appstore/duo/raw/proxy-wide-ipad/`.
+
 ## Privacy manifest
 
 Có **bốn** file `PrivacyInfo.xcprivacy`, cả bốn đều phải nằm trong bundle khi build
