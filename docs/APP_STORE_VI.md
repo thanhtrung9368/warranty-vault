@@ -1,6 +1,6 @@
 # Warrly — App Store tiếng Việt (copy-paste)
 
-Localization: **Vietnamese** · App: Warrly · Bundle: `com.warrly` · Version 1.0.0
+Localization: **Vietnamese** · App: Warrly · Bundle: `com.warrly` · Version 1.0.2 (build 34)
 
 > Thêm **Vietnamese** trong dropdown ngôn ngữ của App Store Connect, rồi copy
 > từng block dưới đây vào đúng ô. Ảnh tiếng Việt nằm trong `artifacts/appstore/`.
@@ -81,15 +81,30 @@ Quyền riêng tư: https://warrly.com/privacy
 bảo hành,hoá đơn,thiết bị,quản lý,đăng ký,wishlist,nhắc nhở,serial,IMEI
 ```
 
-## 6. What's New (1.0.0)
+## 6. What's New (1.0.2)
+
+### Tiếng Việt
 
 ```
-Warrly 1.0.0
+Warrly 1.0.2
 
-• Quản lý thiết bị, bảo hành, gói đăng ký và wishlist trong một nơi.
-• Nhắc hạn bảo hành/gói đăng ký và lưu hoá đơn an toàn.
-• Warrly Premium là gói đăng ký tự động gia hạn không bắt buộc:
-  bỏ quảng cáo và nâng giới hạn. Dùng thử 7 ngày.
+• Hỗ trợ iPhone Duo — dùng được trên cả hai màn hình của chiếc iPhone gập đầu
+  tiên của Apple: màn hình ngoài và màn hình trong.
+• Giao diện được bố cục cho từng màn hình, không phải giao diện iPhone phóng to.
+• Không có thay đổi nào khác — thiết bị, bảo hành, gói đăng ký, wishlist và hoá
+  đơn vẫn hoạt động như trước.
+```
+
+### English
+
+```
+Warrly 1.0.2
+
+• iPhone Duo support — Warrly now runs on both displays of Apple's first
+  foldable iPhone: the outer screen and the inner screen.
+• The interface is laid out for each display; it is not a stretched iPhone screen.
+• Nothing else changes — devices, warranties, subscriptions, wishlist and
+  receipts work exactly as before.
 ```
 
 ## 7. Ảnh tiếng Việt
@@ -110,6 +125,15 @@ Warrly 1.0.0
 4. `artifacts/appstore/listing-vi-ipad-4-subscriptions.png`
 5. `artifacts/appstore/listing-vi-ipad-5-wishlist.png`
 
+### iPhone Duo — tab riêng trên ASC (1.0.2)
+
+- Màn hình trong (inner display): **10 ảnh**, **2007 × 2853** (portrait)
+- Màn hình ngoài (outer display): **10 ảnh**, **1398 × 2034** (portrait)
+- Ảnh chụp từ build **1.0.2 (34)**, giao diện đã tối ưu cho Duo — không phải ảnh
+  iPhone phóng to
+- Checklist đầy đủ: mục **"1.0.2 — iPhone Duo screenshot checklist"** trong
+  `docs/APP_STORE_RELEASE_NOTES.md`
+
 ### Header & Search Results
 
 - Header: `artifacts/appstore/header-vi-3840x1646.png` (3840×1646)
@@ -120,6 +144,8 @@ Warrly 1.0.0
 - [ ] Thêm **Vietnamese** trong dropdown ngôn ngữ của version page
 - [ ] Copy Name / Subtitle / Promotional Text / Description / Keywords
 - [ ] Upload 5 ảnh iPhone VI + 5 ảnh iPad VI
+- [ ] Upload 10 ảnh Duo màn hình trong (2007×2853) + 10 ảnh Duo màn hình ngoài
+      (1398×2034), chụp từ build 1.0.2 (34)
 - [ ] Upload Header + Search Results VI
 - [ ] Kiểm tra preview trên App Store Connect
 - [ ] App Review Notes vẫn để English (đã có trong file release notes)

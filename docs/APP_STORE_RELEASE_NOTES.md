@@ -1,11 +1,60 @@
 # Warrly — App Store release & review notes
 
-Version: **1.0.0 (build 23)** · Bundle: `com.warrly` · Updated: 2026-11-11
+Version: **1.0.2 (build 34)** · Bundle: `com.warrly` · Updated: 2026-11-24
 
 > Dùng file này để copy từng mục vào App Store Connect. Không đưa mật khẩu demo
 > vào đây; demo account nằm trong **App Review Information** của ASC.
+> Mục **1.0.2** bên dưới là bản đang submit; các mục 1–5 là bản 1.0.0 giữ để
+> tham chiếu (phần Premium ở mục 3–4 vẫn dùng nguyên).
 
-## 1. Version → What's New (English)
+## 1.0.2 — What's New (English)
+
+```
+Warrly 1.0.2
+
+• iPhone Duo support — Warrly now runs on both displays of Apple's first
+  foldable iPhone: the outer screen and the inner screen.
+• The interface is laid out for each display; it is not a stretched iPhone screen.
+• Nothing else changes — devices, warranties, subscriptions, wishlist and
+  receipts work exactly as before.
+```
+
+## 1.0.2 — What's New (Tiếng Việt)
+
+```
+Warrly 1.0.2
+
+• Hỗ trợ iPhone Duo — dùng được trên cả hai màn hình của chiếc iPhone gập đầu
+  tiên của Apple: màn hình ngoài và màn hình trong.
+• Giao diện được bố cục cho từng màn hình, không phải giao diện iPhone phóng to.
+• Không có thay đổi nào khác — thiết bị, bảo hành, gói đăng ký, wishlist và hoá
+  đơn vẫn hoạt động như trước.
+```
+
+## 1.0.2 — App Review Information → Notes (English)
+
+Thêm đoạn này vào **đầu** ô Notes; phần Premium ở mục 3 giữ nguyên bên dưới:
+
+```
+Warrly is a personal tracker for devices, warranties, subscriptions and a
+wishlist. It is not a dating app and has no dating features, no user-generated
+content or public profiles, no social feed, no messaging/chat and no location.
+
+This version adds iPhone Duo support. App Store screenshots are uploaded for
+both displays: inner 2007 × 2853 and outer 1398 × 2034.
+```
+
+## 1.0.2 — iPhone Duo screenshot checklist
+
+- [ ] Build **34** của version **1.0.2** đã upload và được chọn
+- [ ] Version page → tab **iPhone Duo** (tab riêng, không dùng chung với iPhone)
+- [ ] Inner display — **10** ảnh, **2007 × 2853** (portrait)
+- [ ] Outer display — **10** ảnh, **1398 × 2034** (portrait)
+- [ ] Ảnh chụp từ build **1.0.2 (34)** — giao diện đã tối ưu cho Duo, không phải
+      giao diện iPhone phóng to
+- [ ] Upload đủ cả hai bộ trước khi **Add for Review**
+
+## 1. Version 1.0.0 → What's New (English)
 
 ```
 Warrly 1.0.0
@@ -16,7 +65,7 @@ Warrly 1.0.0
   remove ads and raise your limits. 7-day free trial.
 ```
 
-## 2. Version → What's New (Tiếng Việt)
+## 2. Version 1.0.0 → What's New (Tiếng Việt)
 
 ```
 Warrly 1.0.0
