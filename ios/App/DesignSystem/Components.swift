@@ -123,8 +123,15 @@ extension View {
     /// is applied: every screen already calls this modifier, and it reaches
     /// pushed screens, which a `safeAreaInset` on the `NavigationStack` does
     /// not.
+    ///
+    /// On a window wider than a phone (the Duo's inner display, an iPad) the
+    /// content is capped at `WVLayout.readableMaxWidth` and centred, while the
+    /// background keeps filling the whole window. The cap sits *before* the
+    /// background on purpose: a row's leading edge and the hinge must never be
+    /// the same pixel, but the grouped colour belongs to the window.
     func wvScreen() -> some View {
         self
+            .wvReadableContentWidth()
             .padding(.bottom, ScreenMetrics.tabBarContentInset)
             .background(WVColor.bg.ignoresSafeArea())
     }
