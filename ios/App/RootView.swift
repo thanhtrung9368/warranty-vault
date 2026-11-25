@@ -440,16 +440,11 @@ struct AppLockScreen: View {
 /// On iOS 17 the style does not exist and the shell keeps the plain tab bar.
 private struct WVSidebarAdaptableShell: ViewModifier {
     func body(content: Content) -> some View {
-        // Deliberately phone-only. An iPad already ships this app as a
-        // stretched phone, and turning it into a sidebar app is a product
-        // decision for its own slice — not a side effect of the Duo work. The
-        // Duo's unfolded panel is phone-idiom, so gating on the idiom keeps
-        // the unfold case and leaves the iPad exactly as it was.
-        if #available(iOS 18.0, *), WVLayout.isPhoneIdiom {
-            content.tabViewStyle(.sidebarAdaptable)
-        } else {
-            content
-        }
+        // Keep the ordinary tab bar on the Duo. `.sidebarAdaptable` promoted
+        // the cover panel to a right-side sidebar because the phone window
+        // reports a regular vertical size class; that is not the app's shell
+        // and it is not what the App Store screenshots should show.
+        content
     }
 }
 
