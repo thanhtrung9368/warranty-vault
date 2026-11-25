@@ -131,12 +131,11 @@ def crease(screen):
 
 
 def duo_inner(canvas, source, box, bezel=26, radius=58):
-    """Opened Duo: one body, seam + hinge caps in the bezel, display crease."""
+    """Opened Duo: clean body + bezel. No drawn crease or hinge seam."""
     x, y, w, h = box
-    cx = x + w // 2
     shadow = Image.new("RGBA", (w + 260, h + 260), (0, 0, 0, 0))
     ImageDraw.Draw(shadow).rounded_rectangle(
-        [130, 142, w + 130, h + 130], radius=radius + 32, fill=(20, 16, 24, 78)
+        [130, 142, w + 130, h + 130], radius=radius + 32, fill=(20, 16, 24, 76)
     )
     shadow = shadow.filter(ImageFilter.GaussianBlur(44))
     canvas.alpha_composite(shadow, (x - 130, y - 130))
@@ -144,7 +143,7 @@ def duo_inner(canvas, source, box, bezel=26, radius=58):
     d = ImageDraw.Draw(canvas)
     d.rounded_rectangle([x, y, x + w, y + h], radius=radius, fill=BODY)
     sw, sh = w - 2 * bezel, h - 2 * bezel
-    scr = crease(screen_art(source, (sw, sh)))
+    scr = screen_art(source, (sw, sh))
     mask = rounded_mask((sw, sh), max(12, radius - bezel))
     canvas.paste(scr.convert("RGB"), (x + bezel, y + bezel), mask)
     d.rounded_rectangle(
@@ -153,76 +152,25 @@ def duo_inner(canvas, source, box, bezel=26, radius=58):
         outline="#0B0910",
         width=2,
     )
-    # hinge: seam through the top/bottom bezel with caps on it
-    seam_w = max(5, int(w * 0.004))
-    d.rectangle([cx - seam_w // 2, y, cx + seam_w // 2, y + bezel], fill="#0E0C14")
-    d.rectangle(
-        [cx - seam_w // 2, y + h - bezel, cx + seam_w // 2, y + h], fill="#0E0C14"
-    )
-    cap_w, cap_h = max(26, int(w * 0.028)), max(10, int(bezel * 0.60))
-    for cy in (y + int(bezel * 0.18), y + h - int(bezel * 0.18) - cap_h):
-        d.rounded_rectangle(
-            [cx - cap_w // 2, cy, cx + cap_w // 2, cy + cap_h],
-            radius=cap_h // 2,
-            fill="#3B3546",
-            outline="#141119",
-        )
     d.rounded_rectangle([x, y, x + w, y + h], radius=radius, outline=EDGE, width=3)
 
 
 def duo_outer(canvas, source, box, bezel=20, radius=62):
-    """Folded Duo: two stacked halves, hinge band on the left, fore-edge."""
+    """Folded Duo: clean outer body + cover camera. No hinge band/fore-edge."""
     x, y, w, h = box
-    total_w, total_h = w + 12, h + 10
-    shadow = Image.new("RGBA", (total_w + 240, total_h + 240), (0, 0, 0, 0))
+    shadow = Image.new("RGBA", (w + 240, h + 240), (0, 0, 0, 0))
     ImageDraw.Draw(shadow).rounded_rectangle(
-        [120, 132, total_w + 120, total_h + 120], radius=radius + 28, fill=(20, 16, 24, 74)
+        [120, 132, w + 120, h + 120], radius=radius + 28, fill=(20, 16, 24, 72)
     )
     shadow = shadow.filter(ImageFilter.GaussianBlur(38))
     canvas.alpha_composite(shadow, (x - 120, y - 120))
 
     d = ImageDraw.Draw(canvas)
-    body_mask = rounded_mask((w, h), radius)
-    # back half, peeking out on the left and bottom
-    d.rounded_rectangle(
-        [x - 6, y + 6, x + w - 6, y + h + 4], radius=radius, fill="#171420"
-    )
-    d.rounded_rectangle(
-        [x - 6, y + 6, x + w - 6, y + h + 4], radius=radius, outline="#3A3446", width=2
-    )
-    # front half
     d.rounded_rectangle([x, y, x + w, y + h], radius=radius, fill=BODY)
-    # hinge band hugging the left edge of the front half
-    spine = max(14, int(w * 0.026))
-    band = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    bd = ImageDraw.Draw(band)
-    bd.rectangle([0, 0, spine, h], fill="#2C2736")
-    band.putalpha(ImageChops.multiply(band.getchannel("A"), body_mask))
-    canvas.alpha_composite(band, (x, y))
-    d = ImageDraw.Draw(canvas)
-    for dx, tint, width in ((2, "#5A5270", 2), (spine - 3, "#0E0C14", 3)):
-        d.line(
-            [(x + dx, y + radius), (x + dx, y + h - radius)],
-            fill=tint,
-            width=width,
-        )
-    # fore-edge: the two halves meeting on the free edge
-    for dx, tint, width in ((w - 13, "#0E0C14", 2), (w - 7, "#0E0C14", 2)):
-        d.line(
-            [(x + dx, y + radius), (x + dx, y + h - radius)],
-            fill=tint,
-            width=width,
-        )
-    d.line(
-        [(x + w - 10, y + radius), (x + w - 10, y + h - radius)],
-        fill="#4A4357",
-        width=1,
-    )
     sw, sh = w - 2 * bezel, h - 2 * bezel
     scr = screen_art(source, (sw, sh))
     mask = rounded_mask((sw, sh), max(10, radius - bezel))
     canvas.paste(scr.convert("RGB"), (x + bezel, y + bezel), mask)
-    # cover-display camera punch hole
     cr = max(6, int(sw * 0.0115))
     ccx, ccy = x + bezel + sw // 2, y + bezel + int(sh * 0.030)
     d.ellipse([ccx - cr, ccy - cr, ccx + cr, ccy + cr], fill="#08070B")
