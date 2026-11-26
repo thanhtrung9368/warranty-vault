@@ -267,7 +267,7 @@ struct SubscriptionDetailView: View {
                     }
                     Spacer(minLength: 0)
                     if sub.billingCycle != .LIFETIME {
-                        WVButton(L.t("Gia hạn"), icon: "refresh", kind: .secondary, size: .small,
+                        WVButton(L.t("Gia hạn ngay"), icon: "refresh", kind: .secondary, size: .small,
                                  fullWidth: false) {
                             Task { await renewNow() }
                         }

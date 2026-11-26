@@ -17,10 +17,19 @@ struct PremiumPaywallView: View {
             ?? premium.products.first
     }
 
-    private var hasTrial: Bool {
-        premium.products.contains {
-            $0.subscription?.introductoryOffer?.paymentMode == .freeTrial
-        }
+    /// The free trial the SELECTED plan is really offering to THIS account, or
+    /// `nil` when there is none.
+    ///
+    /// `isEligibleForIntroOffer` is a per-subscriber entitlement, not a property
+    /// of the product definition: the same two SKUs show a trial CTA to a new
+    /// subscriber and a plain "Subscribe" to someone who already used the trial
+    /// on another plan. Reading it from the selected product — together with the
+    /// offer's actual period — also keeps the two plans from borrowing each
+    /// other's trial copy.
+    @State private var trialOffer: TrialOffer?
+
+    private struct TrialOffer {
+        let period: Product.SubscriptionPeriod
     }
 
     var body: some View {
@@ -53,7 +62,14 @@ struct PremiumPaywallView: View {
             }
             .task {
                 await premium.loadProducts()
+                // Resolve the trial before the slower entitlement round-trip:
+                // the CTA must not sit on "Subscribe" for an eligible account
+                // while the backend is being asked who the user is.
+                await refreshTrialOffer()
                 await premium.syncEntitlement()
+            }
+            .onChange(of: selectedID) { _, _ in
+                Task { await refreshTrialOffer() }
             }
             .alert(L.t("Warrly Premium"), isPresented: Binding(
                 get: { premium.errorMessage != nil },
@@ -160,7 +176,10 @@ struct PremiumPaywallView: View {
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
                 WVButton(L.t("Thử lại"), kind: .secondary) {
-                    Task { await premium.loadProducts() }
+                    Task {
+                        await premium.loadProducts()
+                        await refreshTrialOffer()
+                    }
                 }
             }
             .padding(WVSpacing.lg)
@@ -227,11 +246,7 @@ struct PremiumPaywallView: View {
 
     private var purchaseButton: some View {
         VStack(spacing: WVSpacing.sm) {
-            WVButton(
-                hasTrial ? L.t("Dùng thử 7 ngày") : L.t("Đăng ký"),
-                icon: "sparkles",
-                kind: .primary
-            ) {
+            WVButton(purchaseTitle, icon: "sparkles", kind: .primary) {
                 guard let product = selectedProduct else { return }
                 Task { await premium.purchase(product) }
             }
@@ -239,14 +254,62 @@ struct PremiumPaywallView: View {
 
             if premium.isPurchasing {
                 ProgressView()
-            } else if hasTrial {
-                Text(L.t("7 ngày miễn phí, sau đó tự động gia hạn. Huỷ bất cứ lúc nào trong phần quản lý đăng ký của Apple."))
+            } else {
+                Text(purchaseTerms)
                     .font(.system(size: 12))
                     .foregroundStyle(WVColor.label3)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    /// The trial label only when StoreKit says this account is eligible for the
+    /// selected plan's offer; otherwise the plain purchase verb.
+    private var purchaseTitle: String {
+        guard let offer = trialOffer else { return L.t("Đăng ký Premium") }
+        return L.t("Dùng thử %@", periodText(offer.period))
+    }
+
+    /// The trial line carries the offer's own length, not a hardcoded week.
+    /// Without an eligible trial the ordinary renewal line is shown instead: the
+    /// paywall must not promise a free period the App Store will not honour.
+    private var purchaseTerms: String {
+        guard let offer = trialOffer else {
+            return L.t("Tự động gia hạn cho tới khi bạn huỷ. Huỷ bất cứ lúc nào trong phần quản lý đăng ký của Apple.")
+        }
+        return L.t("%@ miễn phí, sau đó tự động gia hạn. Huỷ bất cứ lúc nào trong phần quản lý đăng ký của Apple.",
+                   periodText(offer.period))
+    }
+
+    /// StoreKit hands the offer over as a value + unit; the app renders it with
+    /// its own plural entries so the copy follows the in-app language (the
+    /// system formatter would follow the device locale instead).
+    private func periodText(_ period: Product.SubscriptionPeriod) -> String {
+        switch period.unit {
+        case .day:   return L.p("%d ngày", period.value)
+        case .week:  return L.p("%d tuần", period.value)
+        case .month: return L.p("%d tháng", period.value)
+        case .year:  return L.p("%d năm", period.value)
+        @unknown default: return L.p("%d ngày", period.value)
+        }
+    }
+
+    /// Resolve the trial for the selected plan. Async because eligibility comes
+    /// from the App Store for this account, not from the product definition.
+    private func refreshTrialOffer() async {
+        guard let product = selectedProduct,
+              let subscription = product.subscription,
+              let offer = subscription.introductoryOffer,
+              offer.paymentMode == .freeTrial else {
+            trialOffer = nil
+            return
+        }
+        let eligible = await subscription.isEligibleForIntroOffer
+        // A plan switch can land while the answer is in flight; a stale answer
+        // must not put one plan's trial under another plan's price.
+        guard selectedProduct?.id == product.id else { return }
+        trialOffer = eligible ? TrialOffer(period: offer.period) : nil
     }
 
     private var restoreButton: some View {

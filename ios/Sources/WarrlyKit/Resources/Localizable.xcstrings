@@ -103,23 +103,6 @@
         }
       }
     },
-    "Khi bật, ảnh/PDF hoá đơn hoặc thẻ bảo hành đã giải mã — và khi bạn dùng đánh giá bảo hành, nội dung phiếu sửa chữa cùng điều khoản hợp đồng — sẽ được gửi tới Anthropic, dịch vụ AI ở Mỹ (ngoài Việt Nam), để đọc và trả kết quả. Anthropic tự động xoá đầu vào/đầu ra trong vòng 30 ngày, trừ khi pháp luật hoặc chính sách của họ yêu cầu giữ lâu hơn, và mặc định không dùng dữ liệu API để huấn luyện. Phía Warrly, ảnh/PDF vẫn được mã hoá; chỉ văn bản đọc được lưu dạng plaintext trong cơ sở dữ liệu để tìm kiếm (xoá tệp là xoá văn bản). Mọi kết quả chỉ là bản nháp để bạn kiểm tra trước khi lưu. Mặc định tắt.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When on, decrypted invoice/warranty-card photos or PDFs — and, if you use warranty assessment, the repair ticket details and contract terms — are sent to Anthropic, a US AI service outside Vietnam, to be read and answered. Anthropic automatically deletes inputs and outputs within 30 days unless required to keep them longer by law or its Usage Policy, and does not train on API data by default. On the Warrly side the photo/PDF stays encrypted; only the text read from it is stored as plaintext in the database so it can be searched (deleting the file deletes the text). Every result is a draft for you to review before saving. Off by default."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Khi bật, ảnh/PDF hoá đơn hoặc thẻ bảo hành đã giải mã — và khi bạn dùng đánh giá bảo hành, nội dung phiếu sửa chữa cùng điều khoản hợp đồng — sẽ được gửi tới Anthropic, dịch vụ AI ở Mỹ (ngoài Việt Nam), để đọc và trả kết quả. Anthropic tự động xoá đầu vào/đầu ra trong vòng 30 ngày, trừ khi pháp luật hoặc chính sách của họ yêu cầu giữ lâu hơn, và mặc định không dùng dữ liệu API để huấn luyện. Phía Warrly, ảnh/PDF vẫn được mã hoá; chỉ văn bản đọc được lưu dạng plaintext trong cơ sở dữ liệu để tìm kiếm (xoá tệp là xoá văn bản). Mọi kết quả chỉ là bản nháp để bạn kiểm tra trước khi lưu. Mặc định tắt."
-          }
-        }
-      }
-    },
     "Đánh giá bảo hành dùng chung một lần bật AI với tính năng quét hoá đơn. Khi bật, thông tin lần sửa chữa (mô tả lỗi, chẩn đoán, chi phí) và điều khoản bảo hành sẽ được gửi tới Anthropic (dịch vụ AI ở Mỹ) để phân tích.": {
       "extractionState": "manual",
       "localizations": {
@@ -6061,23 +6044,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ghi đúng ngày hãng hiển thị. Đây là kết quả bạn đọc được từ trang của hãng, không phải kết quả app tự đoán."
-          }
-        }
-      }
-    },
-    "Gia hạn": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Renews"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gia hạn"
           }
         }
       }
@@ -23584,40 +23550,6 @@
         }
       }
     },
-    "Dùng thử 7 ngày": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start 7-day free trial"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dùng thử 7 ngày"
-          }
-        }
-      }
-    },
-    "7 ngày miễn phí, sau đó tự động gia hạn. Huỷ bất cứ lúc nào trong phần quản lý đăng ký của Apple.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "7 days free, then automatically renews. Cancel anytime in your Apple subscription settings."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "7 ngày miễn phí, sau đó tự động gia hạn. Huỷ bất cứ lúc nào trong phần quản lý đăng ký của Apple."
-          }
-        }
-      }
-    },
     "Khôi phục mua hàng": {
       "extractionState": "manual",
       "localizations": {
@@ -28207,6 +28139,245 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cập nhật"
+          }
+        }
+      }
+    },
+    "Khi bật, trợ lý AI làm ba việc:": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When on, the AI assistant does three things:"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khi bật, trợ lý AI làm ba việc:"
+          }
+        }
+      }
+    },
+    "Đọc ảnh/PDF hoá đơn hoặc thẻ bảo hành để tự điền thông tin. File đã giải mã được gửi tới Anthropic, dịch vụ AI ở Mỹ (ngoài Việt Nam).": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reads invoice or warranty-card photos/PDFs and auto-fills the details. The decrypted file is sent to Anthropic, a US AI service outside Vietnam."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đọc ảnh/PDF hoá đơn hoặc thẻ bảo hành để tự điền thông tin. File đã giải mã được gửi tới Anthropic, dịch vụ AI ở Mỹ (ngoài Việt Nam)."
+          }
+        }
+      }
+    },
+    "Đọc chín điều khoản hợp đồng từ thẻ bảo hành.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reads the nine contract terms from a warranty card."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đọc chín điều khoản hợp đồng từ thẻ bảo hành."
+          }
+        }
+      }
+    },
+    "Đánh giá một lần sửa chữa có thuộc diện bảo hành không và soạn đơn gửi trung tâm. Nội dung phiếu sửa chữa, thông tin thiết bị và điều khoản hợp đồng cũng được gửi tới Anthropic.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assesses whether a repair is likely covered and drafts a letter to the service centre. The repair details, device details and contract terms are also sent to Anthropic."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đánh giá một lần sửa chữa có thuộc diện bảo hành không và soạn đơn gửi trung tâm. Nội dung phiếu sửa chữa, thông tin thiết bị và điều khoản hợp đồng cũng được gửi tới Anthropic."
+          }
+        }
+      }
+    },
+    "Anthropic tự động xoá đầu vào/đầu ra trong vòng 30 ngày (trừ khi pháp luật hoặc chính sách của họ yêu cầu giữ lâu hơn) và mặc định không dùng dữ liệu API để huấn luyện.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anthropic automatically deletes inputs and outputs within 30 days (unless required to keep them longer by law or its Usage Policy) and does not train on API data by default."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anthropic tự động xoá đầu vào/đầu ra trong vòng 30 ngày (trừ khi pháp luật hoặc chính sách của họ yêu cầu giữ lâu hơn) và mặc định không dùng dữ liệu API để huấn luyện."
+          }
+        }
+      }
+    },
+    "Phía Warrly, ảnh/PDF vẫn được mã hoá; chỉ văn bản đọc được lưu dạng plaintext trong cơ sở dữ liệu để tìm kiếm.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the Warrly side the photo/PDF stays encrypted; only the text read from it is stored as plaintext in the database so it can be searched."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phía Warrly, ảnh/PDF vẫn được mã hoá; chỉ văn bản đọc được lưu dạng plaintext trong cơ sở dữ liệu để tìm kiếm."
+          }
+        }
+      }
+    },
+    "Mọi kết quả chỉ là gợi ý hoặc bản nháp để bạn kiểm tra lại, không phải quyết định. Mặc định tắt.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every result is a suggestion or a draft for you to check, not a decision. Off by default."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mọi kết quả chỉ là gợi ý hoặc bản nháp để bạn kiểm tra lại, không phải quyết định. Mặc định tắt."
+          }
+        }
+      }
+    },
+    "Đăng ký Premium": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subscribe"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đăng ký Premium"
+          }
+        }
+      }
+    },
+    "Đánh dấu đã mua": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as purchased"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đánh dấu đã mua"
+          }
+        }
+      }
+    },
+    "Dùng thử %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free for %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dùng thử %@"
+          }
+        }
+      }
+    },
+    "%@ miễn phí, sau đó tự động gia hạn. Huỷ bất cứ lúc nào trong phần quản lý đăng ký của Apple.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ free, then renews automatically. Cancel anytime in your Apple subscription settings."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ miễn phí, sau đó tự động gia hạn. Huỷ bất cứ lúc nào trong phần quản lý đăng ký của Apple."
+          }
+        }
+      }
+    },
+    "Tự động gia hạn cho tới khi bạn huỷ. Huỷ bất cứ lúc nào trong phần quản lý đăng ký của Apple.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renews automatically until you cancel. Cancel anytime in your Apple subscription settings."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tự động gia hạn cho tới khi bạn huỷ. Huỷ bất cứ lúc nào trong phần quản lý đăng ký của Apple."
+          }
+        }
+      }
+    },
+    "%d tuần": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 week"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d weeks"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d tuần"
+                }
+              }
+            }
           }
         }
       }
