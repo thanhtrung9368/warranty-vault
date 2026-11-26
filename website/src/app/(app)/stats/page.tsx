@@ -21,6 +21,7 @@ import { MonthlyBar, CategoryPie } from '@/components/charts/lazy';
 import { ForecastPanel } from '@/components/forecast-panel';
 import { YearPicker } from '@/components/year-picker';
 import { EmptyState } from '@/components/empty-state';
+import { ListLoadError } from '@/components/list-load-error';
 import { api } from '@/lib/api';
 import type { DeviceListItem, Warranty } from '@/lib/api/devices';
 import {
@@ -90,6 +91,53 @@ export default async function StatsPage({
   const subscriptionStats = statsRes.ok ? statsRes.data.subscriptions : null;
   const forecast = forecastRes.ok ? forecastRes.data : null;
 
+  const monthlySubs = subscriptionStats?.totalMonthlyVnd ?? 0;
+  const activeSubs = subscriptionStats?.byStatus?.ACTIVE ?? 0;
+
+  // A failed device read is not an empty account. Every rollup on this page is
+  // computed from the device rows, so rendering it would print "0 ₫" as the
+  // user's spending and the empty state as their history. Keep the two reads
+  // that are independent of the device list — the subscription totals and the
+  // forecast — and say plainly that the device numbers are missing.
+  if (!devicesRes.ok) {
+    return (
+      <PageShell>
+        <PageHeader
+          eyebrow={t('Tổng quan')}
+          title={t('Thống kê')}
+          description={t(
+            'Tổng quan chi phí mua sắm (thiết bị + gói bảo hành) và giá trị tài sản còn bảo hành.',
+          )}
+        />
+
+        <ListLoadError
+          message={t('Không tải được danh sách thiết bị — thử tải lại trang nhé.')}
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard
+            eyebrow={t('Phí định kỳ mỗi tháng')}
+            value={subscriptionStats ? formatVND(monthlySubs, locale) : '—'}
+            sub={
+              subscriptionStats
+                ? t('{count} gói đang hoạt động • ~{amount}/năm', {
+                    count: activeSubs,
+                    amount: formatVND(monthlySubs * 12, locale),
+                  })
+                : t('Không tải được số liệu đăng ký')
+            }
+            tint="tint-sky"
+            icon={<RefreshCw className="h-5 w-5" />}
+          />
+        </div>
+
+        {forecast && (
+          <ForecastPanel forecast={forecast} months={forecastMonths} year={sp.year} />
+        )}
+      </PageShell>
+    );
+  }
+
   const warrantyResults = await Promise.all(
     devices.map(async (d) => ({
       deviceId: d.id,
@@ -120,8 +168,16 @@ export default async function StatsPage({
 
   // The forecast is part of "is there anything to show here": a user whose only
   // data is a dated wishlist item has a milestone to forecast, so they must not
-  // get the "chưa có gì để thống kê" empty state.
-  if (total === 0 && subscriptionTotal === 0 && isForecastEmpty(forecast, locale)) {
+  // get the "chưa có gì để thống kê" empty state. The branch also requires the
+  // other two reads to have succeeded: an account whose subscription or
+  // forecast read failed is unknown, not empty.
+  if (
+    statsRes.ok &&
+    forecastRes.ok &&
+    total === 0 &&
+    subscriptionTotal === 0 &&
+    isForecastEmpty(forecast, locale)
+  ) {
     return (
       <PageShell>
         <PageHeader
@@ -160,9 +216,6 @@ export default async function StatsPage({
     limit: 5,
     locale,
   });
-
-  const monthlySubs = subscriptionStats?.totalMonthlyVnd ?? 0;
-  const activeSubs = subscriptionStats?.byStatus?.ACTIVE ?? 0;
 
   // "Không xếp hạng: …" — one sentence built from whichever reasons apply, so
   // the note reads as one line rather than a fragment glued together in JSX.

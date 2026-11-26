@@ -177,6 +177,15 @@ export const common = defineMessages({
   'Đã đổi ngôn ngữ': 'Language changed',
   'Không lưu được lựa chọn ngôn ngữ': 'Could not save your language choice',
 
+  // ── App error boundary (`app/(app)/error.tsx`) ──────────────────────────
+  // The shell survives a failed page render; these are the only two actions it
+  // can offer. The description names the retry first and the device list as the
+  // way out, because an error boundary cannot know which page threw.
+  'Không tải được trang này': 'Could not load this page',
+  'Đã có lỗi khi tải dữ liệu. Thử lại — hoặc về danh sách thiết bị nếu vẫn lỗi.':
+    'Something went wrong while loading the data. Try again — or go back to the device list if it keeps failing.',
+  'Về danh sách thiết bị': 'Back to devices',
+
   // ── Document metadata (`app/layout.tsx`) ────────────────────────────────
   //
   // NOTE: the Vietnamese description was edited. It used to end "tiếng Việt

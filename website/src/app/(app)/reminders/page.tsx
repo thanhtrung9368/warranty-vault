@@ -7,6 +7,7 @@ import { CategoryIconBadge } from '@/components/category-icon';
 import { WarrantyPill } from '@/components/warranty-pill';
 import { DismissButton } from '@/components/dismiss-button';
 import { EmptyState } from '@/components/empty-state';
+import { ListLoadError } from '@/components/list-load-error';
 import { api } from '@/lib/api';
 import type { ReminderRow as ApiReminder } from '@/lib/api/reminders';
 import { dismissedReminders, type DismissedReminder } from '@/lib/dismissed-reminders';
@@ -146,7 +147,14 @@ export default async function RemindersPage() {
         )}
       />
 
-      {active.length === 0 ? (
+      {/* The failed read keeps its own banner, never the green empty state:
+          "Không có nhắc nhở nào, ngon!" is a claim about warranties we did not
+          read. The "Đã ẩn" section below keeps whatever it did load. */}
+      {!res.ok ? (
+        <ListLoadError
+          message={t('Không tải được danh sách nhắc nhở — thử tải lại trang nhé.')}
+        />
+      ) : active.length === 0 ? (
         <EmptyState
           icon={Bell}
           tone="emerald"
