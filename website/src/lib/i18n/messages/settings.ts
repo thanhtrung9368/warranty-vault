@@ -32,8 +32,12 @@ export const settings = defineMessages({
   'Đã cập nhật hồ sơ': 'Profile updated',
   'Tên hiển thị': 'Display name',
   'vd: Trung Nguyễn': 'e.g. Trung Nguyen',
-  'Tên hiển thị ở thanh trên cùng và lời chào trên bảng điều khiển. Tối đa 80 byte — tên tiếng Việt có dấu tốn nhiều byte hơn số ký tự. Để trống rồi lưu nếu muốn xoá tên.':
-    'Shown in the top bar and in the dashboard greeting. At most 80 bytes — Vietnamese diacritics take more bytes than characters. Leave it empty and save to remove the name.',
+  'Tên hiển thị ở thanh trên cùng và lời chào trên bảng điều khiển.':
+    'Shown in the top bar and in the dashboard greeting.',
+  'Tối đa 80 byte — tên tiếng Việt có dấu tốn nhiều byte hơn số ký tự.':
+    'At most 80 bytes — Vietnamese diacritics take more bytes than characters.',
+  'Để trống rồi lưu nếu muốn xoá tên.':
+    'Leave it empty and save to remove the name.',
   'Email đăng nhập': 'Sign-in email',
   'Email dùng để đăng nhập. Đổi được bằng mục':
     'This is the address you sign in with. You can change it under',
@@ -125,8 +129,12 @@ export const settings = defineMessages({
   // four facts are the reason the switch can be offered at all; do not soften
   // them into "get notified by email".
   'Email nhắc hạn': 'Reminder emails',
-  'Chỉ dùng khi thông báo đẩy không khả dụng hoặc gửi lỗi: mỗi mốc nhắc gửi tối đa một email, tới địa chỉ {email} của tài khoản. Đây là email giao dịch — không phải email quảng cáo. Mặc định tắt.':
-    'Only used when push notifications are unavailable or fail: at most one email per reminder, to your account address {email}. This is a transactional email — not marketing. Off by default.',
+  'Chỉ dùng khi thông báo đẩy không khả dụng hoặc gửi lỗi.':
+    'Only used when push notifications are unavailable or fail.',
+  'Mỗi mốc nhắc gửi tối đa một email, tới địa chỉ {email} của tài khoản.':
+    'At most one email per reminder, to your account address {email}.',
+  'Đây là email giao dịch — không phải email quảng cáo. Mặc định tắt.':
+    'This is a transactional email — not marketing. Off by default.',
   'Đã bật email nhắc hạn': 'Reminder emails are on',
   'Đã tắt email nhắc hạn': 'Reminder emails are off',
 
@@ -202,20 +210,34 @@ export const settings = defineMessages({
   'Không gửi được file lên máy chủ, thử lại sau':
     'Could not upload the file to the server, try again later',
   'Xuất dữ liệu': 'Export data',
-  'Tải toàn bộ thiết bị, gói bảo hành, nhắc nhở, gói đăng ký và wishlist ra 1 file JSON. File đính kèm chỉ đi kèm phần mô tả (tên file, kích thước, đường dẫn) — ảnh gốc không nằm trong file backup. Ảnh được mã hoá AES-256-GCM và lưu trong kho riêng của máy chủ (không nằm trong thư mục public của web), nên file JSON không mang ảnh theo được.':
-    'Download every device, warranty plan, reminder, subscription and wishlist item into a single JSON file. Attachments travel as their description only (file name, size, path) — the original images are not inside the backup file. Images are encrypted with AES-256-GCM and kept in the server\'s own store (not in the web public folder), so the JSON file cannot carry them.',
+  'Tải toàn bộ thiết bị, gói bảo hành, nhắc nhở, gói đăng ký và wishlist ra 1 file JSON.':
+    'Download every device, warranty plan, reminder, subscription and wishlist item into a single JSON file.',
+  'File đính kèm chỉ đi kèm phần mô tả (tên file, kích thước, đường dẫn) — ảnh gốc không nằm trong file backup.':
+    'Attachments travel as their description only (file name, size, path) — the original images are not inside the backup file.',
+  'Ảnh được mã hoá AES-256-GCM và lưu trong kho riêng của máy chủ (không nằm trong thư mục public của web), nên file JSON không mang ảnh theo được.':
+    'Images are encrypted with AES-256-GCM and kept in the server\'s own store (not in the web public folder), so the JSON file cannot carry them.',
   'File backup chứa dữ liệu nhạy cảm: số seri, địa chỉ & SĐT trung tâm bảo hành, giá mua. Lưu ở nơi an toàn — nếu upload cloud thì nên đặt mật khẩu zip trước.':
     'A backup file holds sensitive data: serial numbers, service-centre addresses and phone numbers, purchase prices. Keep it somewhere safe — if you upload it to the cloud, put a password on the zip first.',
   'Tải JSON': 'Download JSON',
   'Xuất kèm nội dung ảnh (.zip)': 'Export with image contents (.zip)',
-  'Bản .zip chứa file data.json và toàn bộ nội dung đã mã hoá của từng file đính kèm (mỗi ảnh một entry attachments/…), nên khôi phục sang máy chủ mới mang theo được ảnh hoá đơn — thứ bản JSON chỉ có metadata không làm được.':
-    'The .zip holds the data.json file and the complete, encrypted contents of every attachment (one entry per image under attachments/…), so restoring onto a new server brings the invoice images along — something the metadata-only JSON cannot do.',
+  'Bản .zip chứa file data.json và toàn bộ nội dung đã mã hoá của từng file đính kèm:':
+    'The .zip holds the data.json file and the complete, encrypted contents of every attachment:',
+  'Mỗi ảnh là một entry attachments/… trong file nén, nên khôi phục sang máy chủ mới vẫn mang theo được ảnh hoá đơn — điều bản JSON chỉ có metadata không làm được.':
+    'Each image is an attachments/… entry in the archive, so restoring onto a new server still brings the invoice images with it — something the metadata-only JSON cannot do.',
+  'Cần đúng FILE_MASTER_KEY của máy chủ đã xuất bản sao lưu; thiếu hoặc sai khoá thì ảnh vẫn được khôi phục nhưng không mở được.':
+    'It needs the same FILE_MASTER_KEY as the server that produced the backup; without the right key the images are restored but cannot be opened.',
   'Máy chủ ghi rõ trong file:': 'The server states this in the file itself:',
   'Tải kèm ảnh (.zip)': 'Download with images (.zip)',
   'nhập từ file': 'import from a file',
   'Nhập dữ liệu': 'Import data',
-  'Chọn file .json (chỉ bản ghi) hoặc .zip (kèm nội dung ảnh đã mã hoá) đã xuất trước đó. Máy chủ tự nhận dạng file bằng nội dung, không cần đổi tên. Nhập lại chỉ khôi phục bản ghi (thiết bị, bảo hành, đăng ký, wishlist): với file JSON, ảnh cũ chỉ hiện lại nếu kho file trên máy chủ vẫn còn — muốn chắc thì dùng bản .zip.':
-    'Pick a .json file (records only) or a .zip file (with the encrypted image contents) that you exported earlier. The server recognises the format from the contents, so there is no need to rename anything. Importing only restores records (devices, warranties, subscriptions, wishlist): with a JSON file the old images reappear only if the server still holds them — use the .zip to be sure.',
+  'Chọn file .json (chỉ bản ghi) hoặc .zip (kèm nội dung ảnh đã mã hoá) đã xuất trước đó.':
+    'Pick a .json file (records only) or a .zip file (with the encrypted image contents) that you exported earlier.',
+  'Máy chủ tự nhận dạng .json hay .zip bằng nội dung file, không cần đổi tên.':
+    'The server recognises .json or .zip from the file contents, so there is no need to rename anything.',
+  'Nhập lại chỉ khôi phục bản ghi: thiết bị, bảo hành, đăng ký, wishlist.':
+    'Importing restores records only: devices, warranties, subscriptions, wishlist.',
+  'Với file JSON, ảnh cũ chỉ hiện lại nếu kho file trên máy chủ vẫn còn — muốn chắc thì dùng bản .zip.':
+    'With a JSON file the old images reappear only if the server still holds them — use the .zip to be sure.',
   'Chế độ': 'Mode',
   'Merge (gộp)': 'Merge (combine)',
   'Replace (xoá hết)': 'Replace (delete everything)',

@@ -515,10 +515,13 @@ export const devices = defineMessages({
   'Không xuất được dữ liệu': 'Could not export the data',
   'Không có dữ liệu để xuất': 'There is no data to export',
   'Tải danh sách ra file': 'Download a list as a',
-  'để mở bằng Excel hoặc Google Sheets — tiện khi cần gửi cho người khác, dán vào báo giá, hoặc tự tính toán lại. File có kèm':
-    'file to open in Excel or Google Sheets — handy for sending to someone else, pasting into a quote, or doing your own maths. The file carries a',
-  'nên tiếng Việt không bị lỗi font, và cột tiền là số trần (không có dấu chấm nghìn, không có ₫) để bảng tính cộng trừ được ngay. Muốn khôi phục lại vào app thì dùng file JSON ở mục trên — CSV chỉ để đọc.':
-    'so Vietnamese text is not mangled, and money columns are bare numbers (no thousands separators, no ₫) so a spreadsheet can sum them straight away. To restore data back into the app, use the JSON file above — CSV is read-only.',
+  'để mở bằng Excel hoặc Google Sheets — tiện khi cần gửi cho người khác, dán vào báo giá, hoặc tự tính toán lại.':
+    'file to open in Excel or Google Sheets — handy for sending to someone else, pasting into a quote, or doing your own maths.',
+  'File có kèm': 'The file carries a',
+  'nên tiếng Việt không bị lỗi font, và cột tiền là số trần (không có dấu chấm nghìn, không có ₫) để bảng tính cộng trừ được ngay.':
+    'so Vietnamese text is not mangled, and money columns are bare numbers (no thousands separators, no ₫) so a spreadsheet can sum them straight away.',
+  'Muốn khôi phục lại vào app thì dùng file JSON ở mục trên — CSV chỉ để đọc.':
+    'To restore data back into the app, use the JSON file above — CSV is read-only.',
   'Tên, danh mục, hãng, model, số seri, ngày mua, giá mua, nơi mua, trạng thái, ngày hết bảo hành (muộn nhất) và ghi chú.':
     'Name, category, brand, model, serial number, purchase date, purchase price, store, status, warranty end date (the latest one) and notes.',
   'Tên gói, chu kỳ, giá, tiền tệ, chi phí tương đương mỗi tháng, ngày bắt đầu, ngày gia hạn, trạng thái và ghi chú.':

@@ -73,17 +73,26 @@ export function CsvExport() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        {t('Tải danh sách ra file')}{' '}
-        <code className="rounded-sm bg-surface-2 px-1.5 py-0.5 font-mono text-xs">.csv</code>{' '}
-        {t(
-          'để mở bằng Excel hoặc Google Sheets — tiện khi cần gửi cho người khác, dán vào báo giá, hoặc tự tính toán lại. File có kèm',
-        )}{' '}
-        <b>BOM UTF-8</b>{' '}
-        {t(
-          'nên tiếng Việt không bị lỗi font, và cột tiền là số trần (không có dấu chấm nghìn, không có ₫) để bảng tính cộng trừ được ngay. Muốn khôi phục lại vào app thì dùng file JSON ở mục trên — CSV chỉ để đọc.',
-        )}
-      </p>
+      <div className="space-y-1.5 text-sm text-muted-foreground">
+        <p>
+          {t('Tải danh sách ra file')}{' '}
+          <code className="rounded-sm bg-surface-2 px-1.5 py-0.5 font-mono text-xs">.csv</code>{' '}
+          {t(
+            'để mở bằng Excel hoặc Google Sheets — tiện khi cần gửi cho người khác, dán vào báo giá, hoặc tự tính toán lại.',
+          )}
+        </p>
+        <p>
+          {t('File có kèm')} <b>BOM UTF-8</b>{' '}
+          {t(
+            'nên tiếng Việt không bị lỗi font, và cột tiền là số trần (không có dấu chấm nghìn, không có ₫) để bảng tính cộng trừ được ngay.',
+          )}
+        </p>
+        <p>
+          {t(
+            'Muốn khôi phục lại vào app thì dùng file JSON ở mục trên — CSV chỉ để đọc.',
+          )}
+        </p>
+      </div>
       <div>
         <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t('Dấu phân cách')}

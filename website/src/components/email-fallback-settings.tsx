@@ -55,11 +55,14 @@ export function EmailFallbackSettings({
         </span>
         <div className="space-y-1 text-sm text-muted-foreground">
           <p className="font-medium text-ink">{t('Email nhắc hạn')}</p>
+          <p>{t('Chỉ dùng khi thông báo đẩy không khả dụng hoặc gửi lỗi.')}</p>
           <p>
-            {t(
-              'Chỉ dùng khi thông báo đẩy không khả dụng hoặc gửi lỗi: mỗi mốc nhắc gửi tối đa một email, tới địa chỉ {email} của tài khoản. Đây là email giao dịch — không phải email quảng cáo. Mặc định tắt.',
-              { email },
-            )}
+            {t('Mỗi mốc nhắc gửi tối đa một email, tới địa chỉ {email} của tài khoản.', {
+              email,
+            })}
+          </p>
+          <p>
+            {t('Đây là email giao dịch — không phải email quảng cáo. Mặc định tắt.')}
           </p>
         </div>
       </div>
