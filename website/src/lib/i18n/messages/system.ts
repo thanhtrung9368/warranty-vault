@@ -139,10 +139,20 @@ export const system = defineMessages({
 
   // ── Share links — the server action's own messages (`app/actions/shares.ts`) ─
   //
-  // Four of them, plus one shared with `settings.ts` (see the note below).
+  // Five of them, plus one shared with `settings.ts` (see the note below).
   // Everything else that action returns is Go's `message`, already rendered in
   // the request's language.
   // 'Thiếu id thiết bị' ("Missing device id") is shared with `settings.ts`.
+  //
+  // The last one is the public-origin guard: `PUBLIC_API_URL` is missing,
+  // invalid, not https, or points at a private host, so no buyer URL can be
+  // built (see `lib/api/base-url.ts`). It names the variable because the person
+  // who reads it in a self-hosted deployment is the operator who can fix it —
+  // and this sentence is the only place the failure becomes visible (the action
+  // logs the precise reason, and never the value). The dialog's toast is
+  // `error`, so the copy has to stand alone.
+  'Chưa có địa chỉ công khai hợp lệ cho API nên chưa tạo được link chia sẻ. Nhờ quản trị viên đặt PUBLIC_API_URL thành một địa chỉ https công khai, ví dụ https://api.warrly.com/api.':
+    'The API has no valid public address yet, so the share link could not be created. Ask your administrator to set PUBLIC_API_URL to a public https address, for example https://api.warrly.com/api.',
   'Thiếu id link chia sẻ': 'Missing share-link id',
   'Không tạo được link chia sẻ': 'Could not create the share link',
   'Không thu hồi được link chia sẻ': 'Could not revoke the share link',

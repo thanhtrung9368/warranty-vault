@@ -11,14 +11,25 @@
 import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth';
 import { api } from '@/lib/api';
+import { publicApiBaseUrl, validatePublicApiBaseUrl } from '@/lib/api/base-url';
 import type { CreatedDeviceShare } from '@/lib/api/shares';
 import { getI18n } from '@/lib/i18n/server';
 import { normalizeShareExpiryDays, shareCertificateUrl } from '@/lib/share-links';
 
-// Same env the API client uses. `sharePath` is a path on the API origin
-// (`/api/v1/public/shares/<token>`), the certificate page is served by Go, and
-// the web app only ever links to it — no Next route, no CSP change.
-const API_BASE_URL = process.env.GO_API_URL ?? 'http://localhost:4000';
+// ── Which origin the buyer URL is built from ───────────────────────────────
+//
+// `sharePath` is a path on the API origin (`/api/v1/public/shares/<token>`),
+// and the certificate page is served by Go — the web app only ever links to it
+// (no Next route, no CSP change). The buyer opens that link on their own phone,
+// outside our network, so the host must come from `PUBLIC_API_URL`, NOT from
+// `GO_API_URL`: in the compose stack the latter is `http://api:4000/api`, which
+// nobody outside `warranty-net` can resolve — the link would be dead and would
+// leak an internal hostname to whoever the seller forwards it to.
+//
+// Go stores only the token hash, so a share created without a displayable URL
+// would burn one of the 10 live-link slots and lose its only copy of the
+// token. That is why an unusable `PUBLIC_API_URL` is refused BEFORE the POST,
+// with a translated error, and never falls back to the internal address.
 
 export type CreateShareActionResult =
   | {
@@ -49,6 +60,27 @@ export async function createDeviceShare(
   const id = typeof deviceId === 'string' ? deviceId.trim() : '';
   if (!id) return { ok: false, message: t('Thiếu id thiết bị') };
 
+  // One sentence for every unusable-`PUBLIC_API_URL` case (missing, invalid,
+  // insecure, private): the precise reason goes to the server log for the
+  // operator, while the dialog gets the same fix-it sentence either way.
+  const refuseNoPublicOrigin = (reason: string, context: string) => {
+    console.error(
+      `[shares] ${context} — PUBLIC_API_URL is ${reason}. Set it to the API's public ` +
+        'origin (https, public host, `/api` prefix), e.g. https://api.warrly.com/api.',
+    );
+    return {
+      ok: false as const,
+      message: t('Chưa có địa chỉ công khai hợp lệ cho API nên chưa tạo được link chia sẻ. Nhờ quản trị viên đặt PUBLIC_API_URL thành một địa chỉ https công khai, ví dụ https://api.warrly.com/api.'),
+    };
+  };
+
+  // Refuse before calling Go: a share minted without a usable buyer URL has no
+  // value and cannot be repaired (the token is shown once, by this response).
+  const publicOrigin = publicApiBaseUrl();
+  if (!publicOrigin.ok) {
+    return refuseNoPublicOrigin(publicOrigin.reason, 'refusing to create a share link');
+  }
+
   // Runtime parsing: a server action argument is untrusted input, whatever the
   // TypeScript signature says.
   const raw: { expiresInDays?: unknown; includeSerial?: unknown } = input ?? {};
@@ -68,8 +100,23 @@ export async function createDeviceShare(
   // that ever changes.
   revalidatePath(`/devices/${id}`);
 
-  const url = shareCertificateUrl(API_BASE_URL, res.data.sharePath);
-  return { ok: true, url: url || res.data.sharePath, share: res.data };
+  // Join the path onto the validated public origin, then validate the RESULT as
+  // well: `shareCertificateUrl` passes an already-absolute `sharePath` through
+  // untouched, so re-checking is what makes "never an internal host" true of
+  // the link itself, not just of the base. Go returns a path today
+  // (`/api/v1/public/shares/<token>`), so this is a fail-closed guard against a
+  // future server that starts returning one.
+  const certificate = validatePublicApiBaseUrl(
+    shareCertificateUrl(publicOrigin.url, res.data.sharePath),
+  );
+  if (!certificate.ok) {
+    return refuseNoPublicOrigin(
+      certificate.reason,
+      `built buyer URL for share ${res.data.id} rejected; the share exists but its link is not returned`,
+    );
+  }
+
+  return { ok: true, url: certificate.url, share: res.data };
 }
 
 export async function revokeDeviceShare(
