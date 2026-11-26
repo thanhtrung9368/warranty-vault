@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -80,7 +81,8 @@ import {
   updateDevice,
   type DeviceFormState,
 } from '@/app/actions/devices';
-import { getFxRate } from '@/app/actions/fx';
+import { getFxReference } from '@/app/actions/fx';
+import { referenceVndFor, type FxReferenceResult } from '@/lib/fx';
 import { extractReceipt } from '@/app/actions/ai';
 import type { DeviceWarning } from '@/lib/api/devices';
 import { deviceWarningTitle } from '@/lib/device-warnings';
@@ -113,6 +115,9 @@ type Initial = {
   // VND. The edit page passes both through so a PATCH cannot reset them.
   currency?: string;
   fxRate?: number | null;
+  /** Server-derived amount actually charged, in VND. Seeds the form-only
+   * "actual amount charged" calculator; it is never sent back. */
+  purchasePriceVnd?: number | null;
   purchasePlace?: string | null;
   /**
    * Optional retailer chain link (migration 0030). Carried through the edit form
@@ -153,6 +158,24 @@ type Initial = {
   brandCheckedAt?: string | null;
   brandLookupUrl?: string | null;
 };
+
+/**
+ * Client-only state for the reference block. The market rate lives here and
+ * nowhere else: it is never copied into `fxRateDisplay`, because the saved rate
+ * must come from the actual charged amount or the user's own entry.
+ */
+type FxReferenceUi =
+  | { status: 'idle' }
+  | { status: 'loading'; currency: string }
+  | {
+      status: 'ok';
+      currency: string;
+      marketRate: number;
+      stale: boolean;
+      fetchedAt: string;
+      source: string | null;
+    }
+  | { status: 'error'; currency: string; message: string };
 
 type Catalog = {
   categories: CategoryOption[];
@@ -284,7 +307,8 @@ function MoneyInput({
   value: string;
   onChange: (v: string) => void;
   locale: Locale;
-  name?: string;
+  /** Hidden field name; `null` for a form-only calculator value. */
+  name?: string | null;
   currency?: string;
   id?: string;
 }) {
@@ -304,7 +328,9 @@ function MoneyInput({
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
         {currencySuffix(currency)}
       </span>
-      <input type="hidden" name={name} value={parseVNDInput(value)} />
+      {/* A null name means "calculator only": the value is shown and used to
+          derive `fxRate`, but it is not part of the device payload. */}
+      {name !== null && <input type="hidden" name={name} value={parseVNDInput(value)} />}
     </div>
   );
 }
@@ -452,30 +478,66 @@ export function DeviceForm({
     initial?.purchasePrice ? formatNumber(initial.purchasePrice, locale) : '',
   );
   // Multi-currency. The default is the API default (VND); `fxRate` is blank for
-  // VND and only shown for a foreign currency. The value is the locked rate,
-  // displayed with the language's thousands separator but submitted as digits.
+  // VND and only shown for a foreign currency. The value is the locked ACTUAL
+  // rate, displayed with the language's thousands separator but submitted as
+  // digits. The separate charged-amount input below is a calculator: typing what
+  // the card was charged derives this rate, and editing this rate rebuilds the
+  // charged preview.
   const [currency, setCurrency] = React.useState<string>(
     normalizeCurrency(initial?.currency),
   );
   const [fxRateDisplay, setFxRateDisplay] = React.useState<string>(
     initial?.fxRate != null ? formatNumber(initial.fxRate, locale) : '',
   );
-  const [fxLoading, setFxLoading] = React.useState(false);
-  // Only the two states that need a visible explanation. A successful non-stale
-  // fetch is a toast; the field itself already shows the number.
-  const [fxNotice, setFxNotice] = React.useState<
-    | { kind: 'error'; message: string }
-    | { kind: 'stale'; fetchedAt: string }
-    | null
-  >(null);
+  const [chargedDisplay, setChargedDisplay] = React.useState<string>(() => {
+    if (!needsFxRate(initial?.currency)) return '';
+    // `purchasePriceVnd` is the server's authoritative figure. The fallback
+    // covers an older API that did not send it: the same product the contract
+    // defines. Either way this seeds a FORM-ONLY calculator, never a saved field.
+    const charged =
+      initial?.purchasePriceVnd ??
+      (initial?.purchasePrice != null && initial?.fxRate != null
+        ? Math.round(initial.purchasePrice * initial.fxRate)
+        : null);
+    return charged != null ? formatNumber(charged, locale) : '';
+  });
+  // Today's market rate. It is fetched automatically for a foreign currency and
+  // displayed with the "Chỉ tham khảo" badge. It NEVER writes `fxRate`: only the
+  // charged amount or the user's own edit does that, and only a save stores it.
+  const [fxReferenceRaw, setFxReference] = React.useState<FxReferenceUi>({
+    status: 'idle',
+  });
+  // Bumped by the retry button so a failed reference fetch can be re-run without
+  // adding a second code path that calls the action.
+  const [fxReferenceNonce, setFxReferenceNonce] = React.useState(0);
+  const fxReferenceSeq = React.useRef(0);
+  // A result fetched for a previous currency is never shown for the new one: it
+  // would read like today's rate for a unit it does not describe. `idle` also
+  // renders as loading, because the effect starts the first request on mount.
+  const fxReference: FxReferenceUi =
+    fxReferenceRaw.status === 'idle' || fxReferenceRaw.currency !== currency
+      ? { status: 'loading', currency }
+      : fxReferenceRaw;
   const [purchasePlace, setPurchasePlace] = React.useState<string>(
     initial?.purchasePlace ?? '',
   );
   const purchasePriceValue = parseVNDInput(purchasePriceDisplay);
+  // A blank price is "not answered yet", not "0 ₫" — the reference block must
+  // not compute a conversion for a number the user never typed.
+  const purchasePriceAmount =
+    purchasePriceDisplay.trim() === '' ? null : purchasePriceValue;
   const fxRateValue = parseFxRateInput(fxRateDisplay);
   // Display-only preview of what the server will store. Totals never use this:
   // every read carries the authoritative `purchasePriceVnd`.
   const purchaseVndPreview = vndEquivalent(purchasePriceValue, currency, fxRateValue);
+  const referenceVnd =
+    fxReference.status === 'ok'
+      ? referenceVndFor(purchasePriceAmount, fxReference.marketRate)
+      : null;
+  const referenceDeltaVnd =
+    referenceVnd != null && purchaseVndPreview != null
+      ? purchaseVndPreview - referenceVnd
+      : null;
 
   const [warrantyMonths, setWarrantyMonths] = React.useState<number>(
     initial?.warrantyMonths ?? 12,
@@ -609,41 +671,114 @@ export function DeviceForm({
   );
 
   // Changing the currency invalidates any rate typed/fetched for the previous
-  // one: 25,400 is VND per USD, not per EUR. Blanking it forces a deliberate
-  // refetch/entry rather than silently locking the wrong number.
+  // one: 25,400 is VND per USD, not per EUR. Blanking both the rate and the
+  // charged preview forces a deliberate refetch/entry rather than silently
+  // locking the wrong number; the reference block reloads through the effect.
   const handleCurrencyChange = (next: string) => {
     setCurrency(normalizeCurrency(next));
     setFxRateDisplay('');
-    setFxNotice(null);
+    setChargedDisplay('');
   };
 
-  const handleFetchFx = async () => {
-    if (!needsFxRate(currency) || fxLoading) return;
-    setFxLoading(true);
-    setFxNotice(null);
-    try {
-      const res = await getFxRate(currency);
-      if (!res.ok) {
-        // 503 is the documented "type it by hand" branch; the action's message
-        // already says so in the active language. The field stays editable.
-        setFxNotice({ kind: 'error', message: res.message });
-        return;
-      }
-      setFxRateDisplay(formatNumber(res.rate, locale));
-      if (res.stale) {
-        setFxNotice({ kind: 'stale', fetchedAt: res.fetchedAt });
-      } else {
-        toast.success(t('Đã lấy tỷ giá'));
-      }
-    } catch {
-      setFxNotice({
-        kind: 'error',
-        message: t('Không lấy được tỷ giá — bạn nhập tay bên dưới nhé.'),
-      });
-    } finally {
-      setFxLoading(false);
+  // Typing what the card was actually charged derives the rate. The contract
+  // fixes `fxRate` as an integer, so `round(charged / price)` is what gets
+  // stored; the "≈ … khi lưu" preview shows the resulting `purchasePriceVnd`.
+  const handleChargedChange = (raw: string) => {
+    const digits = raw.replace(/[^\d]/g, '');
+    const charged = digits === '' ? null : parseInt(digits, 10);
+    setChargedDisplay(charged == null ? '' : formatNumber(charged, locale));
+    if (charged == null) {
+      setFxRateDisplay('');
+      return;
+    }
+    if (purchasePriceAmount == null || purchasePriceAmount <= 0) return;
+    const derived = Math.round(charged / purchasePriceAmount);
+    setFxRateDisplay(derived > 0 ? formatNumber(derived, locale) : '');
+  };
+
+  // Editing the rate is the other direction: rebuild the charged preview from
+  // `price × rate`, which is exactly the `purchasePriceVnd` the server will
+  // derive. The user's edit wins.
+  const handleFxRateChange = (raw: string) => {
+    const digits = raw.replace(/[^\d]/g, '');
+    const next = digits === '' ? '' : formatNumber(parseInt(digits, 10), locale);
+    setFxRateDisplay(next);
+    const rate = parseFxRateInput(next);
+    if (rate == null) {
+      setChargedDisplay('');
+      return;
+    }
+    if (purchasePriceAmount == null) return;
+    setChargedDisplay(formatNumber(Math.round(purchasePriceAmount * rate), locale));
+  };
+
+  // The price denominates both directions. When a rate already exists, rebuild
+  // the charged preview; when only a charge was typed, re-derive the rate. This
+  // keeps a late-entered price from leaving a rate computed against the old one.
+  const handlePurchasePriceChange = (raw: string) => {
+    const next = raw.replace(/[^\d]/g, '');
+    const display = next === '' ? '' : formatNumber(parseInt(next, 10), locale);
+    setPurchasePriceDisplay(display);
+    markTouched('price');
+    if (!needsFxRate(currency)) return;
+    const price = parseVNDInput(display);
+    const rate = parseFxRateInput(fxRateDisplay);
+    if (price > 0 && rate != null) {
+      setChargedDisplay(formatNumber(Math.round(price * rate), locale));
+      return;
+    }
+    const charged = parseVNDInput(chargedDisplay);
+    if (price > 0 && charged > 0 && chargedDisplay.trim() !== '') {
+      const derived = Math.round(charged / price);
+      setFxRateDisplay(derived > 0 ? formatNumber(derived, locale) : '');
     }
   };
+
+  // Load today's reference rate. This is information only: the result lands in
+  // `fxReference`, never in `fxRateDisplay`/`chargedDisplay`. A 503 is expected
+  // and is shown as a note, with the rate fields still fully editable.
+  const loadFxReference = React.useCallback(
+    async (code: string) => {
+      const seq = ++fxReferenceSeq.current;
+      try {
+        const res = await getFxReference(code);
+        if (seq !== fxReferenceSeq.current) return;
+        if (!res.ok) {
+          setFxReference({ status: 'error', currency: code, message: res.message });
+          return;
+        }
+        setFxReference({
+          status: 'ok',
+          currency: code,
+          marketRate: res.marketRate,
+          stale: res.stale,
+          fetchedAt: res.fetchedAt,
+          source: res.source,
+        });
+      } catch {
+        if (seq !== fxReferenceSeq.current) return;
+        setFxReference({
+          status: 'error',
+          currency: code,
+          message: t('Không lấy được tỷ giá — bạn nhập tay bên dưới nhé.'),
+        });
+      }
+    },
+    [t],
+  );
+
+  React.useEffect(() => {
+    if (!needsFxRate(currency)) {
+      // Invalidate an in-flight request for the previous currency before
+      // dropping the block: its response must not reappear under VND.
+      fxReferenceSeq.current += 1;
+      return;
+    }
+    // The fetch IS the external system this effect synchronizes with; the
+    // setters inside it run after `await`, not synchronously in the effect body.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async result, not a cascading render
+    void loadFxReference(currency);
+  }, [currency, fxReferenceNonce, loadFxReference]);
 
   const handleScanFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -869,7 +1004,8 @@ export function DeviceForm({
     setPurchasePriceDisplay('');
     setCurrency('VND');
     setFxRateDisplay('');
-    setFxNotice(null);
+    setChargedDisplay('');
+    setFxReference({ status: 'idle' });
     setPurchasePlace('');
     setWarrantyMonths(12);
     setWarrantyProvider('');
@@ -903,6 +1039,28 @@ export function DeviceForm({
 
   // ─── Render helpers ─────────────────────────────────────────────────────
   const categoryName = categoryLabel(category, locale);
+
+  // Reference block values. The market rate is shown exactly as the provider
+  // reported it; `referenceVnd` and `delta` are derived only for display and are
+  // never submitted. `delta` is `actualVnd - referenceVnd`, so a positive number
+  // means the locked conversion is above today's market.
+  const fxMarketRateLabel =
+    fxReference.status === 'ok'
+      ? formatNumber(fxReference.marketRate, locale)
+      : null;
+  const fxReferenceFetchedLabel =
+    fxReference.status === 'ok' && fxReference.fetchedAt
+      ? formatDate(fxReference.fetchedAt, locale)
+      : null;
+  const referenceDeltaLabel =
+    referenceDeltaVnd == null
+      ? null
+      : referenceDeltaVnd === 0
+        ? formatVND(0, locale)
+        : `${referenceDeltaVnd > 0 ? '+' : '-'}${formatVND(
+            Math.abs(referenceDeltaVnd),
+            locale,
+          )}`;
 
   // The warranty end date this save would create, computed from the purchase
   // date + months with the same helper the edit flow uses (`calcEndDate`, which
@@ -1227,9 +1385,6 @@ export function DeviceForm({
               <Select
                 value={currency}
                 onValueChange={handleCurrencyChange}
-                // Freeze the unit while a rate is in flight: otherwise a
-                // response for USD could land after the user picked EUR.
-                disabled={fxLoading}
               >
                 <SelectTrigger
                   id="currency"
@@ -1250,10 +1405,7 @@ export function DeviceForm({
                 <MoneyInput
                   id="purchasePrice"
                   value={purchasePriceDisplay}
-                  onChange={(v) => {
-                    setPurchasePriceDisplay(v);
-                    markTouched('price');
-                  }}
+                  onChange={handlePurchasePriceChange}
                   locale={locale}
                   currency={currency}
                 />
@@ -1271,55 +1423,55 @@ export function DeviceForm({
             )}
           </div>
 
-          {/* Rate input only exists for a foreign currency: VND is the base and
-              must submit `fxRate: null` (the action drops any stale value). */}
+          {/* Foreign currency only: VND is the base and must submit `fxRate:
+              null` (the action drops any stale value). The charged amount is a
+              FORM-ONLY calculator — only `purchasePrice`, `currency` and
+              `fxRate` reach the API, and `purchasePriceVnd` stays server-derived. */}
           {needsFxRate(currency) && (
-            <div className="space-y-2 md:col-span-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <Label htmlFor="fxRate">
-                  {t('Tỷ giá (VND cho 1 {currency})', { currency })}
-                </Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-pill"
-                  onClick={handleFetchFx}
-                  disabled={fxLoading}
-                >
-                  {fxLoading ? (
-                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <RefreshCw className="mr-1 h-3.5 w-3.5" />
-                  )}
-                  {fxLoading ? t('Đang lấy tỷ giá…') : t('Lấy tỷ giá')}
-                </Button>
+            <div className="space-y-4 md:col-span-2">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="actualCharged">
+                    {t('Số tiền thực tế bị charge (VND)')}
+                  </Label>
+                  <MoneyInput
+                    id="actualCharged"
+                    name={null}
+                    value={chargedDisplay}
+                    onChange={handleChargedChange}
+                    locale={locale}
+                    currency="VND"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t('Nhập số tiền thẻ đã bị trừ — tỷ giá bên cạnh sẽ tự tính.')}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fxRate">
+                    {t('Tỷ giá (VND cho 1 {currency})', { currency })}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="fxRate"
+                      inputMode="numeric"
+                      value={fxRateDisplay}
+                      onChange={(e) => handleFxRateChange(e.target.value)}
+                      placeholder="vd: 25.400"
+                      className="pr-14"
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                      VND
+                    </span>
+                  </div>
+                  <input
+                    type="hidden"
+                    name="fxRate"
+                    value={fxRateValue == null ? '' : String(fxRateValue)}
+                  />
+                  <FieldError errors={errors.fxRate} />
+                </div>
               </div>
-              <div className="relative md:max-w-xs">
-                <Input
-                  id="fxRate"
-                  inputMode="numeric"
-                  value={fxRateDisplay}
-                  onChange={(e) => {
-                    const digits = e.target.value.replace(/[^\d]/g, '');
-                    setFxRateDisplay(
-                      digits === '' ? '' : formatNumber(parseInt(digits, 10), locale),
-                    );
-                    setFxNotice(null);
-                  }}
-                  placeholder="vd: 25.400"
-                  className="pr-14"
-                />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                  VND
-                </span>
-              </div>
-              <input
-                type="hidden"
-                name="fxRate"
-                value={fxRateValue == null ? '' : String(fxRateValue)}
-              />
-              <FieldError errors={errors.fxRate} />
+
               {/* What the server will store, shown before the save. Display
                   only — totals always read the server's `purchasePriceVnd`. */}
               {purchasePriceDisplay !== '' && purchaseVndPreview != null && (
@@ -1329,20 +1481,116 @@ export function DeviceForm({
                   })}
                 </p>
               )}
-              {fxNotice?.kind === 'error' && (
-                <p role="alert" className="text-xs font-medium text-destructive">
-                  {fxNotice.message}
-                </p>
-              )}
-              {fxNotice?.kind === 'stale' && (
-                <p className="text-xs font-medium text-amber-ink">
-                  {t('Tỷ giá có thể đã cũ (lấy lúc {time}) — kiểm tra lại trước khi lưu.', {
-                    time: fxNotice.fetchedAt
-                      ? formatDate(fxNotice.fetchedAt, locale)
-                      : '—',
-                  })}
-                </p>
-              )}
+
+              {/* Today's market rate, for comparison only. It never writes the
+                  rate above: `fxRate` is the ACTUAL VND per unit the user
+                  locked, not a market quote. */}
+              <div className="rounded-lg border border-border bg-surface-2/50 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
+                    {t('Tỷ giá tham khảo')}
+                    <Badge variant="zinc">{t('Chỉ tham khảo')}</Badge>
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-pill"
+                    onClick={() => {
+                      // Show the spinner immediately; the effect only fires the
+                      // request (a synchronous setState in the effect body is
+                      // what React discourages).
+                      setFxReference({ status: 'loading', currency });
+                      setFxReferenceNonce((n) => n + 1);
+                    }}
+                    disabled={fxReference.status === 'loading'}
+                  >
+                    {fxReference.status === 'loading' ? (
+                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                    )}
+                    {t('Thử lại')}
+                  </Button>
+                </div>
+
+                {fxReference.status === 'loading' && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {t('Đang lấy tỷ giá tham khảo…')}
+                  </p>
+                )}
+                {fxReference.status === 'error' && (
+                  <p role="alert" className="mt-2 text-xs font-medium text-destructive">
+                    {fxReference.message}
+                  </p>
+                )}
+                {fxReference.status === 'ok' && (
+                  <>
+                    <dl className="mt-2 grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2">
+                      <div>
+                        <dt className="text-muted-foreground">
+                          {t('Tỷ giá thị trường hôm nay')}
+                        </dt>
+                        <dd className="font-medium tabular-nums text-ink">
+                          {t('1 {currency} = {rate}', {
+                            currency,
+                            rate: `${fxMarketRateLabel ?? '—'} ₫`,
+                          })}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">
+                          {t('Giá tham khảo (VND)')}
+                        </dt>
+                        <dd className="font-medium tabular-nums text-ink">
+                          {referenceVnd != null
+                            ? formatVND(referenceVnd, locale)
+                            : '—'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">
+                          {t('Số tiền thực tế bị charge (VND)')}
+                        </dt>
+                        <dd className="font-medium tabular-nums text-ink">
+                          {purchaseVndPreview != null
+                            ? formatVND(purchaseVndPreview, locale)
+                            : '—'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">
+                          {t('Chênh lệch so với tham khảo')}
+                        </dt>
+                        <dd className="font-medium tabular-nums text-ink">
+                          {referenceDeltaLabel ?? '—'}
+                        </dd>
+                      </div>
+                    </dl>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {t(
+                        'Tỷ giá tham khảo chỉ để so sánh, không bao giờ tự ghi đè tỷ giá bạn lưu.',
+                      )}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {fxReference.stale
+                        ? t(
+                            'Tỷ giá tham khảo có thể đã cũ (lấy lúc {time}).',
+                            { time: fxReferenceFetchedLabel ?? '—' },
+                          )
+                        : t('Lấy lúc {time}', {
+                            time: fxReferenceFetchedLabel ?? '—',
+                          })}
+                      {fxReference.source
+                        ? ` · ${t('Nguồn tỷ giá: {source}', {
+                            source: fxReference.source,
+                          })}`
+                        : ''}
+                    </p>
+                  </>
+                )}
+              </div>
+
               <p className="text-xs text-muted-foreground">
                 {t('Tỷ giá được khoá tại thời điểm nhập, không đổi theo thị trường.')}
               </p>

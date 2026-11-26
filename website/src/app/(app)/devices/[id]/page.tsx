@@ -60,9 +60,10 @@ import { resolveBrandWarrantyLookup } from '@/lib/brand-warranty-lookup';
 import { categoryLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
 import { type Status } from '@/lib/types';
-import { formatDate, formatVND } from '@/lib/format';
+import { formatDate, formatNumber, formatVND } from '@/lib/format';
 import { formatDayValue } from '@/lib/api-day';
 import { formatMoney, needsFxRate } from '@/lib/currency';
+import { referenceVndFor, resolveFxReference } from '@/lib/fx';
 import { hasSaleRecorded, saleProfitLoss } from '@/lib/device-resale';
 import { returnDeadlineNote } from '@/lib/device-return-window';
 import {
@@ -221,6 +222,37 @@ export default async function DeviceDetailPage({
     device.currency,
     locale,
   );
+  // Reference-only market rate (build 36). The read is allowed to fail — the
+  // locked actual rate above still explains every stored number, and the
+  // reference block says only that today's quote is unavailable.
+  const fxReference = isForeignCurrency
+    ? resolveFxReference(
+        device.currency,
+        await api.fx.rates(device.currency),
+        locale,
+      )
+    : null;
+  const referenceVnd =
+    fxReference?.ok === true
+      ? referenceVndFor(device.purchasePrice, fxReference.marketRate)
+      : null;
+  const referenceDeltaVnd =
+    referenceVnd != null && device.purchasePriceVnd != null
+      ? device.purchasePriceVnd - referenceVnd
+      : null;
+  const referenceDeltaLabel =
+    referenceDeltaVnd == null
+      ? null
+      : referenceDeltaVnd === 0
+        ? formatVND(0, locale)
+        : `${referenceDeltaVnd > 0 ? '+' : '-'}${formatVND(
+            Math.abs(referenceDeltaVnd),
+            locale,
+          )}`;
+  const referenceFetchedLabel =
+    fxReference?.ok === true && fxReference.fetchedAt
+      ? formatDate(fxReference.fetchedAt, locale)
+      : null;
   const soldPriceLabel =
     device.soldPrice != null
       ? formatMoney(device.soldPrice, device.currency, locale)
@@ -319,24 +351,24 @@ export default async function DeviceDetailPage({
               />
               <InfoRow
                 icon={Wallet}
-                label={t('Giá mua')}
-                value={
-                  <>
-                    <span>{purchasePriceLabel}</span>
-                    {isForeignCurrency && device.purchasePriceVnd != null && (
-                      <span className="block text-xs tabular-nums text-muted-foreground">
-                        {t('≈ {amount}', {
-                          amount: formatVND(device.purchasePriceVnd, locale),
-                        })}
-                      </span>
-                    )}
-                  </>
-                }
+                label={t('Giá gốc ({currency})', { currency: device.currency })}
+                value={purchasePriceLabel}
               />
+              {isForeignCurrency && (
+                <InfoRow
+                  icon={Wallet}
+                  label={t('Số tiền thực tế bị charge (VND)')}
+                  value={
+                    device.purchasePriceVnd != null
+                      ? formatVND(device.purchasePriceVnd, locale)
+                      : '—'
+                  }
+                />
+              )}
               {isForeignCurrency && device.fxRate != null && (
                 <InfoRow
                   icon={Coins}
-                  label={t('Tỷ giá đã khoá')}
+                  label={t('Tỷ giá thực tế')}
                   value={
                     <span className="block">
                       {t('1 {currency} = {rate}', {
@@ -378,6 +410,92 @@ export default async function DeviceDetailPage({
                     </>
                   }
                 />
+              )}
+
+              {/* Reference-only market comparison (build 36). Nothing in this
+                  block is stored: `Device.fxRate` remains the ACTUAL rate locked
+                  above, and the reference never overwrites it. */}
+              {isForeignCurrency && (
+                <div className="mt-2 rounded-lg border border-border bg-surface-2/50 p-3 sm:col-span-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                      <Coins className="h-4 w-4 text-muted-foreground" />
+                      {t('Tỷ giá tham khảo')}
+                    </p>
+                    <Badge variant="zinc">{t('Chỉ tham khảo')}</Badge>
+                  </div>
+                  {fxReference && fxReference.ok ? (
+                    <>
+                      <dl className="mt-2 grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2">
+                        <div>
+                          <dt className="text-muted-foreground">
+                            {t('Tỷ giá thị trường hôm nay')}
+                          </dt>
+                          <dd className="font-medium tabular-nums text-ink">
+                            {t('1 {currency} = {rate}', {
+                              currency: device.currency,
+                              rate: `${formatNumber(fxReference.marketRate, locale)} ₫`,
+                            })}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground">
+                            {t('Giá tham khảo (VND)')}
+                          </dt>
+                          <dd className="font-medium tabular-nums text-ink">
+                            {referenceVnd != null
+                              ? formatVND(referenceVnd, locale)
+                              : '—'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground">
+                            {t('Số tiền thực tế bị charge (VND)')}
+                          </dt>
+                          <dd className="font-medium tabular-nums text-ink">
+                            {device.purchasePriceVnd != null
+                              ? formatVND(device.purchasePriceVnd, locale)
+                              : '—'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground">
+                            {t('Chênh lệch so với tham khảo')}
+                          </dt>
+                          <dd className="font-medium tabular-nums text-ink">
+                            {referenceDeltaLabel ?? '—'}
+                          </dd>
+                        </div>
+                      </dl>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {fxReference.stale
+                          ? t(
+                              'Tỷ giá tham khảo có thể đã cũ (lấy lúc {time}).',
+                              { time: referenceFetchedLabel ?? '—' },
+                            )
+                          : t('Lấy lúc {time}', {
+                              time: referenceFetchedLabel ?? '—',
+                            })}
+                        {fxReference.source
+                          ? ` · ${t('Nguồn tỷ giá: {source}', {
+                              source: fxReference.source,
+                            })}`
+                          : ''}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {fxReference && !fxReference.ok
+                        ? fxReference.message
+                        : t('Không lấy được tỷ giá tham khảo.')}
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t(
+                      'Tỷ giá tham khảo chỉ để so sánh, không phải số tiền bị charge.',
+                    )}
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>

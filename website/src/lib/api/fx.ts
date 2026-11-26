@@ -1,9 +1,10 @@
 // Typed wrapper around the Go service's FX endpoint.
 //
-// `GET /v1/fx/rates?base=<ISO-4217>` answers `{ base, rates, fetchedAt, stale }`
-// or fails with 503. Interpretation of the payload (including the 503 branch)
-// lives in `lib/fx.ts` so it is unit-testable; this file only performs the
-// request.
+// `GET /v1/fx/rates?base=<ISO-4217>` answers `{ base, rates, fetchedAt, stale,
+// source? }` or fails with 503. `source` is the upstream host added with the
+// DB-backed snapshot cache; an older server omits it. Interpretation of the
+// payload (including the 503 branch) lives in `lib/fx.ts` so it is
+// unit-testable; this file only performs the request.
 
 import { apiFetch, type ApiResult } from './client';
 import type { FxRatesPayload } from '@/lib/fx';
