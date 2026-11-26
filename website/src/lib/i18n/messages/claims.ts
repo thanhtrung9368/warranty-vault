@@ -178,8 +178,8 @@ export const claims = defineMessages({
 
   // Gate states — normal product states, not failures.
   'Đánh giá AI đang tắt': 'AI assessment is off',
-  'Bật đánh giá AI để dùng tính năng này. Khi bật, nội dung phiếu và điều khoản bảo hành sẽ được gửi tới dịch vụ AI bên thứ ba để phân tích. App không thay đổi phiếu của bạn.':
-    'Turn on AI assessment to use this feature. When it is on, the claim and its warranty terms are sent to a third-party AI service for analysis. The app does not change your claim.',
+  'Bật đánh giá AI để dùng tính năng này. Khi bật, thông tin lần sửa chữa (mô tả lỗi, chẩn đoán, chi phí) và điều khoản bảo hành sẽ được gửi tới Anthropic, dịch vụ AI bên thứ ba ở Mỹ, để phân tích. App không thay đổi phiếu của bạn.':
+    'Turn on AI assessment to use this feature. When it is on, the repair details (problem description, diagnosis, cost) and warranty terms are sent to Anthropic, a third-party AI service in the US, for analysis. The app does not change your claim.',
   'Bật và đánh giá': 'Turn on and assess',
   'Đang bật…': 'Turning on…',
   'Đã bật đánh giá AI': 'AI assessment turned on',

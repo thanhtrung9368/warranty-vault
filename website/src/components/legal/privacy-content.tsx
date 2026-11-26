@@ -153,10 +153,29 @@ export function PrivacyContent() {
       <p className="mt-2">
         {t('Mặc định tính năng này')} <b>{t('TẮT')}</b>
         {'. '}
-        {t('Chỉ khi mày tự bật trong Cài đặt, trợ lý AI mới làm hai việc: đọc ảnh hoặc PDF hoá đơn mày chọn (được')}{' '}
-        <b>{t('giải mã và gửi tới nhà cung cấp AI bên thứ ba (Anthropic)')}</b>{' '}
+        {t('Chỉ khi mày tự bật trong Cài đặt, trợ lý AI mới làm ba việc:')}
+      </p>
+      {/* Same three uses as the opt-in disclosure in
+          `website/src/components/ai-settings.tsx` and the iOS Settings footer:
+          receipt/warranty-card OCR, the nine contract terms, and the claim
+          assessment. The privacy page used to say "two things" and omit the
+          warranty card, while the consent named three — and it claimed nothing
+          was saved even though the OCR paths store `extractedText`. */}
+      <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+        <li>
+          {t('Đọc ảnh/PDF hoá đơn hoặc thẻ bảo hành để tự điền thông tin. File đã giải mã được gửi tới Anthropic, dịch vụ AI ở Mỹ (ngoài Việt Nam).')}
+        </li>
+        <li>{t('Đọc chín điều khoản hợp đồng từ thẻ bảo hành.')}</li>
+        <li>
+          {t('Đánh giá một lần sửa chữa có thuộc diện bảo hành không và soạn đơn gửi trung tâm. Nội dung phiếu sửa chữa, thông tin thiết bị và điều khoản hợp đồng cũng được gửi tới Anthropic.')}
+        </li>
+      </ol>
+      <p className="mt-2">
+        {t('Anthropic tự động xoá đầu vào/đầu ra trong vòng 30 ngày (trừ khi pháp luật hoặc chính sách của họ yêu cầu giữ lâu hơn) và mặc định không dùng dữ liệu API để huấn luyện.')}
+      </p>
+      <p className="mt-2">
         {t(
-          'để tự điền thông tin thiết bị), và đánh giá một lần sửa chữa có thuộc diện bảo hành hay không (gửi nội dung phiếu sửa chữa, thông tin thiết bị và các điều khoản hợp đồng bảo hành tới cùng nhà cung cấp đó). Kết quả luôn là gợi ý để mày kiểm tra lại — không phải quyết định bảo hành, và không có gì được tự động lưu. Không bật thì ảnh không bao giờ rời máy chủ ở dạng đã giải mã và không nội dung nào được gửi đi. Mày có thể tắt lại bất cứ lúc nào.',
+          'Kết quả luôn là gợi ý hoặc bản nháp để mày kiểm tra lại — không phải quyết định bảo hành. Với phần AI, Warrly chỉ lưu văn bản đọc được từ tệp dưới dạng plaintext để tìm kiếm; tệp gốc vẫn được mã hoá và không thiết bị, gói bảo hành hay phiếu sửa chữa nào được tự động tạo. Không bật thì ảnh không bao giờ rời máy chủ ở dạng đã giải mã và không nội dung nào được gửi đi. Mày có thể tắt lại bất cứ lúc nào.',
         )}
       </p>
     </div>

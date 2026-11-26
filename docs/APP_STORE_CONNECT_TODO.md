@@ -1,69 +1,83 @@
 # App Store Connect — việc còn lại (mày tự làm)
 
-App: Warrly · Apple ID 6824143315 · iOS 1.0.0 (Prepare for Submission) · build 5 on ASC
+App: **Warrly: Warranty Tracker** · Apple ID **6824143315** · Bundle `com.warrly`
+ASC: https://appstoreconnect.apple.com/apps/6824143315
+Listing công khai: https://apps.apple.com/app/id6824143315 — đã mở ngày
+2026-11-26, chuyển tới bản US `warrly-warranty-tracker/id6824143315`. Đây là URL
+thật duy nhất; repo không có URL listing nào khác, đừng tạo link `warrly.com/...`
+thay thế.
 
-> Trạng thái 2026-11-08: backend Premium đã live; legal copy đã live. Cần tạo 2
-> subscription product, build/upload build mới và test sandbox trước khi submit.
+> Trạng thái 2026-11-26: **1.0.2 (build 34) đang live** trên App Store (phát hành
+> 2026-11-25). Bản đang chuẩn bị là **1.0.3**: repo ở build **37**, build kế
+> tiếp/submit là **38** (lead đặt trong `ios/project.yml`; docs này không sửa số
+> build). App Privacy đã Publish, age rating **4+**, hai subscription product đã
+> tạo và listing 1.0.2 hiển thị In-App Purchases.
 
-## Đã điền xong (2026-11-02)
-- Version page: Promotional Text, Description, Keywords, Support URL `https://warrly.com`,
-  Version, Copyright, Build 5, Manually release, Contact Information, Sign-in demo account.
-- App Information: Name `Warrly: Warranty Tracker`, Subtitle `Receipts, warranties, renewals`,
-  Category Productivity + Finance.
+## Đã xong (không cần làm lại)
 
+- App record, tên, subtitle, category Productivity + Finance.
+- Content Rights: "No… third-party content".
+- Age Rating: **4+** (Advertising = Yes; không UGC/dating/location).
+  Xác nhận từ listing công khai: `contentAdvisoryRating: 4+`.
+- App Privacy: **đã Publish**. Listing công khai hiển thị:
+  - Data Used to Track You: Identifiers, Usage Data.
+  - Data Linked to You: Purchases, Contact Info, User Content, Identifiers.
+  - Data Not Linked to You: Usage Data.
+  Khớp `ios/App/PrivacyInfo.xcprivacy`: DeviceID + AdvertisingData tracking =
+  true, Name/Email/UserID linked, App Functionality; không có crash/analytics SDK.
+  `NSUserTrackingUsageDescription` và AdMob/UMP vẫn là lý do phải khai tracking.
+- Subscription group **Warrly Premium** (ID `22560559`) + hai product
+  `com.warrly.premium.monthly` (49.000đ/tháng) và
+  `com.warrly.premium.yearly` (399.000đ/năm), cùng 7-day free trial; listing
+  1.0.2 hiển thị In-App Purchases.
+- Screenshots đang live: **10 ảnh iPhone + 10 ảnh iPad** (tên `01-dashboard` …
+  `10-final`). Bộ trong repo `artifacts/appstore/` chỉ còn 5+5 bản cũ — xem
+  `docs/APP_STORE_VI.md` mục 7.
+- iPhone Duo: bộ **10 inner + 10 outer** trong
+  `artifacts/appstore/duo-official/` (và bản VI), đủ số lượng. Nhưng xem cảnh
+  báo nguồn ảnh bên dưới trước khi coi là ảnh Duo thật.
+- Encryption: `ITSAppUsesNonExemptEncryption = false` đã có trong `ios/App/Info.plist`.
+- Digital Services Act (trader): đã tự khai.
 
-## Warrly Premium — mới, chưa tạo trên ASC
+## Còn lại cho 1.0.3
 
-Backend đã xong và đã deploy production:
-- `POST /api/v1/billing/verify` live (không auth → 401; JWS rác → 400).
-- Migration `0027_premium_entitlement` đã apply; goose version 27.
-- `/auth/me` có `premium` khi tài khoản đang Premium.
-- Giới hạn Premium: 200 thiết bị đang dùng / 2.000 tổng / 500 đăng ký / 1.000 wishlist.
+1. **Build 38**: set `CURRENT_PROJECT_VERSION` = **38** trong `ios/project.yml`,
+   archive và upload; chọn build 38 cho version 1.0.3. Build 37 là bản hiện tại
+   trong repo; **không** submit build 36.
+2. **App Review Information → Notes**: dán nguyên khối "1.0.3 — App Review
+   Information → Notes" trong `docs/APP_STORE_RELEASE_NOTES.md` lên đầu ô Notes.
+   Nói rõ: tỷ giá tham khảo **không phải** số tiền bị charge; 7-day trial chỉ hiện
+   khi StoreKit báo tài khoản đủ điều kiện.
+3. **What's New**: dán bản VI + EN của 1.0.3 từ `docs/APP_STORE_RELEASE_NOTES.md`
+   vào cả localization English và Vietnamese của version 1.0.3.
+4. **Screenshots**: kiểm bộ 10+10 iPhone/iPad và 10+10 Duo còn gắn đúng version
+   1.0.3. Bộ Duo hiện có là ảnh **dựng** từ capture iPad-width trong khung Duo
+   chính thức (`Tools/appstore_screenshots_duo_official.py`), không phải capture
+   trực tiếp màn hình trong/ngoài — xem mục "Screenshot sets" trong
+   `docs/APP_STORE_RELEASE_NOTES.md`. Nếu cần claim ảnh Duo thật, phải chụp lại
+   trước khi submit; đừng dán câu "ảnh chụp từ build 1.0.2 (34)" cho bộ này.
+5. **Demo account** trong App Review Information còn đăng nhập được (không ghi
+   mật khẩu vào repo).
+6. **Sandbox purchase + Restore** trên máy thật với cả hai product; kiểm paywall
+   chỉ hiện "Dùng thử 7 ngày" khi tài khoản đủ điều kiện.
+7. **App Accessibility** (ASC → App Accessibility): chưa xác nhận trạng thái.
+   Chỉ tick tính năng đã tự thử trên máy — đừng khai theo số grep. Bằng chứng
+   trong `ios/`: Dynamic Type có, VoiceOver một phần, Reduce Motion chưa.
+8. Bấm **Add for Review → Submit** khi 1–7 xong.
 
-iOS:
-- Nhánh sạch `feat/premium-ios` (commit `852f037`) có StoreKit 2, paywall, Settings row,
-  ads gating; build simulator xanh.
-- Chưa có `.xcarchive`: archive fail vì đĩa đầy (`No space left on device`), không phải code.
-  Cần free ~4–5GB rồi archive trong Xcode từ nhánh sạch hoặc working tree integrated.
+## Kiểm tra nhanh trước submit
 
-Tạo trên ASC (mày làm):
-1. Monetization → Subscriptions → Subscription Group `Warrly Premium`.
-2. `com.warrly.premium.monthly` — 1 month — **49.000đ** — 7-day free trial.
-3. `com.warrly.premium.yearly` — 1 year — **399.000đ** — 7-day free trial.
-4. Localization en + vi; review screenshot (paywall); **Ready to Submit**; gắn cả hai vào
-   app version.
-5. Tạo **Sandbox Tester**; sau khi có build mới, test mua + Restore.
-6. App Review note: subscription removes ads and raises limits; auto-renewable; both products.
+- [ ] `https://warrly.com`, `/privacy`, `/terms` mở được; privacy §4 khớp AI
+      consent (ba việc, Anthropic, lưu `extractedText` dạng plaintext).
+- [ ] Listing URL/ID đúng: **6824143315** /
+      https://apps.apple.com/app/id6824143315
+- [ ] App Privacy và Age Rating không đổi so với 1.0.2 (1.0.3 không thêm SDK hay
+      loại dữ liệu mới).
+- [ ] Không còn câu "TestFlight" hoặc "chưa mở bán" trong mô tả/What's New.
+- [ ] App Review Notes nói rõ tỷ giá tham khảo không phải số tiền bị charge.
 
-Legal copy đã live: `https://warrly.com/terms` §5 và `https://warrly.com/privacy` §5.
+## Ghi chú lịch sử
 
-## Chưa làm — cần mày
-
-1. ~~**Content Rights**~~ — ✅ đã xong (chọn "No... third-party content").
-2. ~~**Age Ratings**~~ — ✅ đã xong (4+; Advertising = Yes, còn lại No/None).
-3. **App Privacy** (https://appstoreconnect.apple.com/apps/6824143315/distribution/privacy)
-   - Privacy Policy URL: `https://warrly.com/privacy`
-   - Apple đang báo đỏ: app có `NSUserTrackingUsageDescription` → phải khai có tracking.
-   - Contact info: Email Address, Name — linked to user, App Functionality, không tracking.
-   - User Content: Photos, Other User Content — linked to user, App Functionality, không tracking.
-   - Purchases: Purchase History — linked to user, App Functionality.
-   - Identifiers: User ID (App Functionality, linked); Device ID (IDFA/push token) —
-     Third-Party Advertising, **có tracking**.
-   - Usage Data: Advertising Data — **có tracking**.
-   - Không thu Location, Contacts. Code chỉ có AdMob + UMP, không có crash/analytics SDK.
-   - Bấm **Publish** ở cuối.
-4. **App Accessibility** (…/distribution/accessibility): khai đúng thực tế. Bằng chứng trong
-   `ios/`: `accessibilityLabel` 25 chỗ, `accessibilityHint` 2, `dynamicTypeSize` 88,
-   `@ScaledMetric` 3, `accessibilityReduceMotion` 0, `preferredColorScheme` 1.
-   → Dynamic Type có vẻ có; VoiceOver một phần; Reduce Motion chưa. **Chỉ tick tính năng
-   đã tự thử trên máy**, đừng khai theo số grep.
-5. **Screenshots iPhone** (version page → App Previews and Screenshots): chưa có.
-   Premium còn cần **review screenshot** cho từng subscription (dùng màn hình paywall).
-6. **Encryption**: `ITSAppUsesNonExemptEncryption = false` đã có trong Info.plist → không cần gì thêm.
-7. **Build mới**: build 5 trên ASC là bản cũ. Upload build mới (project build > 5), chọn
-   build đó cho version 1.0.0.
-8. **Add for Review / Submit**: mày tự bấm khi 1–7 xong.
-
-## Cần kiểm tra
-- `https://warrly.com` và `https://warrly.com/privacy` phải mở được và là nội dung thật.
-- Digital Services Act (trader) đã tự khai, tao không đụng.
+- 1.0.0 (build 23) và 1.0.2 (build 34) đã submit/live. Hướng dẫn tạo
+  subscription group ban đầu nằm trong `docs/APP_STORE_SUBSCRIPTION_GROUP.md`;
+  tài liệu đó mang tính lịch sử và số build trong đó đã cũ.

@@ -320,7 +320,7 @@ export const CLAIM_ASSESSMENT_GATE_BODIES: Record<
   string
 > = {
   ai_optin_required:
-    'Bật đánh giá AI để dùng tính năng này. Khi bật, nội dung phiếu và điều khoản bảo hành sẽ được gửi tới dịch vụ AI bên thứ ba để phân tích. App không thay đổi phiếu của bạn.',
+    'Bật đánh giá AI để dùng tính năng này. Khi bật, thông tin lần sửa chữa (mô tả lỗi, chẩn đoán, chi phí) và điều khoản bảo hành sẽ được gửi tới Anthropic, dịch vụ AI bên thứ ba ở Mỹ, để phân tích. App không thay đổi phiếu của bạn.',
   feature_disabled:
     'Dịch vụ chưa bật tính năng đánh giá bằng AI. Đây là cấu hình của hệ thống, không phải lỗi từ phía bạn — phiếu sửa chữa của bạn không bị ảnh hưởng. Bạn vẫn có thể dùng checklist chuẩn bị đi bảo hành.',
 };
