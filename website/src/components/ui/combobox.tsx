@@ -26,6 +26,13 @@ type Props = {
   className?: string;
   triggerId?: string;
   clearable?: boolean;
+  /**
+   * Id of the `FieldError` that explains a rejected value. The trigger is a
+   * button, and `aria-invalid` is not supported on that role, so association is
+   * carried by `aria-describedby` alone — which is what a screen reader reads
+   * when the trigger is focused.
+   */
+  describedBy?: string;
 };
 
 function normalize(s: string): string {
@@ -51,6 +58,7 @@ export function Combobox({
   className,
   triggerId,
   clearable = true,
+  describedBy,
 }: Props) {
   const t = useT();
   const [open, setOpen] = React.useState(false);
@@ -160,48 +168,61 @@ export function Combobox({
     }
   };
 
+  // The clear control is a SIBLING of the trigger, not a child: a `<button>`
+  // cannot contain another button (the HTML parser closes the outer one), so
+  // the old `<span role="button" tabIndex={-1}>` was invalid markup and could
+  // never be reached with Tab. The trigger reserves the slot with an empty
+  // spacer, and the real button is pinned over it.
+  const showClear = clearable && Boolean(value) && !disabled;
+
   return (
     <Popover.Root open={open} onOpenChange={handleOpenChange}>
-      <Popover.Trigger
-        asChild
-        disabled={disabled}
-      >
-        <button
-          type="button"
-          id={triggerId}
-          aria-expanded={open}
-          className={cn(
-            'flex h-11 w-full items-center justify-between rounded-md border-[1.5px] border-border bg-card px-3.5 py-2 text-sm text-ink ring-offset-background transition-[border-color,box-shadow] focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/30 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50',
-            className,
-          )}
-        >
-          <span
+      <div className="relative">
+        <Popover.Trigger asChild disabled={disabled}>
+          <button
+            type="button"
+            id={triggerId}
+            aria-expanded={open}
+            aria-describedby={describedBy}
             className={cn(
-              'line-clamp-1 text-left',
-              !displayLabel && 'text-muted-foreground',
+              'flex h-11 w-full items-center justify-between rounded-md border-[1.5px] border-border bg-card px-3.5 py-2 text-sm text-ink ring-offset-background transition-[border-color,box-shadow] focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/30 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50',
+              className,
             )}
           >
-            {displayLabel || resolvedPlaceholder}
-          </span>
-          <div className="flex items-center gap-1">
-            {clearable && value && !disabled ? (
-              <span
-                role="button"
-                aria-label={t('Xoá')}
-                tabIndex={-1}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onValueChange('');
-                }}
-                className="rounded-sm p-0.5 text-muted-foreground hover:bg-muted"
-              >
-                <X className="h-3.5 w-3.5" />
-              </span>
-            ) : null}
-            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-          </div>
-        </button>
-      </Popover.Trigger>
+            <span
+              className={cn(
+                'line-clamp-1 text-left',
+                !displayLabel && 'text-muted-foreground',
+              )}
+            >
+              {displayLabel || resolvedPlaceholder}
+            </span>
+            <div className="flex items-center gap-1">
+              {showClear ? <span aria-hidden className="h-4 w-4" /> : null}
+              <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+            </div>
+          </button>
+        </Popover.Trigger>
+        {showClear ? (
+          <button
+            type="button"
+            aria-label={t('Xoá')}
+            onClick={() => onValueChange('')}
+            onKeyDown={(event) => {
+              // A real button already maps Enter/Space to click; handling them
+              // here (and preventing the native click) is explicit about the
+              // contract and keeps one code path for keyboard users.
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onValueChange('');
+              }
+            }}
+            className="absolute right-8 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
+      </div>
       <Popover.Portal>
         <Popover.Content
           align="start"
@@ -222,6 +243,7 @@ export function Combobox({
                 setActiveIndex(0);
               }}
               placeholder={resolvedSearchPlaceholder}
+              aria-label={resolvedSearchPlaceholder}
               className="flex h-9 w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
               onKeyDown={onInputKeyDown}
               role="combobox"

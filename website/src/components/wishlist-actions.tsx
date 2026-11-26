@@ -176,13 +176,12 @@ export function WishlistStatusButtons({
   ];
 
   return (
-    <div className="pill-group" role="tablist" aria-label={t('Đổi trạng thái')}>
+    <div className="pill-group" role="group" aria-label={t('Đổi trạng thái')}>
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
-          role="tab"
-          aria-selected={status === o.value}
+          aria-pressed={status === o.value}
           data-active={status === o.value}
           disabled={pending !== null || status === o.value}
           onClick={() => flip(o.value)}

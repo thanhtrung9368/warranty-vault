@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import {
@@ -91,11 +92,6 @@ function focusField(key: string) {
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
     try { el.select(); } catch { /* ignore */ }
   }
-}
-
-function FieldError({ errors }: { errors?: string[] }) {
-  if (!errors || errors.length === 0) return null;
-  return <p className="text-xs text-destructive">{errors[0]}</p>;
 }
 
 function SubmitButton({ label }: { label: string }) {
@@ -311,10 +307,12 @@ export function WishlistForm({
                 name="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="vd: Mac Studio M5 Max"
+                placeholder={t('vd: Mac Studio M5 Max')}
                 required
+                aria-invalid={Boolean(errors.name?.length)}
+                aria-describedby={errors.name?.length ? 'name-error' : undefined}
               />
-              <FieldError errors={errors.name} />
+              <FieldError id="name-error" errors={errors.name} />
             </div>
 
             <div className="space-y-2">
@@ -326,9 +324,10 @@ export function WishlistForm({
                 onValueChange={setCategory}
                 placeholder={t('Chọn loại (tuỳ chọn)')}
                 searchPlaceholder={t('Tìm loại...')}
+                describedBy={errors.category?.length ? 'category-error' : undefined}
               />
               <input type="hidden" name="category" value={category} />
-              <FieldError errors={errors.category} />
+              <FieldError id="category-error" errors={errors.category} />
             </div>
 
             <div className="space-y-2">
@@ -418,8 +417,10 @@ export function WishlistForm({
                 value={buyUrl}
                 onChange={(e) => setBuyUrl(e.target.value)}
                 placeholder="https://www.apple.com/vn-edu/..."
+                aria-invalid={Boolean(errors.buyUrl?.length)}
+                aria-describedby={errors.buyUrl?.length ? 'buyUrl-error' : undefined}
               />
-              <FieldError errors={errors.buyUrl} />
+              <FieldError id="buyUrl-error" errors={errors.buyUrl} />
             </div>
 
             <div className="space-y-2 md:col-span-2">
@@ -431,8 +432,10 @@ export function WishlistForm({
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
                 placeholder={t('https://... (tuỳ chọn)')}
+                aria-invalid={Boolean(errors.imageUrl?.length)}
+                aria-describedby={errors.imageUrl?.length ? 'imageUrl-error' : undefined}
               />
-              <FieldError errors={errors.imageUrl} />
+              <FieldError id="imageUrl-error" errors={errors.imageUrl} />
             </div>
 
             <div className="space-y-2">
@@ -459,9 +462,15 @@ export function WishlistForm({
                 max={365}
                 value={reminderIntervalDays}
                 onChange={(e) => setReminderIntervalDays(e.target.value)}
-                placeholder="vd: 30"
+                placeholder={t('vd: 30')}
+                aria-invalid={Boolean(errors.reminderIntervalDays?.length)}
+                aria-describedby={
+                  errors.reminderIntervalDays?.length
+                    ? 'reminderIntervalDays-error'
+                    : undefined
+                }
               />
-              <FieldError errors={errors.reminderIntervalDays} />
+              <FieldError id="reminderIntervalDays-error" errors={errors.reminderIntervalDays} />
               <p className="text-xs text-muted-foreground">
                 {t('Để trống nếu không cần. vd: 30 = mỗi 30 ngày ping check.')}
               </p>

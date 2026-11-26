@@ -8,13 +8,9 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { useT } from '@/lib/i18n/client';
 import { updateProfile, type AuthFormState } from '@/app/actions/auth';
-
-function FieldError({ errors }: { errors?: string[] }) {
-  if (!errors || errors.length === 0) return null;
-  return <p className="text-xs font-medium text-destructive">{errors[0]}</p>;
-}
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -80,8 +76,10 @@ export function ProfileForm({ email, initialName }: { email: string; initialName
           onChange={(e) => setName(e.target.value)}
           placeholder={t('vd: Trung Nguyễn')}
           autoComplete="name"
+          aria-invalid={Boolean(errors.displayName?.length)}
+          aria-describedby={errors.displayName?.length ? 'displayName-error' : undefined}
         />
-        <FieldError errors={errors.displayName} />
+        <FieldError id="displayName-error" errors={errors.displayName} />
         <div className="space-y-1 text-xs text-muted-foreground">
           <p>{t('Tên hiển thị ở thanh trên cùng và lời chào trên bảng điều khiển.')}</p>
           <p>{t('Tối đa 80 byte — tên tiếng Việt có dấu tốn nhiều byte hơn số ký tự.')}</p>

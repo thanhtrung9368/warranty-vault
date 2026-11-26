@@ -8,6 +8,7 @@ import { Loader2, LogIn, UserPlus, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import {
   loginUser,
   registerUser,
@@ -15,11 +16,6 @@ import {
 } from '@/app/actions/auth';
 import { safeNextPath, withNext } from '@/lib/next-path';
 import { useT } from '@/lib/i18n/client';
-
-function FieldError({ errors }: { errors?: string[] }) {
-  if (!errors || errors.length === 0) return null;
-  return <p className="text-xs font-medium text-destructive">{errors[0]}</p>;
-}
 
 function SubmitButton({
   mode,
@@ -94,14 +90,16 @@ export function AuthForm({
             <Input
               id="name"
               name="name"
-              placeholder="vd: Trung"
+              placeholder={t('vd: Trung')}
               autoComplete="name"
               maxLength={80}
               value={name}
               onChange={(e) => setName(e.target.value)}
+              aria-invalid={Boolean(errors.name?.length)}
+              aria-describedby={errors.name?.length ? 'auth-name-error' : undefined}
             />
             <p className="text-xs text-muted">{t('Để trống cũng được')}</p>
-            <FieldError errors={errors.name} />
+            <FieldError id="auth-name-error" errors={errors.name} />
           </div>
         )}
         <div className="space-y-1.5">
@@ -117,8 +115,10 @@ export function AuthForm({
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            aria-invalid={Boolean(errors.email?.length)}
+            aria-describedby={errors.email?.length ? 'auth-email-error' : undefined}
           />
-          <FieldError errors={errors.email} />
+          <FieldError id="auth-email-error" errors={errors.email} />
         </div>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
@@ -144,11 +144,13 @@ export function AuthForm({
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            aria-invalid={Boolean(errors.password?.length)}
+            aria-describedby={errors.password?.length ? 'auth-password-error' : undefined}
           />
           {mode === 'register' && !errors.password && (
             <p className="text-xs text-muted">{t('Tối thiểu 8 ký tự')}</p>
           )}
-          <FieldError errors={errors.password} />
+          <FieldError id="auth-password-error" errors={errors.password} />
         </div>
 
         {state?.message && (

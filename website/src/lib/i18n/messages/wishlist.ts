@@ -147,6 +147,8 @@ export const wishlist = defineMessages({
   'Vui lòng kiểm tra: {fields}': 'Please check: {fields}',
   'Vui lòng nhập: {field}': 'Please fill in: {field}',
   'Chọn loại (tuỳ chọn)': 'Pick a category (optional)',
+  'vd: Mac Studio M5 Max': 'e.g. Mac Studio M5 Max',
+  'vd: 30': 'e.g. 30',
   'Tìm loại...': 'Search categories...',
   'Tìm hãng...': 'Search brands...',
   'Dùng hãng "{name}"': 'Use the brand "{name}"',

@@ -8,14 +8,10 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { requestEmailChange, type EmailChangeFormState } from '@/app/actions/email-change';
 import { newEmailInboxHint } from '@/lib/email-change';
-
-function FieldError({ errors }: { errors?: string[] }) {
-  if (!errors || errors.length === 0) return null;
-  return <p className="text-xs font-medium text-destructive">{errors[0]}</p>;
-}
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -91,8 +87,10 @@ export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
             required
+            aria-invalid={Boolean(errors.newEmail?.length)}
+            aria-describedby={errors.newEmail?.length ? 'newEmail-error' : undefined}
           />
-          <FieldError errors={errors.newEmail} />
+          <FieldError id="newEmail-error" errors={errors.newEmail} />
         </div>
 
         <div className="space-y-2">
@@ -103,8 +101,12 @@ export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
             type="password"
             autoComplete="current-password"
             required
+            aria-invalid={Boolean(errors.currentPassword?.length)}
+            aria-describedby={
+              errors.currentPassword?.length ? 'changeEmailPassword-error' : undefined
+            }
           />
-          <FieldError errors={errors.currentPassword} />
+          <FieldError id="changeEmailPassword-error" errors={errors.currentPassword} />
           <p className="text-xs text-muted-foreground">
             {t('Cần mật khẩu để một phiên đăng nhập bị đánh cắp không thể tự chuyển tài khoản sang địa chỉ khác.')}
           </p>

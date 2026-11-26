@@ -37,6 +37,10 @@ export const common = defineMessages({
   'Mở menu': 'Open menu',
   // `components/sidebar.tsx` — the `<nav>` landmark of the mobile bottom bar.
   'Điều hướng chính': 'Main navigation',
+  // `(app)/layout.tsx` — the skip link. It is the first focusable control on
+  // every signed-in page (WCAG 2.4.1), so it sits above the sidebar in DOM
+  // order even though it is visually hidden until focused.
+  'Bỏ qua để đến nội dung chính': 'Skip to main content',
   // `components/user-menu.tsx` — the avatar menu's fallback display name (a
   // user with no `displayName`), and the toast when the sign-out call fails.
   'Người dùng': 'User',

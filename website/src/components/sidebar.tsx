@@ -199,6 +199,7 @@ export function Sidebar({
         data-active={active ? 'true' : undefined}
         title={t(item.label)}
         aria-label={t(item.label)}
+        aria-current={active ? 'page' : undefined}
         className={cn(
           'wv-sidebar-item relative flex h-[42px] items-center gap-3 overflow-hidden rounded-md px-3 text-sm font-semibold transition-colors',
           active
@@ -327,6 +328,7 @@ export function MobileBottomNav({
             href={item.href}
             data-active={active ? 'true' : undefined}
             aria-label={t(item.label)}
+            aria-current={active ? 'page' : undefined}
             className={itemClass(active)}
           >
             <Icon className="h-5 w-5" />
@@ -384,6 +386,7 @@ export function MobileBottomNav({
                   key={item.href}
                   href={item.href}
                   data-active={active ? 'true' : undefined}
+                  aria-current={active ? 'page' : undefined}
                   onClick={() => setMoreOpen(false)}
                   className={cn(
                     'flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors',

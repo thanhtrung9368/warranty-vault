@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { LeadDaysField } from '@/components/lead-days-field';
@@ -277,11 +278,6 @@ function focusField(key: string) {
   }
 }
 
-function FieldError({ errors }: { errors?: string[] }) {
-  if (!errors || errors.length === 0) return null;
-  return <p className="text-xs font-medium text-destructive">{errors[0]}</p>;
-}
-
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
@@ -303,6 +299,8 @@ function MoneyInput({
   name = 'purchasePrice',
   currency = 'VND',
   id,
+  invalid,
+  describedBy,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -311,6 +309,8 @@ function MoneyInput({
   name?: string | null;
   currency?: string;
   id?: string;
+  invalid?: boolean;
+  describedBy?: string;
 }) {
   return (
     <div className="relative">
@@ -323,6 +323,8 @@ function MoneyInput({
           onChange(n ? formatNumber(n, locale) : '');
         }}
         placeholder="0"
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         className="pr-12"
       />
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
@@ -345,11 +347,15 @@ function SalePriceInput({
   onChange,
   locale,
   currency = 'VND',
+  invalid,
+  describedBy,
 }: {
   value: string;
   onChange: (v: string) => void;
   locale: Locale;
   currency?: string;
+  invalid?: boolean;
+  describedBy?: string;
 }) {
   return (
     <div className="relative">
@@ -363,6 +369,8 @@ function SalePriceInput({
           onChange(digits === '' ? '' : formatNumber(parseVNDInput(raw), locale));
         }}
         placeholder="0"
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         className="pr-12"
       />
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
@@ -1244,10 +1252,12 @@ export function DeviceForm({
               name="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="vd: MacBook Pro M3"
+              placeholder={t('vd: MacBook Pro M3')}
               required
+              aria-invalid={Boolean(errors.name?.length)}
+              aria-describedby={errors.name?.length ? 'name-error' : undefined}
             />
-            <FieldError errors={errors.name} />
+            <FieldError id="name-error" errors={errors.name} />
           </div>
 
           <div className="space-y-2">
@@ -1265,9 +1275,10 @@ export function DeviceForm({
               placeholder={t('Chọn loại')}
               searchPlaceholder={t('Tìm loại...')}
               clearable={false}
+              describedBy={errors.category?.length ? 'category-error' : undefined}
             />
             <input type="hidden" name="category" value={category} />
-            <FieldError errors={errors.category} />
+            <FieldError id="category-error" errors={errors.category} />
           </div>
 
           <div className="space-y-2">
@@ -1292,7 +1303,7 @@ export function DeviceForm({
               name="model"
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              placeholder="vd: MBP 14 inch 2024"
+              placeholder={t('vd: MBP 14 inch 2024')}
             />
           </div>
 
@@ -1370,8 +1381,10 @@ export function DeviceForm({
               value={purchaseDate}
               onChange={(e) => setPurchaseDate(e.target.value)}
               required
+              aria-invalid={Boolean(errors.purchaseDate?.length)}
+              aria-describedby={errors.purchaseDate?.length ? 'purchaseDate-error' : undefined}
             />
-            <FieldError errors={errors.purchaseDate} />
+            <FieldError id="purchaseDate-error" errors={errors.purchaseDate} />
           </div>
 
           <div className="space-y-2">
@@ -1390,6 +1403,8 @@ export function DeviceForm({
                   id="currency"
                   className="w-[7.25rem] shrink-0"
                   aria-label={t('Tiền tệ')}
+                  aria-invalid={Boolean(errors.currency?.length)}
+                  aria-describedby={errors.currency?.length ? 'currency-error' : undefined}
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -1412,7 +1427,7 @@ export function DeviceForm({
               </div>
             </div>
             <input type="hidden" name="currency" value={currency} />
-            <FieldError errors={errors.currency} />
+            <FieldError id="currency-error" errors={errors.currency} />
             {needsFxRate(currency) && (
               <p className="text-xs text-muted-foreground">
                 {t(
@@ -1456,8 +1471,10 @@ export function DeviceForm({
                       inputMode="numeric"
                       value={fxRateDisplay}
                       onChange={(e) => handleFxRateChange(e.target.value)}
-                      placeholder="vd: 25.400"
+                      placeholder={t('vd: 25.400')}
                       className="pr-14"
+                      aria-invalid={Boolean(errors.fxRate?.length)}
+                      aria-describedby={errors.fxRate?.length ? 'fxRate-error' : undefined}
                     />
                     <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                       VND
@@ -1468,7 +1485,7 @@ export function DeviceForm({
                     name="fxRate"
                     value={fxRateValue == null ? '' : String(fxRateValue)}
                   />
-                  <FieldError errors={errors.fxRate} />
+                  <FieldError id="fxRate-error" errors={errors.fxRate} />
                 </div>
               </div>
 
@@ -1604,7 +1621,7 @@ export function DeviceForm({
               options={storeOptions}
               value={purchasePlace}
               onValueChange={setPurchasePlace}
-              placeholder="vd: FPT Shop, Tiki, ..."
+              placeholder={t('vd: FPT Shop, Tiki, ...')}
               searchPlaceholder={t('Tìm cửa hàng...')}
               allowCustom
               customLabel={(v) => t('Dùng nơi mua "{value}"', { value: v })}
@@ -1679,8 +1696,12 @@ export function DeviceForm({
                   setWarrantyMonths(Number(e.target.value));
                   markTouched('warranty');
                 }}
+                aria-invalid={Boolean(errors.warrantyMonths?.length)}
+                aria-describedby={
+                  errors.warrantyMonths?.length ? 'warrantyMonths-error' : undefined
+                }
               />
-              <FieldError errors={errors.warrantyMonths} />
+              <FieldError id="warrantyMonths-error" errors={errors.warrantyMonths} />
               <p className="text-xs text-muted-foreground">
                 {t('Ngày hết = ngày mua + số tháng. Để 0 nếu không có.')}
               </p>
@@ -1739,7 +1760,7 @@ export function DeviceForm({
                 type="tel"
                 value={warrantyPhone}
                 onChange={(e) => setWarrantyPhone(e.target.value)}
-                placeholder="vd: 1800 1234"
+                placeholder={t('vd: 1800 1234')}
               />
             </div>
 
@@ -1825,8 +1846,12 @@ export function DeviceForm({
                     type="date"
                     value={activatedAt}
                     onChange={(e) => setActivatedAt(e.target.value)}
+                    aria-invalid={Boolean(errors.activatedAt?.length)}
+                    aria-describedby={
+                      errors.activatedAt?.length ? 'activatedAt-error' : undefined
+                    }
                   />
-                  <FieldError errors={errors.activatedAt} />
+                  <FieldError id="activatedAt-error" errors={errors.activatedAt} />
                   <p className="text-xs text-muted-foreground">
                     {t(
                       'Ngày kích hoạt có thể trước ngày mua — cửa hàng kích hoạt sẵn trước khi giao máy.',
@@ -1847,8 +1872,12 @@ export function DeviceForm({
                   type="date"
                   value={extendedCoverBuyBy}
                   onChange={(e) => setExtendedCoverBuyBy(e.target.value)}
+                  aria-invalid={Boolean(errors.extendedCoverBuyBy?.length)}
+                  aria-describedby={
+                    errors.extendedCoverBuyBy?.length ? 'extendedCoverBuyBy-error' : undefined
+                  }
                 />
-                <FieldError errors={errors.extendedCoverBuyBy} />
+                <FieldError id="extendedCoverBuyBy-error" errors={errors.extendedCoverBuyBy} />
                 <p className="text-xs text-muted-foreground">
                   {t(
                     'AppleCare+, Samsung Care+... phải mua trước ngày này; quá hạn là không mua được nữa.',
@@ -1968,8 +1997,10 @@ export function DeviceForm({
                       type="date"
                       value={soldAt}
                       onChange={(e) => setSoldAt(e.target.value)}
+                      aria-invalid={Boolean(errors.soldAt?.length)}
+                      aria-describedby={errors.soldAt?.length ? 'soldAt-error' : undefined}
                     />
-                    <FieldError errors={errors.soldAt} />
+                    <FieldError id="soldAt-error" errors={errors.soldAt} />
                   </div>
 
                   <div className="space-y-2">
@@ -1982,8 +2013,12 @@ export function DeviceForm({
                       onChange={setSoldPriceDisplay}
                       locale={locale}
                       currency={currency}
+                      invalid={Boolean(errors.soldPrice?.length)}
+                      describedBy={
+                        errors.soldPrice?.length ? 'soldPrice-error' : undefined
+                      }
                     />
-                    <FieldError errors={errors.soldPrice} />
+                    <FieldError id="soldPrice-error" errors={errors.soldPrice} />
                     <p className="text-xs text-muted-foreground">
                       {t('Nhập 0 nếu cho tặng. Cần cả ngày bán và giá bán.')}
                     </p>

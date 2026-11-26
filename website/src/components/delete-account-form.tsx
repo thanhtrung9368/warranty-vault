@@ -7,6 +7,7 @@ import { Loader2, Trash2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { useT } from '@/lib/i18n/client';
 import { clearOfflinePageCache } from '@/lib/offline/cache-client';
 import { deleteAccount, type AuthFormState } from '@/app/actions/auth';
@@ -15,11 +16,6 @@ import { deleteAccount, type AuthFormState } from '@/app/actions/auth';
 // value against this exact ASCII literal, so it is NOT display copy and is
 // never translated. Only the labels around it are.
 const CONFIRM_PHRASE = 'XOA TAI KHOAN';
-
-function FieldError({ errors }: { errors?: string[] }) {
-  if (!errors || errors.length === 0) return null;
-  return <p className="text-xs font-medium text-destructive">{errors[0]}</p>;
-}
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -91,8 +87,10 @@ export function DeleteAccountForm() {
           type="password"
           autoComplete="current-password"
           required
+          aria-invalid={Boolean(errors.password?.length)}
+          aria-describedby={errors.password?.length ? 'delete-password-error' : undefined}
         />
-        <FieldError errors={errors.password} />
+        <FieldError id="delete-password-error" errors={errors.password} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="delete-confirm" className="font-semibold">
@@ -109,8 +107,10 @@ export function DeleteAccountForm() {
           autoComplete="off"
           placeholder={CONFIRM_PHRASE}
           required
+          aria-invalid={Boolean(errors.confirm?.length)}
+          aria-describedby={errors.confirm?.length ? 'delete-confirm-error' : undefined}
         />
-        <FieldError errors={errors.confirm} />
+        <FieldError id="delete-confirm-error" errors={errors.confirm} />
       </div>
       {state?.message && !state.ok && (
         <p className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive">

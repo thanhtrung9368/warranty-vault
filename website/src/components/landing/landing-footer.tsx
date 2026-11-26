@@ -50,21 +50,21 @@ export function LandingFooter({ year }: { year: number }) {
             prefetch={false}
             className="text-muted hover:text-ink"
           >
-            Privacy
+            {t('Chính sách bảo mật')}
           </Link>
           <Link
             href={localePath('/terms', locale)}
             prefetch={false}
             className="text-muted hover:text-ink"
           >
-            Terms
+            {t('Điều khoản sử dụng')}
           </Link>
           <Link
             href={localePath('/cookies', locale)}
             prefetch={false}
             className="text-muted hover:text-ink"
           >
-            Cookies
+            {t('Chính sách Cookie')}
           </Link>
           <ConsentSettingsLink />
           {/* The support address is data, not copy: it is the same mailbox the

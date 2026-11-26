@@ -26,6 +26,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import {
   Select,
   SelectContent,
@@ -51,11 +52,6 @@ function dateInputValue(value: string | null): string {
   // round-trip is UTC midnight and would fill the input with the previous day
   // west of UTC (and then save it back).
   return dayToInputValue(value);
-}
-
-function FieldError({ errors }: { errors?: string[] }) {
-  if (!errors || errors.length === 0) return null;
-  return <p className="text-xs font-medium text-destructive">{errors[0]}</p>;
 }
 
 export function BrandWarrantyFormSection({
@@ -282,7 +278,15 @@ export function BrandWarrantyFormSection({
               value={status}
               onValueChange={handleStatusChange}
             >
-              <SelectTrigger id="brandWarrantyStatus">
+              <SelectTrigger
+                id="brandWarrantyStatus"
+                aria-invalid={Boolean(errors?.brandWarrantyStatus?.length)}
+                aria-describedby={
+                  errors?.brandWarrantyStatus?.length
+                    ? 'brandWarrantyStatus-error'
+                    : undefined
+                }
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -294,7 +298,7 @@ export function BrandWarrantyFormSection({
                 ))}
               </SelectContent>
             </Select>
-            <FieldError errors={errors?.brandWarrantyStatus} />
+            <FieldError id="brandWarrantyStatus-error" errors={errors?.brandWarrantyStatus} />
           </div>
 
           <div className="space-y-2">
@@ -311,11 +315,15 @@ export function BrandWarrantyFormSection({
                 setUrl(e.target.value);
                 stampCheckedAt();
               }}
+              aria-invalid={Boolean(errors?.brandLookupUrl?.length)}
+              aria-describedby={
+                errors?.brandLookupUrl?.length ? 'brandLookupUrl-error' : undefined
+              }
             />
             <p className="text-xs text-muted-foreground">
               {t('Dán link bạn đã mở (không bắt buộc)')}
             </p>
-            <FieldError errors={errors?.brandLookupUrl} />
+            <FieldError id="brandLookupUrl-error" errors={errors?.brandLookupUrl} />
           </div>
 
           <div className="space-y-2">
@@ -330,8 +338,12 @@ export function BrandWarrantyFormSection({
                 setStart(e.target.value);
                 stampCheckedAt();
               }}
+              aria-invalid={Boolean(errors?.brandWarrantyStart?.length)}
+              aria-describedby={
+                errors?.brandWarrantyStart?.length ? 'brandWarrantyStart-error' : undefined
+              }
             />
-            <FieldError errors={errors?.brandWarrantyStart} />
+            <FieldError id="brandWarrantyStart-error" errors={errors?.brandWarrantyStart} />
           </div>
 
           <div className="space-y-2">
@@ -346,8 +358,12 @@ export function BrandWarrantyFormSection({
                 setEnd(e.target.value);
                 stampCheckedAt();
               }}
+              aria-invalid={Boolean(errors?.brandWarrantyEnd?.length)}
+              aria-describedby={
+                errors?.brandWarrantyEnd?.length ? 'brandWarrantyEnd-error' : undefined
+              }
             />
-            <FieldError errors={errors?.brandWarrantyEnd} />
+            <FieldError id="brandWarrantyEnd-error" errors={errors?.brandWarrantyEnd} />
           </div>
         </div>
 

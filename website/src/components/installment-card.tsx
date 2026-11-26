@@ -36,6 +36,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Progress } from '@/components/ui/progress';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { formatMoney } from '@/lib/currency';
@@ -56,11 +57,6 @@ import {
   saveInstallment,
   type DeviceFormState,
 } from '@/app/actions/devices';
-
-function FieldError({ errors }: { errors?: string[] }) {
-  if (!errors || errors.length === 0) return null;
-  return <p className="text-xs font-medium text-destructive">{errors[0]}</p>;
-}
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -254,8 +250,12 @@ export function InstallmentCard({
                   onChange={(e) => {
                     setDownPayment(e.target.value);
                   }}
+                  aria-invalid={Boolean(errors.downPayment?.length)}
+                  aria-describedby={
+                    errors.downPayment?.length ? 'installmentDownPayment-error' : undefined
+                  }
                 />
-                <FieldError errors={errors.downPayment} />
+                <FieldError id="installmentDownPayment-error" errors={errors.downPayment} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="installmentMonths">
@@ -272,8 +272,12 @@ export function InstallmentCard({
                   onChange={(e) => {
                     setMonths(e.target.value);
                   }}
+                  aria-invalid={Boolean(errors.months?.length)}
+                  aria-describedby={
+                    errors.months?.length ? 'installmentMonths-error' : undefined
+                  }
                 />
-                <FieldError errors={errors.months} />
+                <FieldError id="installmentMonths-error" errors={errors.months} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="installmentMonthlyAmount">
@@ -287,8 +291,12 @@ export function InstallmentCard({
                   onChange={(e) => {
                     setMonthlyAmount(e.target.value);
                   }}
+                  aria-invalid={Boolean(errors.monthlyAmount?.length)}
+                  aria-describedby={
+                    errors.monthlyAmount?.length ? 'installmentMonthlyAmount-error' : undefined
+                  }
                 />
-                <FieldError errors={errors.monthlyAmount} />
+                <FieldError id="installmentMonthlyAmount-error" errors={errors.monthlyAmount} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="installmentFirstDueAt">
@@ -302,8 +310,12 @@ export function InstallmentCard({
                   onChange={(e) => {
                     setFirstDueAt(e.target.value);
                   }}
+                  aria-invalid={Boolean(errors.firstDueAt?.length)}
+                  aria-describedby={
+                    errors.firstDueAt?.length ? 'installmentFirstDueAt-error' : undefined
+                  }
                 />
-                <FieldError errors={errors.firstDueAt} />
+                <FieldError id="installmentFirstDueAt-error" errors={errors.firstDueAt} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="installmentFileFee">
@@ -318,8 +330,12 @@ export function InstallmentCard({
                   onChange={(e) => {
                     setFileFee(e.target.value);
                   }}
+                  aria-invalid={Boolean(errors.fileFee?.length)}
+                  aria-describedby={
+                    errors.fileFee?.length ? 'installmentFileFee-error' : undefined
+                  }
                 />
-                <FieldError errors={errors.fileFee} />
+                <FieldError id="installmentFileFee-error" errors={errors.fileFee} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="installmentMonthlyFee">
@@ -334,8 +350,12 @@ export function InstallmentCard({
                   onChange={(e) => {
                     setMonthlyFee(e.target.value);
                   }}
+                  aria-invalid={Boolean(errors.monthlyFee?.length)}
+                  aria-describedby={
+                    errors.monthlyFee?.length ? 'installmentMonthlyFee-error' : undefined
+                  }
                 />
-                <FieldError errors={errors.monthlyFee} />
+                <FieldError id="installmentMonthlyFee-error" errors={errors.monthlyFee} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="installmentPaidCount">{t('Đã trả (số kỳ)')}</Label>
@@ -350,8 +370,12 @@ export function InstallmentCard({
                   onChange={(e) => {
                     setPaidCount(e.target.value);
                   }}
+                  aria-invalid={Boolean(errors.paidCount?.length)}
+                  aria-describedby={
+                    errors.paidCount?.length ? 'installmentPaidCount-error' : undefined
+                  }
                 />
-                <FieldError errors={errors.paidCount} />
+                <FieldError id="installmentPaidCount-error" errors={errors.paidCount} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="installmentLender">{t('Nơi trả góp')}</Label>
@@ -361,8 +385,12 @@ export function InstallmentCard({
                   maxLength={100}
                   value={lender}
                   onChange={(e) => setLender(e.target.value)}
+                  aria-invalid={Boolean(errors.lender?.length)}
+                  aria-describedby={
+                    errors.lender?.length ? 'installmentLender-error' : undefined
+                  }
                 />
-                <FieldError errors={errors.lender} />
+                <FieldError id="installmentLender-error" errors={errors.lender} />
               </div>
             </div>
 
