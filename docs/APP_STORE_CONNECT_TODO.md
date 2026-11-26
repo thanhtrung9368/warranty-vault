@@ -8,10 +8,10 @@ thật duy nhất; repo không có URL listing nào khác, đừng tạo link `w
 thay thế.
 
 > Trạng thái 2026-11-26: **1.0.2 (build 34) đang live** trên App Store (phát hành
-> 2026-11-25). Bản đang chuẩn bị là **1.0.3**: repo ở build **37**, build kế
-> tiếp/submit là **38** (lead đặt trong `ios/project.yml`; docs này không sửa số
-> build). App Privacy đã Publish, age rating **4+**, hai subscription product đã
-> tạo và listing 1.0.2 hiển thị In-App Purchases.
+> 2026-11-25). Bản đang chuẩn bị là **1.0.3**: repo ở build **39**, build
+> submit là **39** (`ios/project.yml`; docs này không sửa số build). App Privacy
+> đã Publish, age rating **4+**, hai subscription product đã tạo và listing 1.0.2
+> hiển thị In-App Purchases.
 
 ## Đã xong (không cần làm lại)
 
@@ -41,9 +41,9 @@ thay thế.
 
 ## Còn lại cho 1.0.3
 
-1. **Build 38**: set `CURRENT_PROJECT_VERSION` = **38** trong `ios/project.yml`,
-   archive và upload; chọn build 38 cho version 1.0.3. Build 37 là bản hiện tại
-   trong repo; **không** submit build 36.
+1. **Build 39**: `CURRENT_PROJECT_VERSION` = **39** đã đặt trong `ios/project.yml`
+   (gồm XCUITest); archive và upload; chọn build 39 cho version 1.0.3. Build 39
+   là bản hiện tại trong repo; **không** submit build 36/37/38.
 2. **App Review Information → Notes**: dán nguyên khối "1.0.3 — App Review
    Information → Notes" trong `docs/APP_STORE_RELEASE_NOTES.md` lên đầu ô Notes.
    Nói rõ: tỷ giá tham khảo **không phải** số tiền bị charge; 7-day trial chỉ hiện

@@ -142,6 +142,23 @@ user actually paid. No new device column, no payment flow, no live market feed
 - [ ] Go `go build ./...`, tests, OpenAPI drift.
 - [ ] Deploy website/API; archive 1.0.3 build 36.
 
+## Build 39 — XCUITest flows
+Added to 1.0.3 as build 39, no product change: the app ships the same features, plus a
+UI-test target and its launch hook.
+
+- `ios/UITests` is a `bundle.ui-testing` target (`WarrlyUITests`) in the `Warrly`
+  scheme's **Test** action only — `xcodebuild build -scheme Warrly` still produces
+  just the app.
+- Each test starts an in-process mock HTTP server on `127.0.0.1`, then launches the
+  app with `-ui-testing` + `WV_API_BASE_URL`. `UITestSupport` wipes Keychain,
+  defaults and the App Group on that launch so every run starts signed out; ads/ATT
+  are suppressed. A normal launch has no launch arguments and is untouched.
+- 14 tests across 6 suites: login, dashboard, device price (charged vs reference),
+  AI consent layout, paywall CTA/trial, Dynamic Type AX3 clipping. Runs on a
+  simulator or a real iPhone (`ios/UITests/README.md`).
+- Known gap: the paywall's ineligible-account branch skips — eligibility comes from
+  StoreKit, which the HTTP mock cannot fake.
+
 ## Release note (draft)
 ```
 Warrly 1.0.3

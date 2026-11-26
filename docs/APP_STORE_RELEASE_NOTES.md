@@ -1,13 +1,12 @@
 # Warrly — App Store release & review notes
 
-Version: **1.0.3** · build trong repo: **37** · build kế tiếp/submit: **38** · Bundle: `com.warrly` · Updated: 2026-11-26
+Version: **1.0.3** · build trong repo: **39** · build submit: **39** · Bundle: `com.warrly` · Updated: 2026-11-26
 Đang live: **1.0.2 (build 34)** · Apple ID **6824143315** · Listing: https://apps.apple.com/app/id6824143315
 
 > Dùng file này để copy từng mục vào App Store Connect. Không đưa mật khẩu demo
 > vào đây; demo account nằm trong **App Review Information** của ASC.
-> Mục **1.0.3** bên dưới là bản sắp submit — repo đang ở build **37**, lead đặt
-> build **38** trong `ios/project.yml` trước khi archive; submit build 38, không
-> submit build 36. Mục **1.0.2** giữ để tham chiếu (bản đang live từ 2026-11-25),
+> Mục **1.0.3** bên dưới là bản sắp submit — repo đang ở build **39** trong
+> `ios/project.yml`; archive và submit build 39, không submit build 36/37/38. Mục **1.0.2** giữ để tham chiếu (bản đang live từ 2026-11-25),
 > và các mục 1–5 là bản 1.0.0 giữ để tham chiếu (phần Premium ở mục 3–4 vẫn dùng
 > nguyên).
 
@@ -26,7 +25,7 @@ Version: **1.0.3** · build trong repo: **37** · build kế tiếp/submit: **38
   `artifacts/appstore/duo-official/`; xem cảnh báo nguồn ảnh ở mục "Screenshot
   sets" bên dưới.
 
-## 1.0.3 (build 37 → 38) — What's New (English)
+## 1.0.3 (build 39) — What's New (English)
 
 ```
 Warrly 1.0.3
@@ -44,7 +43,7 @@ Warrly 1.0.3
 • Bug fixes and performance improvements.
 ```
 
-## 1.0.3 (build 37 → 38) — What's New (Tiếng Việt)
+## 1.0.3 (build 39) — What's New (Tiếng Việt)
 
 ```
 Warrly 1.0.3
@@ -60,7 +59,7 @@ Warrly 1.0.3
 • Sửa lỗi và cải thiện hiệu năng.
 ```
 
-## 1.0.3 (build 37 → 38) — Giá gốc, số tiền bị charge, tỷ giá tham khảo (VI/EN)
+## 1.0.3 (build 39) — Giá gốc, số tiền bị charge, tỷ giá tham khảo (VI/EN)
 
 ### Tiếng Việt
 
@@ -102,7 +101,7 @@ Warrly 1.0.3
   the endpoint answers 503 and the user types the rate. At most **one upstream call
   per base per 24 hours per deployment**.
 
-## 1.0.3 (build 37 → 38) — App Review Information → Notes (English)
+## 1.0.3 (build 39) — App Review Information → Notes (English)
 
 Thêm đoạn này vào **đầu** ô Notes; phần Premium ở mục 3 giữ nguyên bên dưới:
 
@@ -125,11 +124,11 @@ trial to an eligible account; otherwise it shows the regular subscription price.
 No new data is collected and the App Privacy answers are unchanged from 1.0.2.
 ```
 
-## 1.0.3 (build 37 → 38) — Checklist trước khi submit
+## 1.0.3 (build 39) — Checklist trước khi submit
 
-- [ ] Build **38** của version **1.0.3** đã upload và được chọn. Build **37** là
-      bản hiện tại trong repo; lead đặt **38** trong `ios/project.yml` — không
-      submit build 36.
+- [ ] Build **39** của version **1.0.3** đã upload và được chọn. Build **39** là
+      bản hiện tại trong repo (`ios/project.yml`) — không submit build
+      36/37/38.
 - [ ] API đã deploy và migration **`0035`** (cache tỷ giá `ExchangeRate`) đã apply trên
       production — `migrate status` báo goose version **35**
 - [ ] Review note ở trên đã dán vào **App Review Information → Notes**, nói rõ tỷ giá
@@ -272,7 +271,7 @@ How to review Premium:
 
 > Mục 4–5 là checklist của lần submit **1.0.0 (build 23)** — giữ để tham chiếu
 > lịch sử. Đừng dùng số build 23 hay câu "attach to version 1.0.0" cho 1.0.3;
-> checklist hiện hành nằm ở mục "1.0.3 (build 37 → 38) — Checklist trước khi
+> checklist hiện hành nằm ở mục "1.0.3 (build 39) — Checklist trước khi
 > submit" phía trên.
 
 - Subscription group: **Warrly Premium**

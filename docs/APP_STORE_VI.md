@@ -1,12 +1,13 @@
 # Warrly — App Store tiếng Việt (copy-paste)
 
-Localization: **Vietnamese** · App: Warrly · Bundle: `com.warrly` · Version **1.0.3** (build **38** — repo đang 37) · Đang live: **1.0.2 (34)**
+Localization: **Vietnamese** · App: Warrly · Bundle: `com.warrly` · Version **1.0.3** (build **39** — repo đang 39) · Đang live: **1.0.2 (34)**
 Apple ID: **6824143315** · Listing: https://apps.apple.com/app/id6824143315 (đã kiểm 2026-11-26)
 
 > Thêm **Vietnamese** trong dropdown ngôn ngữ của App Store Connect, rồi copy
 > từng block dưới đây vào đúng ô. Ảnh tiếng Việt nằm trong `artifacts/appstore/`.
 > App Review Notes vẫn dùng bản English trong `docs/APP_STORE_RELEASE_NOTES.md`.
-> Số build trong file này là build **38** sẽ submit; **không** dùng build 34/36.
+> Số build trong file này là build **39** sẽ submit; **không** dùng build
+> 34/36/37/38.
 
 ## 1. Name (tối đa 30 ký tự)
 
@@ -176,7 +177,7 @@ Listing công khai có **10 ảnh iPhone + 10 ảnh iPad**, tên `01-dashboard` 
 - [ ] Xác nhận 10 ảnh Duo màn hình trong (2007×2853) + 10 ảnh Duo màn hình ngoài
       (1398×2034) — bộ hiện có dựng từ capture iPad-width, **không phải** ảnh
       chụp trực tiếp màn hình Duo; xem cảnh báo nguồn ảnh ở mục 7
-- [ ] Version **1.0.3** dùng build **38** (repo đang 37; lead đặt 38)
+- [ ] Version **1.0.3** dùng build **39** (repo đang 39)
 - [ ] Age rating **4+** và App Privacy vẫn **Published** (không đổi từ 1.0.2)
 - [ ] Listing URL/ID đúng: **6824143315** — https://apps.apple.com/app/id6824143315
 - [ ] Upload Header + Search Results VI

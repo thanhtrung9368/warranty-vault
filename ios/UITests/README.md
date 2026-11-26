@@ -7,8 +7,15 @@ on a physical iPhone.
 
 ```
 ios/UITests/
-├── MockAPIServer.swift   # NWListener HTTP/1.1 server on 127.0.0.1 + fixtures
-├── WarrlySmokeTests.swift# login → dashboard smoke test (attaches screenshot)
+├── MockAPIServer.swift       # NWListener HTTP/1.1 server on 127.0.0.1 + fixtures
+├── UITestHelpers.swift       # shared base class: launch, sidebar-aware nav, bounded scrolls
+├── WarrlySmokeTests.swift    # login → dashboard smoke test (attaches screenshot)
+├── LoginScreenTests.swift    # a11y identifiers, empty/partial validation, mock login
+├── DashboardSmokeTests.swift # deadline fixture rendered, no empty/error fallback
+├── DevicePriceTests.swift    # listed vs charged vs reference rate, locked rate
+├── AISettingsTests.swift     # consent layout split, opt-in toggle
+├── PaywallTests.swift        # exactly one purchase CTA, trial terms only when eligible
+├── DynamicTypeSmokeTests.swift # AX3 layout on Settings and device detail
 └── README.md
 ```
 
@@ -50,6 +57,10 @@ xcodebuild test-without-building \
   CODE_SIGNING_ALLOWED=NO
 ```
 
+Drop `-only-testing:` to run all 14 tests (~15 min, the AX3 suites dominate), or
+repeat it for each suite: `LoginScreenTests`, `DashboardSmokeTests`,
+`DevicePriceTests`, `AISettingsTests`, `PaywallTests`, `DynamicTypeSmokeTests`.
+
 Physical iPhone (signing is required; the target uses the app's team):
 
 ```bash
@@ -60,6 +71,9 @@ xcodebuild test \
   -only-testing:WarrlyUITests/WarrlySmokeTests \
   -allowProvisioningUpdates
 ```
+
+On a real iPhone the test bundle and the app both need the team's signing, which
+is why the command above omits `CODE_SIGNING_ALLOWED=NO`.
 
 `xcrun devicectl list devices` / Xcode's Devices window shows the UDID. The
 runner app and the app under test are separate processes on the same device;
