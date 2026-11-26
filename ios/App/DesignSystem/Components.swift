@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import WarrlyKit
 
 // ============================================================
@@ -751,6 +752,7 @@ struct WVSegmented<T: Hashable>: View {
                         }
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(active ? .isSelected : [])
             }
         }
         // 2 pt is the documented segmented inset (§8.2/§8.5), not a layout step.
@@ -1356,6 +1358,7 @@ final class WVToastCenter: ObservableObject {
     func show(_ message: String) {
         let toast = Toast(message: message)
         toasts.append(toast)
+        UIAccessibility.post(notification: .announcement, argument: message)
         Task {
             try? await Task.sleep(nanoseconds: 2_400_000_000)
             toasts.removeAll { $0.id == toast.id }
@@ -1385,6 +1388,7 @@ extension View {
             .padding(.horizontal, WVSpacing.md)
             .padding(.top, WVSpacing.sm)
             .animation(.spring(response: 0.32, dampingFraction: 0.8), value: center.toasts.count)
+            .allowsHitTesting(false)
         }
     }
 }

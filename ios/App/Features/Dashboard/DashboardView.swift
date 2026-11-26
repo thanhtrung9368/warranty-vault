@@ -143,6 +143,7 @@ struct DashboardView: View {
                     WVIcon("plus", size: 17)
                         .foregroundStyle(WVColor.tint)
                 }
+                .accessibilityLabel(L.t("Thêm nhanh"))
             }
         }
         .sheet(isPresented: $showQuickAdd) {

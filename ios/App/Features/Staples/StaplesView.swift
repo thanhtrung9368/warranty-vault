@@ -74,6 +74,7 @@ struct StaplesView: View {
                     WVIcon("plus", size: 17, weight: .semibold)
                         .foregroundStyle(WVColor.tint)
                 }
+                .accessibilityLabel(L.t("Thêm đồ dùng"))
             }
         }
         .task { await store.load() }
@@ -279,6 +280,7 @@ private struct StapleRow: View {
                     .frame(width: 32, height: 44)
                     .contentShape(Rectangle())
             }
+            .accessibilityLabel(L.t("Tuỳ chọn"))
         }
         .padding(.horizontal, WVSpacing.gutter)
         .frame(minHeight: 44)

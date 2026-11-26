@@ -586,6 +586,9 @@ struct HandoffSheet: View {
             }
             .buttonStyle(.plain)
             .padding(.horizontal, WVSpacing.gutter)
+            .accessibilityElement(children: .combine)
+            .accessibilityValue(acknowledged ? L.t("Đã đồng ý") : L.t("Chưa đồng ý"))
+            .accessibilityAddTraits(acknowledged ? .isSelected : [])
 
             // 6. Why "Đóng" is refused, printed before it is reached.
             if !canCloseCreated {

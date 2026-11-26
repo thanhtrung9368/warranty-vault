@@ -211,6 +211,7 @@ struct WishlistScreen: View {
             Button { showSort = true } label: {
                 WVIcon("filter", size: 18).foregroundStyle(WVColor.label2)
             }
+            .accessibilityLabel(L.t("Sắp xếp"))
         }
         // The one coral affordance on this screen.
         ToolbarItem(placement: .topBarTrailing) {
@@ -218,6 +219,7 @@ struct WishlistScreen: View {
                 WVIcon("plus", size: 17, weight: .semibold)
                     .foregroundStyle(WVColor.tint)
             }
+            .accessibilityLabel(L.t("Thêm món"))
         }
     }
 
