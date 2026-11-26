@@ -47,7 +47,7 @@ struct DeviceFormView: View {
     @FocusState private var focusedField: FormField?
 
     enum FormField: Hashable {
-        case name, brand, model, serial, price, fxRate, purchasePlace
+        case name, brand, model, serial, price, actualCharged, fxRate, purchasePlace
         case warrantyMonths, warrantyProvider
         case notes
     }
@@ -75,12 +75,25 @@ struct DeviceFormView: View {
     /// code; `CurrencyRules.rateError` blocks the save before the server's own
     /// 400 `fieldErrors.fxRate`.
     @State private var currency: String
+    /// The rate **locked at entry** — VND per one unit of `currency`. Editable,
+    /// and never written from the market: the reference table below it is
+    /// information the user may copy, not a value that overwrites this one.
     @State private var fxRate: Int?
-    /// The "Lấy tỷ giá" outcome: info (a fetched rate, or a stale warning) or a
-    /// failure that says "type it yourself". The field stays editable either
-    /// way — a 503 from the FX endpoint never blocks the save.
-    @State private var fxNotice: String?
-    @State private var fxNoticeIsError = false
+    /// What the card was **actually charged**, in VND — form-only.
+    ///
+    /// This is a calculator input, never a wire field: typing it derives
+    /// `fxRate = round(charged / purchasePrice)` (the frozen contract's own
+    /// rule), and the `Quy đổi sang VND` row below shows the amount that will
+    /// really be stored, `purchasePrice × fxRate`. It is seeded from
+    /// `purchasePriceVnd` when an existing device is edited, so the user sees
+    /// what they recorded rather than an empty box.
+    @State private var actualChargedVnd: Int?
+    /// Today's reference table for `currency`, or `nil` before/after a failed
+    /// fetch. Reference-only: nothing here is ever written into `fxRate`.
+    @State private var fxTable: FxRates?
+    /// The reference read failed (or the endpoint answered the documented 503).
+    /// The rate field stays editable, so this is a note, never a blocker.
+    @State private var fxError: String?
     @State private var fxLoading = false
 
     @State private var warrantyMonths: String
@@ -380,6 +393,21 @@ struct DeviceFormView: View {
         // normalized value is what the picker and the payload use from here on.
         _currency = State(initialValue: CurrencyRules.normalized(device?.currency))
         _fxRate = State(initialValue: device?.fxRate)
+        // Seed the form-only charged amount from what the server says was
+        // charged. For a foreign device the server's `purchasePriceVnd` is the
+        // contract's answer; only a payload too old to carry it falls back to
+        // the same locked-rate arithmetic the form previews. VND has no
+        // charged-vs-listed split, so the field does not exist there.
+        let openingCharged: Int?
+        if let device, CurrencyRules.requiresRate(device.currency) {
+            openingCharged = device.purchasePriceInVnd
+                ?? CurrencyRules.previewVnd(device.purchasePrice,
+                                            currency: device.currency,
+                                            fxRate: device.fxRate)
+        } else {
+            openingCharged = nil
+        }
+        _actualChargedVnd = State(initialValue: openingCharged)
         _warrantyMonths = State(initialValue: "12")
         _warrantyProvider = State(initialValue: "")
         _status = State(initialValue: device?.status ?? .ACTIVE)
@@ -458,15 +486,38 @@ struct DeviceFormView: View {
         CurrencyRules.requiresRate(currency) ? fxRate : nil
     }
 
-    /// Whether a rate belongs on screen at all. VND has no rate — the field and
-    /// the "Lấy tỷ giá" action disappear with it.
+    /// Whether a rate belongs on screen at all. VND has no rate — the rate
+    /// field, the charged field and the reference block disappear with it.
     private var usesForeignCurrency: Bool { CurrencyRules.requiresRate(currency) }
 
     /// The VND the server will store for the current price, at the locked rate.
     /// Shown live so the user can see that 999 USD is 25.4 million ₫ before the
-    /// price is saved, not after.
+    /// price is saved, not after. This is also the contract's `actualVnd` in
+    /// the reference comparison — the amount actually charged.
     private var priceVndPreview: Int? {
         CurrencyRules.previewVnd(price, currency: currency, fxRate: fxRate)
+    }
+
+    /// Today's market view, or `nil` while the table is absent, the price is
+    /// not a positive amount, or the payload has no usable VND quote. The
+    /// conversion is `referenceVnd = round(price × rates.VND)` — never a value
+    /// for the rate field. A table answered for the previous currency is
+    /// ignored until the new base's read lands.
+    private var fxReference: FxReference? {
+        guard usesForeignCurrency,
+              let table = fxTable,
+              CurrencyRules.normalized(table.base) == CurrencyRules.normalized(currency)
+        else { return nil }
+        return FxReference(purchasePrice: price,
+                           actualVnd: priceVndPreview,
+                           table: table)
+    }
+
+    /// What `.task(id:)` re-runs on: the currency, because the table is quoted
+    /// per base. An empty key for VND means switching back to dong cancels the
+    /// read and no reference is shown.
+    private var fxReferenceKey: String {
+        usesForeignCurrency ? CurrencyRules.normalized(currency) : ""
     }
 
     private var priceFieldGrouping: String {
@@ -791,7 +842,7 @@ struct DeviceFormView: View {
     /// so the chain is rebuilt from the same conditions the body uses.
     private var focusChain: [FormField] {
         var fields: [FormField] = [.name, .brand, .model, .serial, .price]
-        if usesForeignCurrency { fields.append(.fxRate) }
+        if usesForeignCurrency { fields.append(contentsOf: [.actualCharged, .fxRate]) }
         fields.append(.purchasePlace)
         if !isEditing {
             fields.append(contentsOf: [.warrantyMonths, .warrantyProvider])
@@ -1409,10 +1460,14 @@ struct DeviceFormView: View {
 
                     fieldErrorRow("currency")
 
-                    // Rate + "Lấy tỷ giá". Only for a foreign currency: VND
-                    // must store a null rate, and showing an input for it would
-                    // invite a value the server rejects.
+                    // Actual charge + the locked rate. Only for a foreign
+                    // currency: VND must store a null rate, and a charged-vs-
+                    // listed split does not exist there.
                     if usesForeignCurrency {
+                        WVDivider()
+
+                        actualChargedRow
+
                         WVDivider()
 
                         HStack(spacing: 12) {
@@ -1425,16 +1480,15 @@ struct DeviceFormView: View {
                                     .foregroundStyle(WVColor.label3)
                             }
                             Spacer(minLength: 8)
-                            // Editable always: the FX endpoint is a convenience,
-                            // not the only way in. A 503 leaves this field to
-                            // the user instead of blocking the save.
+                            // Editable always: the reference endpoint is a
+                            // convenience, not the only way in. A 503 leaves
+                            // this field to the user instead of blocking the
+                            // save, and the market table below never writes it.
                             WVMoneyField(value: $fxRate, placeholder: "25.400")
                                 .focused($focusedField, equals: .fxRate)
-                                // Only the stale server error is cleared here.
-                                // The notice is deliberately not touched: the
-                                // fetch itself sets `fxRate`, and an onChange
-                                // that cleared it would erase the "rate fetched"
-                                // line in the same update.
+                                // Only the stale server error is cleared here;
+                                // the reference rows are derived from state, so
+                                // nothing needs to be recomputed by hand.
                                 .onChange(of: fxRate) { _, _ in
                                     fieldErrors["fxRate"] = nil
                                 }
@@ -1447,49 +1501,12 @@ struct DeviceFormView: View {
 
                         WVDivider()
 
-                        Button {
-                            Task { await fetchRate() }
-                        } label: {
-                            HStack(spacing: 8) {
-                                if fxLoading {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                } else {
-                                    WVIcon("refresh", size: 14)
-                                }
-                                Text(fxLoading ? L.t("Đang lấy tỷ giá…") : L.t("Lấy tỷ giá"))
-                                    .wvFont(.subheadlineEmphasis)
-                                Spacer(minLength: 0)
-                            }
-                            .foregroundStyle(WVColor.tint)
-                            .padding(.horizontal, 16)
-                            .frame(minHeight: 44)
-                            .padding(.vertical, 7)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(WVRowButtonStyle())
-                        .disabled(fxLoading)
-
-                        if let fxNotice {
-                            HStack(alignment: .top, spacing: 6) {
-                                WVIcon(fxNoticeIsError ? "alert" : "info", size: 12)
-                                    .foregroundStyle(fxNoticeIsError ? WVColor.orange : WVColor.label3)
-                                Text(fxNotice)
-                                    .wvFont(.caption)
-                                    .foregroundStyle(fxNoticeIsError ? WVColor.orange : WVColor.label3)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .textSelection(.enabled)
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 10)
-                        }
-
-                        WVDivider()
-
-                        // What the server will store. This is the *only* place
-                        // the converted number is shown, and it is derived from
-                        // the same locked rate that goes on the wire.
+                        // What the server will store. This is the contract's
+                        // `purchasePriceVnd` / actual charged amount, derived
+                        // from the same locked rate that goes on the wire. When
+                        // a charge was typed, the integer rate makes it differ
+                        // by the rounding — this row is the amount that is
+                        // actually kept.
                         HStack(spacing: 10) {
                             Text(L.t("Quy đổi sang VND"))
                                 .wvFont(.subheadline)
@@ -1503,6 +1520,10 @@ struct DeviceFormView: View {
                         .padding(.horizontal, 16)
                         .frame(minHeight: 44)
                         .padding(.vertical, 7)
+
+                        WVDivider()
+
+                        fxReferenceBlock
                     }
 
                     WVDivider()
@@ -1918,6 +1939,11 @@ struct DeviceFormView: View {
             Text(L.t("Tất cả thông tin đã nhập sẽ mất."))
         }
         .task { await catalog.loadIfNeeded() }
+        // Today's market table for the reference block. It is keyed on the
+        // currency because the table is quoted per base, and it only ever
+        // *displays* a number — `fxRate` is never written from here. On VND the
+        // key is empty and the read is skipped.
+        .task(id: fxReferenceKey) { await loadFxReference() }
         // A create form can be pushed before the device list has finished
         // loading (the dashboard quick add, or a cold launch straight into it).
         // Fill the carried values once the list lands, without touching a field
@@ -2502,71 +2528,271 @@ struct DeviceFormView: View {
         }
     }
 
-    // MARK: - Currency ("Lấy tỷ giá")
+    // MARK: - Currency & the reference table
 
     /// Switches the device's currency.
     ///
-    /// The old rate belonged to the old currency and cannot be reused, so it is
-    /// cleared — the save button stays disabled until a new one is fetched or
-    /// typed. The price itself is deliberately not converted: it is the number
-    /// the user entered, and the currency picker is what they change when they
-    /// realise they entered it in dollars.
+    /// The old rate and the old charged amount belonged to the old currency and
+    /// cannot be reused, so both are cleared — the save button stays disabled
+    /// until a new one is typed. The price itself is deliberately not converted:
+    /// it is the number the user entered, and the currency picker is what they
+    /// change when they realise they entered it in dollars.
+    ///
+    /// The reference table is dropped too: `.task(id: fxReferenceKey)` reads the
+    /// new base, and the block must never show the previous currency's quote in
+    /// the meantime.
     private func selectCurrency(_ code: String) {
         let normalized = CurrencyRules.normalized(code)
         guard normalized != CurrencyRules.normalized(currency) else { return }
         currency = normalized
         fxRate = nil
-        fxNotice = nil
-        fxNoticeIsError = false
+        actualChargedVnd = nil
+        fxTable = nil
+        fxError = nil
         fieldErrors["currency"] = nil
         fieldErrors["fxRate"] = nil
     }
 
-    /// Fetches the current VND quote for the selected currency.
+    /// Reads today's reference table for the selected currency.
     ///
-    /// Purely a convenience: the result fills the same editable `fxRate` field
-    /// the user can type into. A 503 — which the contract explicitly allows —
-    /// says so and leaves the field to them; it never blocks saving the device.
-    ///
-    /// On an **edit** the field starts with the device's stored, locked rate.
-    /// Tapping this button replaces it, and therefore the VND values a save will
-    /// store; an ordinary save sends the loaded rate back untouched, which is
-    /// what keeps a historical total from drifting with the market.
-    private func fetchRate() async {
+    /// **Reference-only by contract:** the result lands in `fxTable` and never
+    /// in `fxRate`. The locked rate is the user's value; the market quote is
+    /// information beside it. A 503 — which the contract explicitly allows —
+    /// only removes the reference numbers; the rate field keeps working and the
+    /// save is never blocked.
+    private func loadFxReference() async {
         guard usesForeignCurrency else { return }
         let requested = CurrencyRules.normalized(currency)
         fxLoading = true
-        fxNotice = nil
-        fxNoticeIsError = false
-        defer { fxLoading = false }
+        fxError = nil
+        defer { if !Task.isCancelled { fxLoading = false } }
 
         do {
             let table = try await client.fxRates(base: requested)
-            // A stale-tab refresh or an answer for a currency the user switched
-            // away from mid-request must not overwrite the field.
+            // A slow answer for a currency the user switched away from must not
+            // put the wrong base's quote on screen.
             guard requested == CurrencyRules.normalized(currency) else { return }
-            guard let rate = table.vndRate else {
-                fxNotice = L.t("Không lấy được tỷ giá. Hãy tự nhập tỷ giá.")
-                fxNoticeIsError = true
-                return
-            }
-            fxRate = rate
-            fieldErrors["fxRate"] = nil
-            if table.isStale {
-                fxNotice = L.t("Tỷ giá có thể đã cũ. Kiểm tra lại trước khi lưu.")
-                fxNoticeIsError = false
-            } else {
-                fxNotice = L.t("Đã lấy tỷ giá: 1 %@ = %@", requested, WVFormat.rate(rate))
-                fxNoticeIsError = false
-            }
+            fxTable = table
         } catch let error as APIError where error.isServiceUnavailable {
             // The documented 503: not an error screen, just "type it".
-            fxNotice = L.t("Không lấy được tỷ giá — máy chủ đang bận. Hãy tự nhập tỷ giá.")
-            fxNoticeIsError = true
+            guard requested == CurrencyRules.normalized(currency) else { return }
+            fxTable = nil
+            fxError = L.t("Không lấy được tỷ giá — máy chủ đang bận. Hãy tự nhập tỷ giá.")
         } catch {
-            fxNotice = L.t("Không lấy được tỷ giá. Hãy tự nhập tỷ giá.")
-            fxNoticeIsError = true
+            guard requested == CurrencyRules.normalized(currency) else { return }
+            fxTable = nil
+            fxError = L.t("Không lấy được tỷ giá. Hãy tự nhập tỷ giá.")
         }
+    }
+
+    // MARK: - The actual charge row
+
+    /// The form-only "what the card was charged" row.
+    ///
+    /// Typing a charge derives the integer `fxRate`; the field itself is not a
+    /// wire field and no other input is written. At Accessibility sizes the
+    /// long label and the amount stack, because a side-by-side trailing field
+    /// would squeeze both.
+    @ViewBuilder
+    private var actualChargedRow: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 8) {
+                actualChargedLabel
+                actualChargedField
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+        } else {
+            HStack(spacing: 12) {
+                actualChargedLabel
+                Spacer(minLength: 8)
+                actualChargedField
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .padding(.vertical, 7)
+        }
+    }
+
+    private var actualChargedLabel: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(L.t("Số tiền thực tế bị charge (VND)"))
+                .wvFont(.body)
+                .foregroundStyle(WVColor.label)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(L.t("Nhập số tiền thẻ bị trừ để tính tỷ giá."))
+                .wvFont(.caption)
+                .foregroundStyle(WVColor.label3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var actualChargedField: some View {
+        WVMoneyField(value: $actualChargedVnd, placeholder: "0 ₫")
+            .focused($focusedField, equals: .actualCharged)
+            .onChange(of: actualChargedVnd) { _, charged in
+                // The contract's rule: what the card was charged decides the
+                // integer rate the device stores. Clearing the box does not
+                // clear the rate — the rate field is the authority and stays
+                // editable on its own.
+                guard let derived = CurrencyRules.rate(chargedVnd: charged,
+                                                       purchasePrice: price) else { return }
+                fxRate = derived
+                fieldErrors["fxRate"] = nil
+            }
+    }
+
+    // MARK: - The reference block
+
+    /// Today's market conversion, under the locked rate — **reference only**.
+    ///
+    /// Nothing in this block can write `fxRate`: the three numbers are derived
+    /// from the fetched table and the form's own state (`referenceVnd` from the
+    /// listed price, `actualVnd` from the locked rate, `delta` from the two).
+    /// It keeps saying so, because a market number beside an editable rate
+    /// invites exactly the wrong tap.
+    @ViewBuilder
+    private var fxReferenceBlock: some View {
+        HStack(spacing: 8) {
+            Text(L.t("Tỷ giá tham khảo"))
+                .wvFont(.body)
+                .foregroundStyle(WVColor.label)
+            WVReferenceBadge()
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .padding(.vertical, 7)
+
+        if fxLoading {
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text(L.t("Đang lấy tỷ giá…"))
+                    .wvFont(.subheadline)
+                    .foregroundStyle(WVColor.label3)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
+        } else if let fxError {
+            HStack(alignment: .top, spacing: 6) {
+                WVIcon("alert", size: 12)
+                    .foregroundStyle(WVColor.orange)
+                Text(fxError)
+                    .wvFont(.caption)
+                    .foregroundStyle(WVColor.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
+        } else if let table = fxTable {
+            if let reference = fxReference {
+                fxReferenceRow(L.t("Tỷ giá thị trường"),
+                               L.t("1 %@ = %@", currency,
+                                   WVFormat.rate(reference.marketRate)))
+                fxReferenceRow(L.t("Giá tham khảo"), WVFormat.vnd(reference.referenceVnd))
+                fxReferenceRow(L.t("Chênh lệch"),
+                               reference.delta.map(signedVnd) ?? "—")
+                fxReferenceCaption(L.t("Chênh lệch = số tiền thực tế bị charge − giá tham khảo thị trường."))
+            } else if let marketRate = table.vndRate {
+                // The listed price is not entered yet; the market quote is still
+                // the useful half of the answer.
+                fxReferenceRow(L.t("Tỷ giá thị trường"),
+                               L.t("1 %@ = %@", currency, WVFormat.rate(marketRate)))
+            }
+
+            if table.isStale {
+                fxReferenceCaption(L.t("Tỷ giá tham khảo có thể đã cũ."), warning: true)
+            }
+            if let fetched = table.fetchedAtDate {
+                fxReferenceCaption(L.t("Cập nhật: %@", WVFormat.dateTime(fetched)))
+            }
+            if let source = table.source {
+                fxReferenceCaption(L.t("Nguồn: %@", source))
+            }
+            fxReferenceCaption(L.t("Không thay đổi tỷ giá đã chốt."))
+        } else {
+            // The automatic read has not landed yet (or the form was just
+            // pushed). Show the same loading line rather than a blank block.
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text(L.t("Đang lấy tỷ giá…"))
+                    .wvFont(.subheadline)
+                    .foregroundStyle(WVColor.label3)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
+        }
+
+        WVDivider()
+
+        Button {
+            Task { await loadFxReference() }
+        } label: {
+            HStack(spacing: 8) {
+                if fxLoading {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    WVIcon("refresh", size: 14)
+                }
+                Text(L.t("Lấy tỷ giá tham khảo"))
+                    .wvFont(.subheadlineEmphasis)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(WVColor.tint)
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .padding(.vertical, 7)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(WVRowButtonStyle())
+        .disabled(fxLoading)
+    }
+
+    /// One read-only number in the reference block. The hairline above it is
+    /// part of the row so a conditional number cannot leave a divider behind.
+    private func fxReferenceRow(_ label: String, _ value: String) -> some View {
+        VStack(spacing: 0) {
+            WVDivider()
+            HStack(spacing: 10) {
+                Text(label)
+                    .wvFont(.subheadline)
+                    .foregroundStyle(WVColor.label2)
+                Spacer(minLength: 8)
+                Text(value)
+                    .wvFont(.subheadlineEmphasis)
+                    .foregroundStyle(WVColor.label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .padding(.vertical, 7)
+        }
+    }
+
+    /// A metadata line under the reference numbers: fetched at, source, how old
+    /// the snapshot is, and the reminder that it changes nothing.
+    private func fxReferenceCaption(_ text: String, warning: Bool = false) -> some View {
+        Text(text)
+            .wvFont(.caption)
+            .foregroundStyle(warning ? WVColor.orange : WVColor.label3)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 6)
+    }
+
+    /// `+1.234.567 ₫` for a positive difference, the formatter's own `-…` for a
+    /// negative one. A zero difference carries no sign.
+    private func signedVnd(_ amount: Int) -> String {
+        amount > 0 ? "+" + WVFormat.vnd(amount) : WVFormat.vnd(amount)
     }
 
     // MARK: - Submit

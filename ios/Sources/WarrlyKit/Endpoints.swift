@@ -1025,14 +1025,14 @@ extension APIClient {
         return stats
     }
 
-    // MARK: - FX rates ("Lấy tỷ giá")
+    // MARK: - FX rates ("Tỷ giá tham khảo")
 
-    /// `GET /api/v1/fx/rates?base=USD` → `{base, rates, fetchedAt, stale}`.
+    /// `GET /api/v1/fx/rates?base=USD` → `{base, rates, fetchedAt, stale, source}`.
     ///
-    /// Used only by the device form, and only as a convenience: `fxRate` is
-    /// **locked at entry**, so this is a suggestion the user can overwrite, not
-    /// a value that keeps tracking the market. `base` is the device's ISO
-    /// currency code; the caller reads `FxRates.vndRate` for the quote it needs.
+    /// Used only by the device form/detail, and only as a **reference**: the
+    /// contract's `fxRate` is locked at entry, so this table is never written
+    /// into the device. `base` is the device's ISO currency code; the screens
+    /// read `FxRates.vndRate` / `vndQuote` for the quote they show.
     ///
     /// The endpoint is allowed to answer **503**. That is not a failure of the
     /// save — the form keeps the rate field editable and tells the user to type

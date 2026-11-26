@@ -180,6 +180,27 @@ public enum CurrencyRules {
         lockedVnd(amount, currency: currency, fxRate: fxRate)
     }
 
+    // MARK: - The actual charge
+
+    /// The integer `fxRate` implied by what the card was actually charged:
+    /// `round(chargedVnd / purchasePrice)`.
+    ///
+    /// `fxRate` is an integer (frozen contract) and the charged amount is
+    /// whole đồng, so the two can differ by the rounding — the form shows the
+    /// derived `purchasePriceVnd` as the stored value rather than pretending
+    /// the typed amount is exact. `nil` when no rate can be derived (no price,
+    /// no charge, a non-positive price, or a result that does not fit an
+    /// `Int`).
+    public static func rate(chargedVnd: Int?, purchasePrice: Int?) -> Int? {
+        guard let chargedVnd, let purchasePrice,
+              purchasePrice > 0, chargedVnd > 0 else { return nil }
+        let quotient = Double(chargedVnd) / Double(purchasePrice)
+        guard quotient.isFinite else { return nil }
+        let rounded = quotient.rounded()
+        guard rounded >= 1, rounded < Double(Int.max) else { return nil }
+        return Int(rounded)
+    }
+
     // MARK: - Grouping
 
     /// VND groups thousands with `.` (`25.000.000 ₫`); a foreign currency
@@ -187,5 +208,78 @@ public enum CurrencyRules {
     /// dollar amount reads as dong.
     public static func groupingSeparator(for currency: String?) -> String {
         isVnd(currency) ? "." : ","
+    }
+}
+
+// MARK: - The reference conversion
+
+/// Today's market view of a foreign-priced device — **reference only**.
+///
+/// Three numbers that must never be confused, in the order the frozen contract
+/// defines them:
+///
+///   * `referenceVnd` = `round(purchasePrice × rates.VND)` — what the listed
+///     price is worth at today's market rate. It is computed from the
+///     **unrounded** quote (rounding the product, not the rate) and is never
+///     stored on the device.
+///   * `actualVnd` = the contract's `purchasePriceVnd` — the amount actually
+///     charged, converted at the rate locked at entry. The caller passes it in
+///     so the server value always wins in the app (and the form passes the
+///     same live preview it shows).
+///   * `delta` = `actualVnd − referenceVnd`: positive means the locked
+///     conversion is above today's market.
+///
+/// The type exists so the form and the detail screen cannot render the three
+/// numbers from two different formulas, and so no code path can mistake
+/// `marketRate` for a value to write into `Device.fxRate`.
+public struct FxReference: Equatable, Sendable {
+    /// VND per one unit of the device's currency, as quoted today (rounded for
+    /// display exactly like `Device.fxRate`).
+    public let marketRate: Int
+
+    /// `round(purchasePrice × rates.VND)` — today's market conversion.
+    public let referenceVnd: Int
+
+    /// What was actually charged, in VND, from the caller's authoritative
+    /// value. `nil` when the device has no usable locked rate.
+    public let actualVnd: Int?
+
+    /// `actualVnd − referenceVnd`. `nil` when either side is unknown.
+    public let delta: Int?
+
+    /// The provider's fetch instant, raw and parsed, plus its cache state and
+    /// source. Passed through so a screen can say how old the number is.
+    public let fetchedAt: String?
+    public let fetchedAtDate: Date?
+    public let stale: Bool
+    public let source: String?
+
+    /// `nil` when the table has no VND quote or the listed price is not a
+    /// positive amount — there is no honest conversion to show then, and the
+    /// screen omits the reference rather than showing `0 ₫`.
+    public init?(purchasePrice: Int?, actualVnd: Int?, table: FxRates?) {
+        guard let table,
+              let purchasePrice, purchasePrice > 0,
+              let quote = table.vndQuote,
+              let marketRate = table.vndRate else { return nil }
+        let raw = Double(purchasePrice) * quote
+        guard raw.isFinite, raw >= 0, raw.rounded() < Double(Int.max) else { return nil }
+        let reference = Int(raw.rounded())
+        let delta: Int?
+        if let actualVnd {
+            let (difference, overflow) = actualVnd.subtractingReportingOverflow(reference)
+            delta = overflow ? nil : difference
+        } else {
+            delta = nil
+        }
+
+        self.marketRate = marketRate
+        self.referenceVnd = reference
+        self.actualVnd = actualVnd
+        self.delta = delta
+        self.fetchedAt = table.fetchedAt
+        self.fetchedAtDate = table.fetchedAtDate
+        self.stale = table.isStale
+        self.source = table.source
     }
 }
