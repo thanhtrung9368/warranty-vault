@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthCookie } from '@/lib/auth-cookie';
 import { getI18n } from '@/lib/i18n/server';
+import { forwardedIpHeaders } from '@/lib/api/forwarded-ip';
 
 // GET /api/backup/export[?includeBlobs=true]
 //
@@ -45,11 +46,15 @@ export async function GET(req: Request) {
   const sep = incoming.search ? '&' : '?';
   const upstreamUrl = `${GO_API_URL}/v1/backup/export${incoming.search}${sep}lang=${locale}`;
 
+  // Same reason as `lib/api/client.ts`: Go keys several limits on the client IP,
+  // and a server-side fetch carries none of the inbound IP headers itself.
+  const forwardedIp = await forwardedIpHeaders(req.headers);
+
   let upstream: Response;
   try {
     upstream = await fetch(upstreamUrl, {
       method: 'GET',
-      headers: { Authorization: `Bearer ${cookie.accessToken}` },
+      headers: { Authorization: `Bearer ${cookie.accessToken}`, ...forwardedIp },
       cache: 'no-store',
       // A closed tab cancels the export mid-stream.
       signal: req.signal,
