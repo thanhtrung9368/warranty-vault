@@ -1,6 +1,7 @@
 import { getI18n } from '@/lib/i18n/server';
 import { NextResponse } from 'next/server';
 import { getAuthCookie } from '@/lib/auth-cookie';
+import { forwardedIpHeaders } from '@/lib/api/forwarded-ip';
 
 // GET /api/files/<attachmentId>
 //
@@ -65,11 +66,15 @@ export async function GET(
   const sep = incoming.search ? '&' : '?';
   const upstreamUrl = `${GO_API_URL}/files/${encodeURIComponent(id)}${incoming.search}${sep}lang=${locale}`;
 
+  // Carry the visitor's real IP so Go's IP-keyed limits see the browser, not
+  // this container. Absent/invalid inbound XFF adds nothing (`forwarded-ip.ts`).
+  const forwardedIp = await forwardedIpHeaders(req.headers);
+
   let upstream: Response;
   try {
     upstream = await fetch(upstreamUrl, {
       method: 'GET',
-      headers: { Authorization: `Bearer ${cookie.accessToken}` },
+      headers: { Authorization: `Bearer ${cookie.accessToken}`, ...forwardedIp },
       cache: 'no-store',
       // Forward the abort signal so a closed browser tab cancels the
       // upstream stream too.

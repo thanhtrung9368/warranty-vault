@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthCookie } from '@/lib/auth-cookie';
 import { getI18n } from '@/lib/i18n/server';
+import { forwardedIpHeaders } from '@/lib/api/forwarded-ip';
 
 // POST /api/backup/import?mode=merge|replace
 //
@@ -40,6 +41,10 @@ export async function POST(req: Request) {
   const incoming = new URL(req.url);
   const mode = incoming.searchParams.get('mode') === 'replace' ? 'replace' : 'merge';
 
+  // Carry the visitor's real IP to Go (same reason as `lib/api/client.ts`); the
+  // helper adds nothing when the inbound request has no valid first hop.
+  const forwardedIp = await forwardedIpHeaders(req.headers);
+
   let upstream: Response;
   try {
     const init: RequestInit & { duplex?: 'half' } = {
@@ -52,6 +57,7 @@ export async function POST(req: Request) {
         // `.zip` that a user renamed to `.json` at 50 MB and reject a legitimate
         // archive with a 413.
         'Content-Type': 'application/octet-stream',
+        ...forwardedIp,
       },
       body: req.body ?? undefined,
       // Required by undici to send a streamed body.

@@ -9,6 +9,7 @@ import { getLocale } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/catalog';
 import { withLangParam, type Locale } from '@/lib/i18n/locale';
 import { GO_API_URL } from './base-url';
+import { forwardedIpHeaders } from './forwarded-ip';
 
 export type AuthUser = {
   id: string;
@@ -78,11 +79,16 @@ export async function register(
   // the server's English default on a Vietnamese form.
   const base = GO_API_URL;
   const locale: Locale = await getLocale();
+  // Register is rate-limited per client IP in Go (`CheckAuth("register", …)`),
+  // and this raw fetch bypasses `apiFetch`, so it has to forward the visitor's
+  // address itself — otherwise the whole website shares the Next container's
+  // `register` bucket. See `forwarded-ip.ts`.
+  const forwardedIp = await forwardedIpHeaders();
   let res: Response;
   try {
     res = await fetch(withLangParam(`${base}/v1/auth/register`, locale), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...forwardedIp },
       body: JSON.stringify({
         email,
         password,

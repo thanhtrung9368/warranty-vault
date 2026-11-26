@@ -33,6 +33,7 @@ import { getLocale } from '@/lib/i18n/server';
 import { translate, translatorFor, type Translator } from '@/lib/i18n/catalog';
 import { bearerHeader } from '@/lib/auth-cookie';
 import { GO_API_URL } from './base-url';
+import { forwardedIpHeaders } from './forwarded-ip';
 
 const BASE_URL = GO_API_URL;
 
@@ -89,6 +90,19 @@ export async function apiFetch<T>(
   const wantAuth = opts.auth !== false;
   if (wantAuth) {
     Object.assign(headers, await bearerHeader());
+  }
+
+  // Hand Go the visitor's real IP. A server-side `fetch` carries none of the
+  // inbound request headers, so without this every request is attributed to the
+  // Next container and all visitors share one IP-keyed rate-limit bucket (the
+  // 20/15-min login bucket used to be global — see `forwarded-ip.ts`).
+  //
+  // Skipped for `opts.next`: Next hashes request headers into the Data Cache
+  // key (the same fact `lib/api/catalog.ts` documents), so a per-visitor header
+  // on a cached read would shard the shared cache entry per IP. A cached read is
+  // by contract user-independent and is not behind an IP-keyed limit.
+  if (!opts.next) {
+    Object.assign(headers, await forwardedIpHeaders());
   }
 
   let payload: BodyInit | undefined;

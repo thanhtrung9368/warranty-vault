@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthCookie } from '@/lib/auth-cookie';
 import { getI18n } from '@/lib/i18n/server';
+import { forwardedIpHeaders } from '@/lib/api/forwarded-ip';
 import {
   buildInsurancePackQuery,
   parseInsurancePackScope,
@@ -69,11 +70,15 @@ export async function GET(req: Request) {
   // raw proxies in this directory bypass that client and have to do it themselves.
   const upstreamUrl = `${GO_API_URL}/v1/insurance-pack${buildInsurancePackQuery(scope)}&lang=${locale}`;
 
+  // Forward the visitor's real IP so Go's IP-keyed limits see the browser, not
+  // this container (`forwarded-ip.ts`). No inbound hop → no header at all.
+  const forwardedIp = await forwardedIpHeaders(req.headers);
+
   let upstream: Response;
   try {
     upstream = await fetch(upstreamUrl, {
       method: 'GET',
-      headers: { Authorization: `Bearer ${cookie.accessToken}` },
+      headers: { Authorization: `Bearer ${cookie.accessToken}`, ...forwardedIp },
       cache: 'no-store',
       // A closed tab cancels the upstream generation mid-stream.
       signal: req.signal,
