@@ -291,13 +291,37 @@ enum UITestSupport {
         byIndex.tap()
     }
 
+    /// `selectTab` + "prove the switch happened" by waiting for the screen's
+    /// nav bar, retrying the tap once.
+    ///
+    /// A single tap is not always enough on the Duo's regular-width sidebar: the
+    /// item exists as soon as the sidebar is laid out, so `selectTab` taps
+    /// immediately, and while the app is still settling after launch the
+    /// synthesised tap can land on nothing. The screen then never appears and
+    /// the test fails on navigation, not on the thing it was checking. Retrying
+    /// the tap costs a few seconds; failing the run costs fifteen minutes.
+    static func selectTab(_ title: String,
+                          index: Int,
+                          expecting navTitle: String,
+                          in app: XCUIApplication,
+                          file: StaticString = #filePath,
+                          line: UInt = #line) {
+        let navBar = app.navigationBars[navTitle]
+        for attempt in 0..<2 {
+            selectTab(title, index: index, in: app, file: file, line: line)
+            if navBar.waitForExistence(timeout: attempt == 0 ? 10 : 15) { return }
+        }
+        XCTAssertTrue(navBar.exists,
+                      "The \(navTitle) screen did not open from the \(title) tab "
+                      + "after two taps",
+                      file: file, line: line)
+    }
+
     /// Tôi tab → Cài đặt.
     static func openSettings(in app: XCUIApplication,
                              file: StaticString = #filePath,
                              line: UInt = #line) {
-        selectTab("Tôi", index: 4, in: app, file: file, line: line)
-        XCTAssertTrue(app.navigationBars["Tôi"].waitForExistence(timeout: 10),
-                      "The Tôi tab did not open", file: file, line: line)
+        selectTab("Tôi", index: 4, expecting: "Tôi", in: app, file: file, line: line)
         let row = tappableElement(containing: "Cài đặt", in: app)
         XCTAssertTrue(scrollTo(row, in: app),
                       "Couldn't reach the Cài đặt row on the Tôi tab",
@@ -313,10 +337,8 @@ enum UITestSupport {
                            in app: XCUIApplication,
                            file: StaticString = #filePath,
                            line: UInt = #line) {
-        selectTab("Thiết bị", index: 1, in: app, file: file, line: line)
-        XCTAssertTrue(app.navigationBars["Thiết bị"].waitForExistence(timeout: 10),
-                      "Device list did not load",
-                      file: file, line: line)
+        selectTab("Thiết bị", index: 1, expecting: "Thiết bị", in: app,
+                  file: file, line: line)
 
         let row = tappableElement(containing: name, in: app)
         XCTAssertTrue(scrollTo(row, in: app),
