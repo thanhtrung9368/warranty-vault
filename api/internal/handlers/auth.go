@@ -725,13 +725,14 @@ func Forgot(d Deps) http.HandlerFunc {
 						appURL = "http://localhost:3000"
 					}
 					link := strings.TrimRight(appURL, "/") + "/reset/" + rawToken
+					// The mail is rendered in the RECIPIENT's stored language,
+					// not the language of this request: it is read minutes
+					// later, possibly on another device (see the note in
+					// internal/email). Resolved out here, before the goroutine,
+					// because `user` is the row we just looked up. The
+					// no-email-client log line below names the same language.
+					mailLang := i18n.FromStored(user.Locale)
 					if d.Email != nil {
-						// The mail is rendered in the RECIPIENT's stored language,
-						// not the language of this request: it is read minutes
-						// later, possibly on another device (see the note in
-						// internal/email). Resolved out here, before the goroutine,
-						// because `user` is the row we just looked up.
-						mailLang := i18n.FromStored(user.Locale)
 						sendCtx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 						go func() {
 							defer cancel()
@@ -740,8 +741,15 @@ func Forgot(d Deps) http.HandlerFunc {
 							}
 						}()
 					} else {
+						// SEC-01: never the URL or the raw token — they ARE the
+						// credential. The handle is sha256(token)[:12], the same
+						// value the dev-mode send line carries, so support can
+						// name one reset without the log being replayable.
 						slog.Info("password-reset link (email client unavailable)",
-							"to", user.Email, "link", link)
+							"flow", string(email.FlowPasswordReset),
+							"to", user.Email,
+							"subject", email.PasswordResetSubject(mailLang),
+							"handle", email.TokenHandle(rawToken))
 					}
 				} else {
 					slog.Error("create password reset failed", "err", perr)
@@ -1093,11 +1101,12 @@ func RequestEmailChange(d Deps) http.HandlerFunc {
 			appURL = "http://localhost:3000"
 		}
 		link := strings.TrimRight(appURL, "/") + "/confirm-email/" + rawToken
+		// Same rule as the password-reset mail above, and explicitly NOT
+		// `newEmail`'s: the address is new, the account behind it is `user`, so
+		// the stored preference on that row is the only one that exists. Used by
+		// both the send and the no-email-client log line below.
+		mailLang := i18n.FromStored(user.Locale)
 		if d.Email != nil {
-			// Same rule as the password-reset mail above, and explicitly NOT
-			// `newEmail`'s: the address is new, the account behind it is `user`, so
-			// the stored preference on that row is the only one that exists.
-			mailLang := i18n.FromStored(user.Locale)
 			sendCtx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 			go func() {
 				defer cancel()
@@ -1106,8 +1115,14 @@ func RequestEmailChange(d Deps) http.HandlerFunc {
 				}
 			}()
 		} else {
+			// SEC-01: recipient, flow, subject and the token handle only. The
+			// confirmation URL and the raw token stay out of the log; the handle
+			// is sha256(token)[:12], the same value the dev-mode send line uses.
 			slog.Info("email-change link (email client unavailable)",
-				"to", newEmail, "from", user.Email, "link", link)
+				"flow", string(email.FlowEmailChange),
+				"to", newEmail,
+				"subject", email.EmailChangeSubject(mailLang),
+				"handle", email.TokenHandle(rawToken))
 		}
 
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
