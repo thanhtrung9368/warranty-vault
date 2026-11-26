@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/page-header';
 import { PageShell } from '@/components/page-shell';
+import Link from 'next/link';
 import { Inbox } from 'lucide-react';
 import { InboxUploader } from '@/components/inbox-uploader';
 import { InboxList } from '@/components/inbox-list';
@@ -93,21 +94,29 @@ export default async function InboxPage({
         </CardContent>
       </Card>
 
+      {/* A failed read renders the error ONLY — the count heading and the
+          "Chưa có file nào" panel would both be lies ("0 file" from a read
+          that never completed), so they are not rendered at all. */}
       {!inboxRes.ok && (
         <p
           role="alert"
           className="rounded-xl border border-rose-ink/20 bg-rose-soft px-4 py-3 text-sm font-semibold text-rose-ink"
         >
-          {t('Không tải được hộp thư — thử tải lại trang nhé.')}
+          {t('Không tải được hộp thư — thử tải lại trang nhé.')}{' '}
+          <Link href="/inbox" className="underline underline-offset-2">
+            {t('Thử lại')}
+          </Link>
         </p>
       )}
 
-      <section className="space-y-3">
-        <h2 className="font-display text-lg font-bold text-ink">
-          {t('{count} file đang chờ gán thiết bị.', { count: waiting })}
-        </h2>
-        <InboxList items={items} devices={devices} />
-      </section>
+      {inboxRes.ok && (
+        <section className="space-y-3">
+          <h2 className="font-display text-lg font-bold text-ink">
+            {t('{count} file đang chờ gán thiết bị.', { count: waiting })}
+          </h2>
+          <InboxList items={items} devices={devices} />
+        </section>
+      )}
     </PageShell>
   );
 }

@@ -115,7 +115,9 @@ export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
             <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <div className="space-y-1">
               <p>{state.message}</p>
-              <p className="font-normal">{newEmailInboxHint(newEmail, locale)}</p>
+              <p className="font-normal">
+                {newEmailInboxHint(state.sentTo ?? '', locale)}
+              </p>
             </div>
           </div>
         )}

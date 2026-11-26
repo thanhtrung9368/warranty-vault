@@ -479,7 +479,7 @@ func TestCatalogCoversTheConvertedAreas(t *testing.T) {
 		"Email hoặc mật khẩu không đúng",
 		"Link không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.",
 		"Link xác nhận không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.",
-		"Đã đổi email. Vào /login để đăng nhập lại bằng địa chỉ mới.",
+		"Đã đổi email. Đăng nhập lại bằng địa chỉ mới.",
 		"Đã cập nhật hồ sơ",
 		"Ngôn ngữ không hợp lệ",
 		// cron push

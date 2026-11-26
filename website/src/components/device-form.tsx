@@ -1432,7 +1432,7 @@ export function DeviceForm({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="actualCharged">
-                    {t('Số tiền thực tế bị charge (VND)')}
+                    {t('Số tiền thẻ đã bị trừ (VND)')}
                   </Label>
                   <MoneyInput
                     id="actualCharged"
@@ -1550,7 +1550,7 @@ export function DeviceForm({
                       </div>
                       <div>
                         <dt className="text-muted-foreground">
-                          {t('Số tiền thực tế bị charge (VND)')}
+                          {t('Số tiền quy đổi (VND)')}
                         </dt>
                         <dd className="font-medium tabular-nums text-ink">
                           {purchaseVndPreview != null

@@ -140,7 +140,7 @@ export const dashboard = defineMessages({
   '~ {amount} / năm • {count} gói đang hoạt động':
     { en: '~ {amount} / year • {count} active plans', enOne: '~ {amount} / year • {count} active plan' },
   'Sắp gia hạn': 'Renewing soon',
-  'Không có gói nào sắp charge': 'No plan is about to be charged',
+  'Không có gói nào sắp bị trừ tiền': 'No plan is about to be charged',
   'Đang thèm': 'Wishlist',
   'Tổng tiền (giá hiện tại)': 'Total (current prices)',
   '{count} món đang theo dõi': { en: '{count} items tracked', enOne: '{count} item tracked' },

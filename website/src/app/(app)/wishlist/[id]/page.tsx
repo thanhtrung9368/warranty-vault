@@ -71,12 +71,12 @@ export default async function WishlistDetailPage({
             <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
               <Link href="/wishlist">
                 <ArrowLeft className="mr-1 h-4 w-4" />
-                Wishlist
+                {t('Wishlist')}
               </Link>
             </Button>
           }
-          eyebrow={t('Đang thèm')}
-          title="Wishlist"
+          eyebrow={t('Mua sắm')}
+          title={t('Wishlist')}
         />
         <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
           {t('Lỗi tải món: {message}', { message: res.message ?? res.error })}
@@ -113,7 +113,7 @@ export default async function WishlistDetailPage({
         <Button asChild variant="ghost" size="sm" className="-ml-2 rounded-pill">
           <Link href="/wishlist">
             <ArrowLeft className="mr-1 h-4 w-4" />
-            Wishlist
+            {t('Wishlist')}
           </Link>
         </Button>
         <div className="flex flex-wrap gap-2">
@@ -229,7 +229,7 @@ export default async function WishlistDetailPage({
             )}
           </div>
           <div className="rounded-xl border border-border bg-surface-2 p-4">
-            <p className="eyebrow">Min / Max</p>
+            <p className="eyebrow">{t('Thấp nhất / Cao nhất')}</p>
             <p className="mt-1 text-base font-bold tabular-nums">
               <span className="text-emerald-ink">{min ? formatVND(min, locale) : '—'}</span>
               <span className="mx-1 text-muted-foreground">/</span>

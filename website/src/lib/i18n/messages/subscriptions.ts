@@ -46,7 +46,7 @@ export const subscriptions = defineMessages({
     },
   '~ {amount} / năm': '~ {amount} / year',
   'gói đang chạy': { en: 'active plans', enOne: 'active plan' },
-  'Chưa có gói nào sắp charge': 'No plan is about to be charged yet',
+  'Chưa có gói nào sắp bị trừ tiền': 'No plan is about to be charged yet',
   'Lỗi tải danh sách: {message}': 'Could not load the list: {message}',
   // Renewal badge on a card / upcoming row (`renewalLabel`).
   'Quá hạn {days} ngày': { en: '{days} days overdue', enOne: '{days} day overdue' },
@@ -60,6 +60,11 @@ export const subscriptions = defineMessages({
   'Thêm gói đầu tiên': 'Add your first subscription',
 
   // ── Detail page (`app/(app)/subscriptions/[id]/page.tsx`) ───────────────
+  // `not-found.tsx` under `[id]` catches the 404 for the detail and edit
+  // segments, the same way the devices section does.
+  'Không tìm thấy gói đăng ký': 'Subscription not found',
+  'Gói này không tồn tại hoặc đã bị xoá.':
+    'This subscription does not exist or has been deleted.',
   'Lỗi tải gói: {message}': 'Could not load the subscription: {message}',
   // The overdue banner bolds the number, so the sentence is split in two around
   // it — the same shape `wishlist.ts` uses for "Quay lại chi tiết".
@@ -96,7 +101,7 @@ export const subscriptions = defineMessages({
   'Chu kỳ & giá': 'Cycle & price',
   'Plan / Gói': 'Plan / Package',
   'Số ngày (chỉ khi Tuỳ chỉnh)': 'Days (only for Custom)',
-  'Ngày gia hạn / charge tiếp theo': 'Renewal / next charge date',
+  'Ngày gia hạn / trừ tiền tiếp theo': 'Renewal / next charge date',
   'Hãng / Nhà cung cấp': 'Brand / Provider',
   'Giá / chu kỳ (VND)': 'Price / cycle (VND)',
   'Tự tính từ Ngày bắt đầu + Chu kỳ. Sửa nếu billing date của mày khác.':
@@ -169,7 +174,7 @@ export const subscriptions = defineMessages({
   'Xem ngày chuyển đổi và khoản đã ghi nhận ở trên. Nếu cửa hàng đã trừ tiền mà app chưa có, bấm "Ghi nhận khoản đã trừ" để lưu vào lịch sử thanh toán.':
     'Look at the conversion date and the recorded amount above. If the store has charged you and the app does not have it yet, tap "Record the charge" to add it to the payment history.',
   'Mở phần quản lý đăng ký của cửa hàng': 'Open the store\'s subscription settings',
-  'App Store hoặc Google Play cho bạn thấy gói đang ở giá nào và lần trừ kế tiếp là khi nào. App không mở được hộ tài khoản của bạn.':
+  'App Store hoặc Google Play cho bạn thấy gói đang ở giá nào và lần trừ kế tiếp là khi nào. App không mở được tài khoản cửa hàng của bạn.':
     'The App Store or Google Play shows the current price and the next charge date. The app cannot open your store account.',
   'Biết quyền của mình theo quy tắc cửa hàng': 'Know your rights under the store rules',
   'Quy tắc áp dụng tuỳ nơi bạn mua gói — app không lưu nơi mua.':

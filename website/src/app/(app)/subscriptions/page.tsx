@@ -253,7 +253,7 @@ export default async function SubscriptionsPage({
           <Card padding="md" className="stat-card tint-amber">
             <p className="stat-eyebrow">{t('Sắp gia hạn')}</p>
             {totals.upcoming.length === 0 ? (
-              <p className="mt-2 text-sm opacity-80">{t('Chưa có gói nào sắp charge')}</p>
+              <p className="mt-2 text-sm opacity-80">{t('Chưa có gói nào sắp bị trừ tiền')}</p>
             ) : (
               <ul className="mt-2 space-y-1 text-sm">
                 {totals.upcoming.slice(0, 3).map((u) => {
@@ -356,7 +356,7 @@ export default async function SubscriptionsPage({
 
                 {s.plan && (
                   <p className="text-xs text-ink-2">
-                    <span className="eyebrow mr-1.5">Plan</span>
+                    <span className="eyebrow mr-1.5">{t('Gói')}</span>
                     {s.plan}
                   </p>
                 )}

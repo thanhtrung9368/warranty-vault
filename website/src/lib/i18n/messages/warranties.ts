@@ -177,6 +177,8 @@ export const warranties = defineMessages({
   // ── Dismiss / restore (`components/dismiss-button.tsx`) ─────────────────
   'Đã hiện lại nhắc nhở': 'Reminder shown again',
   'Đã ẩn nhắc nhở': 'Reminder hidden',
+  'Không hiện lại được nhắc nhở': 'Could not show the reminder again',
+  'Không ẩn được nhắc nhở': 'Could not hide the reminder',
   'Hoàn tác': 'Undo',
   'Hiện lại': 'Show again',
   'Đã xem, ẩn đi': 'Seen, hide it',

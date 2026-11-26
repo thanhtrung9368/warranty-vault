@@ -63,7 +63,7 @@ export function ConfirmEmailChange({ token }: { token: string }) {
           <div className="flex items-start gap-2.5 rounded-md border-[1.5px] border-emerald-soft bg-emerald-soft/60 p-3 text-sm font-medium text-emerald-ink">
             <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <div className="space-y-1">
-              {/* The server's own wording ("Đã đổi email. Vào /login…"). */}
+              {/* The server's own wording ("Đã đổi email. Đăng nhập lại…"). */}
               <p>{state.message}</p>
               {state.hint && <p className="font-normal">{state.hint}</p>}
             </div>

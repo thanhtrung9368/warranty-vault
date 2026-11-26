@@ -111,7 +111,11 @@ export function SessionList({
                   <span className="truncate">{label}</span>
                   {s.current && <Badge variant="emerald">{t('Thiết bị này')}</Badge>}
                 </div>
-                <p className="truncate text-xs text-muted-foreground">
+                {/* The meta line WRAPS instead of truncating: "Hết hạn …" is
+                    the date the row is about, so clipping it on a narrow card
+                    (or a long platform name) hid the one fact the section
+                    exists to show. */}
+                <p className="text-xs leading-relaxed text-muted-foreground break-words">
                   {platform} • {t('Đăng nhập {date}', { date: formatDate(s.createdAt, locale) })} •{' '}
                   {t('Hoạt động {when}', { when: formatRelativeDay(s.lastSeenAt, locale) })} •{' '}
                   {t('Hết hạn {date}', { date: formatDate(s.expiresAt, locale) })}

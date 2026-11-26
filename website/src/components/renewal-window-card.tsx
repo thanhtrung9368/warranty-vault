@@ -77,7 +77,7 @@ export async function RenewalWindowCard({
       body: (
         <p>
           {t(
-            'App Store hoặc Google Play cho bạn thấy gói đang ở giá nào và lần trừ kế tiếp là khi nào. App không mở được hộ tài khoản của bạn.',
+            'App Store hoặc Google Play cho bạn thấy gói đang ở giá nào và lần trừ kế tiếp là khi nào. App không mở được tài khoản cửa hàng của bạn.',
           )}
         </p>
       ),

@@ -357,7 +357,7 @@ export default async function DeviceDetailPage({
               {isForeignCurrency && (
                 <InfoRow
                   icon={Wallet}
-                  label={t('Số tiền thực tế bị charge (VND)')}
+                  label={t('Số tiền quy đổi theo tỷ giá đã lưu (VND)')}
                   value={
                     device.purchasePriceVnd != null
                       ? formatVND(device.purchasePriceVnd, locale)
@@ -450,7 +450,7 @@ export default async function DeviceDetailPage({
                         </div>
                         <div>
                           <dt className="text-muted-foreground">
-                            {t('Số tiền thực tế bị charge (VND)')}
+                            {t('Số tiền quy đổi theo tỷ giá đã lưu (VND)')}
                           </dt>
                           <dd className="font-medium tabular-nums text-ink">
                             {device.purchasePriceVnd != null
@@ -492,7 +492,7 @@ export default async function DeviceDetailPage({
                   )}
                   <p className="mt-1 text-xs text-muted-foreground">
                     {t(
-                      'Tỷ giá tham khảo chỉ để so sánh, không phải số tiền bị charge.',
+                      'Tỷ giá tham khảo chỉ để so sánh, không phải số tiền đã bị trừ.',
                     )}
                   </p>
                 </div>

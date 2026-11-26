@@ -59,7 +59,7 @@ export function DeleteAccountForm() {
           className="rounded-pill border-destructive/40 text-destructive hover:bg-destructive-soft hover:text-destructive"
         >
           <Trash2 className="mr-2 h-4 w-4" />
-          {t('Tao muốn xoá tài khoản')}
+          {t('Tôi muốn xoá tài khoản')}
         </Button>
       </div>
     );
@@ -78,7 +78,7 @@ export function DeleteAccountForm() {
       <div className="flex items-start gap-3 rounded-md bg-destructive-soft p-3.5 text-sm text-destructive">
         <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <p>
-          {t('Sau khi bấm xoá, toàn bộ dữ liệu của mày bị xoá vĩnh viễn. Tao khuyên mày xuất backup JSON trước.')}
+          {t('Sau khi bấm xoá, toàn bộ dữ liệu của bạn bị xoá vĩnh viễn. Bạn nên xuất backup JSON trước.')}
         </p>
       </div>
       <div className="space-y-2">

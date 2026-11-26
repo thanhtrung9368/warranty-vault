@@ -8,14 +8,14 @@ import { api } from '@/lib/api';
 
 export async function dismissWarrantyReminder(warrantyId: string) {
   const res = await api.reminders.dismiss(warrantyId);
-  if (!res.ok) return { ok: false };
+  if (!res.ok) return { ok: false, message: res.message };
 
   return { ok: true };
 }
 
 export async function restoreWarrantyReminder(warrantyId: string) {
   const res = await api.reminders.restore(warrantyId);
-  if (!res.ok) return { ok: false };
+  if (!res.ok) return { ok: false, message: res.message };
 
   return { ok: true };
 }

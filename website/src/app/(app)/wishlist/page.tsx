@@ -160,7 +160,7 @@ export default async function WishlistPage({
   if (!listRes.ok) {
     return (
       <PageShell>
-        <PageHeader eyebrow={t('Đang thèm')} title="Wishlist" />
+        <PageHeader eyebrow={t('Mua sắm')} title={t('Wishlist')} />
         <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
           {t('Lỗi tải wishlist: {message}', {
             message: listRes.message ?? listRes.error,
@@ -179,8 +179,8 @@ export default async function WishlistPage({
   return (
     <PageShell>
       <PageHeader
-        eyebrow={t('Đang thèm')}
-        title="Wishlist"
+        eyebrow={t('Mua sắm')}
+        title={t('Wishlist')}
         description={t(
           'Hiển thị {count} món{filtered}. Note lại đồ mày đang để mắt — đợi sale là nhào vô.',
           {

@@ -28,7 +28,6 @@ import {
   type ClaimStatus,
 } from '@/lib/claims';
 import { requireUser } from '@/lib/auth';
-import { emptyReasonFor } from '@/lib/empty-state';
 import { getI18n } from '@/lib/i18n/server';
 import type { Translator } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
@@ -78,9 +77,11 @@ function ClaimRow({
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-bold text-ink">
-                {device?.name ?? claim.deviceId}
+                {device?.name ?? t('Thiết bị không xác định')}
               </p>
-              <p className="mt-0.5 line-clamp-2 text-sm text-ink-2">{claim.issue}</p>
+              <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-sm text-ink-2">
+                {claim.issue}
+              </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <span
@@ -194,7 +195,10 @@ export default async function ClaimsPage({
   const devicesById = new Map(devices.map((device) => [device.id, device]));
   // Used only by the empty state: a claim needs a device, so with zero devices
   // the CTA must create one instead of looping back to this same empty list.
+  // `devicesRes.ok` is separate on purpose — a failed read is not "zero
+  // devices", and the empty state must not claim the account has none.
   const hasDevices = devices.length > 0;
+  const devicesUnknown = !devicesRes.ok;
   const active = claims.filter(claimIsOpen);
   const finished = claims.filter((claim) => !claimIsOpen(claim));
 
@@ -240,6 +244,19 @@ export default async function ClaimsPage({
         </p>
       )}
 
+      {/* The claim's own wire shape carries only `deviceId`. When the device
+          read fails the rows stay (the claims are real) but their names are
+          unknown — say so instead of leaking UUIDs, and keep the id in the
+          row's href only. */}
+      {claimsRes.ok && !devicesRes.ok && (
+        <p
+          role="alert"
+          className="rounded-xl border border-amber-ink/20 bg-amber-soft px-4 py-3 text-sm font-semibold text-amber-ink"
+        >
+          {t('Không tải được danh sách thiết bị — tên thiết bị có thể không hiển thị.')}
+        </p>
+      )}
+
       {claimsRes.ok && claims.length === 0 && selected !== 'ALL' && (
         <div className="rounded-lg border-[1.5px] border-dashed border-border-strong bg-card/60 px-6 py-12 text-center">
           <p className="text-sm font-semibold text-ink">
@@ -254,23 +271,32 @@ export default async function ClaimsPage({
         </div>
       )}
 
+      {/* A claim is created from a device, not from this page: the CTA opens
+          the plain device list and says exactly that instead of promising a
+          claim form that does not exist here. */}
       {claimsRes.ok && claims.length === 0 && selected === 'ALL' && (
         <EmptyState
           icon={Wrench}
           tone="amber"
           // A claim needs a device, so with zero devices this is "we have
-          // nothing to go on", not "no repairs — well done".
-          emptyReason={emptyReasonFor(hasDevices)}
-          title={hasDevices ? t('Chưa có phiếu sửa chữa nào') : undefined}
+          // nothing to go on", not "no repairs — well done". A failed device
+          // read is not zero devices, so that case keeps the claims copy and
+          // opens the device list rather than claiming the account is empty.
+          emptyReason={!devicesUnknown && !hasDevices ? 'no-data' : 'nothing-due'}
+          title={
+            devicesUnknown || hasDevices ? t('Chưa có phiếu sửa chữa nào') : undefined
+          }
           description={
-            hasDevices
+            devicesUnknown || hasDevices
               ? t(
                   'Khi một thiết bị hỏng, tạo phiếu từ trang thiết bị để ghi lại nơi sửa, số phiếu và chi phí.',
                 )
               : undefined
           }
-          ctaHref={hasDevices ? '/devices?status=BROKEN' : undefined}
-          ctaLabel={hasDevices ? t('Thêm phiếu sửa chữa') : undefined}
+          ctaHref={devicesUnknown || hasDevices ? '/devices' : undefined}
+          ctaLabel={
+            devicesUnknown || hasDevices ? t('Mở danh sách thiết bị') : undefined
+          }
         />
       )}
 

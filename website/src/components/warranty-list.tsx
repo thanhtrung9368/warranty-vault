@@ -79,7 +79,7 @@ function InfoLine({
       <Icon className="info-row-icon h-4 w-4" />
       <div className="min-w-0 flex-1">
         <p className="info-row-label">{label}</p>
-        <p className="info-row-value text-sm break-words">{value}</p>
+        <p className="info-row-value whitespace-pre-wrap break-words text-sm">{value}</p>
       </div>
     </div>
   );

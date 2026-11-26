@@ -31,6 +31,12 @@ export const claims = defineMessages({
   'Khi một thiết bị hỏng, tạo phiếu từ trang thiết bị để ghi lại nơi sửa, số phiếu và chi phí.':
     'When a device breaks, create a claim from its page to record the shop, the ticket number and the cost.',
   'Mở danh sách thiết bị': 'Open the device list',
+  // The claim row resolves its device name from `GET /v1/devices`. When that
+  // read fails the id is all the wire shape has, and a UUID is not a device
+  // name — the row says unknown and a banner names the failed read.
+  'Thiết bị không xác định': 'Unknown device',
+  'Không tải được danh sách thiết bị — tên thiết bị có thể không hiển thị.':
+    'Could not load the device list — device names may not be shown.',
   // The /claims empty state branches on whether the account has any devices:
   // with none, the only useful action is creating one (a claim needs a device).
   'Thêm thiết bị đầu tiên': 'Add your first device',

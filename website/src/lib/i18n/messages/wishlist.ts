@@ -86,11 +86,23 @@ export const wishlist = defineMessages({
   'Hiện tại': 'Current',
   'Ban đầu': 'Initial',
 
+  // ── Section eyebrow ─────────────────────────────────────────────────────
+  // "Đang thèm" translates to "Wishlist" in English, so using it as the
+  // eyebrow above a title that is also "Wishlist" read as a duplicate. The
+  // eyebrow is the section name and the title is the page.
+  'Mua sắm': 'Shopping',
+
   // ── Detail page (`app/(app)/wishlist/[id]/page.tsx`) ────────────────────
+  // `not-found.tsx` under `[id]` catches the 404 for the detail and edit
+  // segments, the same way the devices section does.
+  'Không tìm thấy món đang thèm': 'Wishlist item not found',
+  'Món này không tồn tại hoặc đã bị xoá.':
+    'This item does not exist or has been deleted.',
   'Lỗi tải món: {message}': 'Could not load this wishlist item: {message}',
   'Xem thiết bị': 'View the device',
   'Giá ban đầu': 'Initial price',
   'Giá hiện tại': 'Current price',
+  'Thấp nhất / Cao nhất': 'Min / Max',
   'Cập nhật {when}': 'Updated {when}',
   'Ngày dự kiến': 'Target date',
   'Chưa đặt': 'Not set',
