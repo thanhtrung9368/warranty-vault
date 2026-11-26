@@ -278,17 +278,20 @@ struct SettingsView: View {
 
                 // Shared AI opt-in. Deliberately hidden in 1.0.0 — see
                 // `AIOptInSurface`. The switch and its explanation are gated
-                // together so the footer cannot outlive the row it explains.
+                // together so the disclosure cannot outlive the row it explains.
                 // Session revocation above and the backup warning below stay.
                 if AIOptInSurface.isVisible {
                     aiSection
-                    // Consent copy, not a feature description. It names the
-                    // recipient (Anthropic), where it is (the US, outside
-                    // Vietnam), the retention (30 days, with the documented
-                    // exceptions) and what Warrly itself keeps. Every claim here
-                    // is sourced — see `AIOptInSurface` above; do not soften or
-                    // extend it without a source.
-                    WVSectionFooter(L.t("Khi bật, ảnh/PDF hoá đơn hoặc thẻ bảo hành đã giải mã — và khi bạn dùng đánh giá bảo hành, nội dung phiếu sửa chữa cùng điều khoản hợp đồng — sẽ được gửi tới Anthropic, dịch vụ AI ở Mỹ (ngoài Việt Nam), để đọc và trả kết quả. Anthropic tự động xoá đầu vào/đầu ra trong vòng 30 ngày, trừ khi pháp luật hoặc chính sách của họ yêu cầu giữ lâu hơn, và mặc định không dùng dữ liệu API để huấn luyện. Phía Warrly, ảnh/PDF vẫn được mã hoá; chỉ văn bản đọc được lưu dạng plaintext trong cơ sở dữ liệu để tìm kiếm (xoá tệp là xoá văn bản). Mọi kết quả chỉ là bản nháp để bạn kiểm tra trước khi lưu. Mặc định tắt."))
+                    // Consent copy, not a feature description. Split into a
+                    // lead, the three things the assistant does and three short
+                    // paragraphs (1.0.3, matching the web's `ai-settings.tsx`):
+                    // as one 600-character footer it was a wall nobody read.
+                    // It names the recipient (Anthropic), where it is (the US,
+                    // outside Vietnam), the retention (30 days, with the
+                    // documented exceptions) and what Warrly itself keeps. Every
+                    // claim is sourced — see `AIOptInSurface` above; do not
+                    // soften or extend it without a source.
+                    AIConsentFooter()
                 }
 
                 dataSection
@@ -959,6 +962,54 @@ struct SettingsView: View {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
         let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
         return b.isEmpty ? v : "\(v) (\(b))"
+    }
+}
+
+// MARK: - AI consent disclosure
+
+/// The AI opt-in disclosure: a lead sentence, the three things the assistant
+/// does, then the retention and privacy paragraphs.
+///
+/// It used to be a single `WVSectionFooter` of ~600 characters — one block that
+/// hid the three facts the consent actually turns on (what is sent, where it
+/// goes, what it does). The split matches the web
+/// (`website/src/components/ai-settings.tsx`) so both clients state the same
+/// claims in the same order. This is a privacy statement: do not shorten or
+/// soften it on one client alone.
+private struct AIConsentFooter: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: WVSpacing.sm) {
+            Text(L.t("Khi bật, trợ lý AI làm ba việc:"))
+
+            // `HStack` keeps the number in its own column, so a wrapped item
+            // stays aligned under the sentence instead of under the number
+            // (the web renders the same list as an `<ol>`).
+            numberedItem(1, L.t("Đọc ảnh/PDF hoá đơn hoặc thẻ bảo hành để tự điền thông tin. File đã giải mã được gửi tới Anthropic, dịch vụ AI ở Mỹ (ngoài Việt Nam)."))
+            numberedItem(2, L.t("Đọc chín điều khoản hợp đồng từ thẻ bảo hành."))
+            numberedItem(3, L.t("Đánh giá một lần sửa chữa có thuộc diện bảo hành không và soạn đơn gửi trung tâm. Nội dung phiếu sửa chữa, thông tin thiết bị và điều khoản hợp đồng cũng được gửi tới Anthropic."))
+
+            Text(L.t("Anthropic tự động xoá đầu vào/đầu ra trong vòng 30 ngày (trừ khi pháp luật hoặc chính sách của họ yêu cầu giữ lâu hơn) và mặc định không dùng dữ liệu API để huấn luyện."))
+            Text(L.t("Phía Warrly, ảnh/PDF vẫn được mã hoá; chỉ văn bản đọc được lưu dạng plaintext trong cơ sở dữ liệu để tìm kiếm."))
+            Text(L.t("Mọi kết quả chỉ là gợi ý hoặc bản nháp để bạn kiểm tra lại, không phải quyết định. Mặc định tắt."))
+        }
+        // Same type role and colour as every other `WVSectionFooter`, so the
+        // disclosure still reads as an explanation of the row above it.
+        .wvFont(.footnote)
+        .foregroundStyle(WVColor.label3)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, WVSpacing.gutter)
+        .padding(.top, WVSpacing.sm)
+    }
+
+    private func numberedItem(_ number: Int, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: WVSpacing.sm) {
+            Text("\(number).")
+                .monospacedDigit()
+            Text(text)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 

@@ -247,7 +247,7 @@ struct WishlistDetailView: View {
                      fullWidth: true) { showUpdatePrice = true }
 
             if w.status != .PURCHASED {
-                WVButton(L.t("Đã mua"), icon: "shoppingBag", kind: .primary, size: .small,
+                WVButton(L.t("Đánh dấu đã mua"), icon: "shoppingBag", kind: .primary, size: .small,
                          fullWidth: true) { showPurchaseConfirm = true }
             }
         }
