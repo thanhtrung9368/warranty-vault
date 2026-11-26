@@ -82,9 +82,11 @@ export function ProfileForm({ email, initialName }: { email: string; initialName
           autoComplete="name"
         />
         <FieldError errors={errors.displayName} />
-        <p className="text-xs text-muted-foreground">
-          {t('Tên hiển thị ở thanh trên cùng và lời chào trên bảng điều khiển. Tối đa 80 byte — tên tiếng Việt có dấu tốn nhiều byte hơn số ký tự. Để trống rồi lưu nếu muốn xoá tên.')}
-        </p>
+        <div className="space-y-1 text-xs text-muted-foreground">
+          <p>{t('Tên hiển thị ở thanh trên cùng và lời chào trên bảng điều khiển.')}</p>
+          <p>{t('Tối đa 80 byte — tên tiếng Việt có dấu tốn nhiều byte hơn số ký tự.')}</p>
+          <p>{t('Để trống rồi lưu nếu muốn xoá tên.')}</p>
+        </div>
       </div>
 
       <div className="space-y-2">

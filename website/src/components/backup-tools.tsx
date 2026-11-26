@@ -133,9 +133,19 @@ export function BackupTools() {
       {/* Export */}
       <div className="space-y-3">
         <h3 className="font-display text-lg font-bold text-ink">{t('Xuất dữ liệu')}</h3>
-        <p className="text-sm text-muted-foreground">
-          {t('Tải toàn bộ thiết bị, gói bảo hành, nhắc nhở, gói đăng ký và wishlist ra 1 file JSON. File đính kèm chỉ đi kèm phần mô tả (tên file, kích thước, đường dẫn) — ảnh gốc không nằm trong file backup. Ảnh được mã hoá AES-256-GCM và lưu trong kho riêng của máy chủ (không nằm trong thư mục public của web), nên file JSON không mang ảnh theo được.')}
-        </p>
+        <div className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            {t('Tải toàn bộ thiết bị, gói bảo hành, nhắc nhở, gói đăng ký và wishlist ra 1 file JSON.')}
+          </p>
+          <ul className="list-disc space-y-1.5 pl-5">
+            <li>
+              {t('File đính kèm chỉ đi kèm phần mô tả (tên file, kích thước, đường dẫn) — ảnh gốc không nằm trong file backup.')}
+            </li>
+            <li>
+              {t('Ảnh được mã hoá AES-256-GCM và lưu trong kho riêng của máy chủ (không nằm trong thư mục public của web), nên file JSON không mang ảnh theo được.')}
+            </li>
+          </ul>
+        </div>
         <div className="flex items-start gap-3 rounded-md bg-amber-soft p-3.5 text-sm text-amber-ink">
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
           <p>
@@ -160,9 +170,19 @@ export function BackupTools() {
       {/* Export with attachment blobs */}
       <div className="space-y-3 rounded-lg border-[1.5px] border-dashed border-border-strong bg-surface-2 p-4">
         <h3 className="font-display text-lg font-bold text-ink">{t('Xuất kèm nội dung ảnh (.zip)')}</h3>
-        <p className="text-sm text-muted-foreground">
-          {t('Bản .zip chứa file data.json và toàn bộ nội dung đã mã hoá của từng file đính kèm (mỗi ảnh một entry attachments/…), nên khôi phục sang máy chủ mới mang theo được ảnh hoá đơn — thứ bản JSON chỉ có metadata không làm được.')}
-        </p>
+        <div className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            {t('Bản .zip chứa file data.json và toàn bộ nội dung đã mã hoá của từng file đính kèm:')}
+          </p>
+          <ul className="list-disc space-y-1.5 pl-5">
+            <li>
+              {t('Mỗi ảnh là một entry attachments/… trong file nén, nên khôi phục sang máy chủ mới vẫn mang theo được ảnh hoá đơn — điều bản JSON chỉ có metadata không làm được.')}
+            </li>
+            <li>
+              {t('Cần đúng FILE_MASTER_KEY của máy chủ đã xuất bản sao lưu; thiếu hoặc sai khoá thì ảnh vẫn được khôi phục nhưng không mở được.')}
+            </li>
+          </ul>
+        </div>
         <div className="flex items-start gap-3 rounded-md bg-amber-soft p-3.5 text-sm text-amber-ink">
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
           <p>
@@ -192,9 +212,22 @@ export function BackupTools() {
       {/* Import */}
       <div className="space-y-3">
         <h3 className="font-display text-lg font-bold text-ink">{t('Nhập dữ liệu')}</h3>
-        <p className="text-sm text-muted-foreground">
-          {t('Chọn file .json (chỉ bản ghi) hoặc .zip (kèm nội dung ảnh đã mã hoá) đã xuất trước đó. Máy chủ tự nhận dạng file bằng nội dung, không cần đổi tên. Nhập lại chỉ khôi phục bản ghi (thiết bị, bảo hành, đăng ký, wishlist): với file JSON, ảnh cũ chỉ hiện lại nếu kho file trên máy chủ vẫn còn — muốn chắc thì dùng bản .zip.')}
-        </p>
+        <div className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            {t('Chọn file .json (chỉ bản ghi) hoặc .zip (kèm nội dung ảnh đã mã hoá) đã xuất trước đó.')}
+          </p>
+          <ul className="list-disc space-y-1.5 pl-5">
+            <li>
+              {t('Máy chủ tự nhận dạng .json hay .zip bằng nội dung file, không cần đổi tên.')}
+            </li>
+            <li>
+              {t('Nhập lại chỉ khôi phục bản ghi: thiết bị, bảo hành, đăng ký, wishlist.')}
+            </li>
+            <li>
+              {t('Với file JSON, ảnh cũ chỉ hiện lại nếu kho file trên máy chủ vẫn còn — muốn chắc thì dùng bản .zip.')}
+            </li>
+          </ul>
+        </div>
 
         <div>
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
