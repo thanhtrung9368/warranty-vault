@@ -106,7 +106,9 @@ function ClaimCard({
               </span>
             )}
           </div>
-          <p className="mt-2 text-sm font-semibold text-ink">{claim.issue}</p>
+          <p className="mt-2 whitespace-pre-wrap break-words text-sm font-semibold text-ink">
+            {claim.issue}
+          </p>
         </div>
         <div className="flex items-center gap-1.5">
           <Button

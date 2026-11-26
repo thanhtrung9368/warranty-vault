@@ -137,8 +137,8 @@ var messages = map[string]message{
 		vi: "Link không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.",
 		en: "This link is invalid or has expired. Request a new one.",
 	},
-	"Đã đổi mật khẩu. Vào /login để đăng nhập.": {
-		vi: "Đã đổi mật khẩu. Vào /login để đăng nhập.",
+	"Đã đổi mật khẩu. Đăng nhập lại để tiếp tục.": {
+		vi: "Đã đổi mật khẩu. Đăng nhập lại để tiếp tục.",
 		en: "Password changed. Sign in again to continue.",
 	},
 
@@ -158,8 +158,8 @@ var messages = map[string]message{
 		vi: "Email này đã được dùng cho một tài khoản khác. Yêu cầu đổi sang địa chỉ khác.",
 		en: "That email already belongs to another account. Choose a different address.",
 	},
-	"Đã đổi email. Vào /login để đăng nhập lại bằng địa chỉ mới.": {
-		vi: "Đã đổi email. Vào /login để đăng nhập lại bằng địa chỉ mới.",
+	"Đã đổi email. Đăng nhập lại bằng địa chỉ mới.": {
+		vi: "Đã đổi email. Đăng nhập lại bằng địa chỉ mới.",
 		en: "Email changed. Sign in again with your new address.",
 	},
 

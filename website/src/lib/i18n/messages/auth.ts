@@ -100,6 +100,6 @@ export const auth = defineMessages({
   'Nếu email chưa đăng ký, tài khoản đã được tạo. Nếu đã có, vào đăng nhập hoặc quên mật khẩu.':
     'If the email was new, the account has been created. If it already existed, sign in or reset the password.',
   'Không đổi được mật khẩu': 'Could not change the password',
-  'Đã đổi mật khẩu. Vào /login để đăng nhập.':
+  'Đã đổi mật khẩu. Đăng nhập lại để tiếp tục.':
     'Password changed. Sign in again to continue.',
 });

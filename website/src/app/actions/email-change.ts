@@ -26,6 +26,13 @@ export type EmailChangeFormState = {
   ok?: boolean;
   message?: string;
   errors?: Record<string, string[]>;
+  /**
+   * The address the request was submitted for. Carried back on success so the
+   * hint under the neutral server message can name the inbox to check even
+   * though the form clears its own input (the server message is deliberately
+   * identical whether or not a mail was sent).
+   */
+  sentTo?: string;
 };
 
 export type ConfirmEmailChangeState = {
@@ -78,7 +85,11 @@ export async function requestEmailChange(
     return toFormState(res);
   }
 
-  return { ok: true, message: emailChangeRequestMessage(res.data.message, locale) };
+  return {
+    ok: true,
+    message: emailChangeRequestMessage(res.data.message, locale),
+    sentTo: parsed.data.newEmail,
+  };
 }
 
 const confirmSchema = z.object({
@@ -115,7 +126,7 @@ export async function confirmEmailChange(
   return {
     ok: true,
     message:
-      res.data.message ?? t('Đã đổi email. Vào /login để đăng nhập lại bằng địa chỉ mới.'),
+      res.data.message ?? t('Đã đổi email. Đăng nhập lại bằng địa chỉ mới.'),
     hint: t(EMAIL_CHANGE_SUCCESS_HINT),
   };
 }

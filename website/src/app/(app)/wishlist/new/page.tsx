@@ -18,7 +18,7 @@ export default async function NewWishlistPage() {
           <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
             <Link href="/wishlist">
               <ArrowLeft className="mr-1 h-4 w-4" />
-              Wishlist
+              {t('Wishlist')}
             </Link>
           </Button>
         }

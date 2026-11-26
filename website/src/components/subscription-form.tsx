@@ -614,7 +614,7 @@ export function SubscriptionForm({
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="renewalDate">{t('Ngày gia hạn / charge tiếp theo')}</Label>
+            <Label htmlFor="renewalDate">{t('Ngày gia hạn / trừ tiền tiếp theo')}</Label>
             <Input
               id="renewalDate"
               name="renewalDate"

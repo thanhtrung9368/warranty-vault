@@ -79,13 +79,17 @@ export function PushDevices({
       ) : (
         <>
           <p className="mt-2 text-sm text-muted-foreground">
-            {t('Mọi thiết bị dưới đây đều nhận thông báo nhắc bảo hành. Gỡ bớt nếu mày không dùng nữa.')}
+            {t('Mọi thiết bị dưới đây đều nhận thông báo nhắc bảo hành. Gỡ bớt nếu bạn không dùng nữa.')}
           </p>
           <ul className="mt-3">
             {subscriptions.map((s, i) => {
               const Icon = s.platform === 'web' ? MonitorSmartphone : Smartphone;
               const pending = pendingId === s.id;
               const platform = labelOf(PLATFORM_LABELS, s.platform, locale);
+              // The platform is the row's name; the raw User-Agent is a
+              // diagnostic, not a label — it stays in the title attribute so
+              // "Thêm {date}" is the only meta line and is never clipped.
+              const userAgent = (s.userAgent ?? '').trim();
               return (
                 <li
                   key={s.id}
@@ -98,11 +102,13 @@ export function PushDevices({
                     <Icon className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-display text-sm font-bold text-ink">
+                    <p
+                      className="truncate font-display text-sm font-bold text-ink"
+                      title={userAgent || undefined}
+                    >
                       {platform}
                     </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {s.userAgent ? s.userAgent : t('Không có thông tin thiết bị')} •{' '}
+                    <p className="text-xs text-muted-foreground">
                       {t('Thêm {date}', { date: formatDate(s.createdAt, locale) })}
                     </p>
                   </div>

@@ -22,6 +22,9 @@ export async function subscribePush(raw: unknown) {
   const input = { ...(raw as Record<string, unknown>), platform: 'web' } as PushInput;
   const res = await api.push.register(input);
   if (!res.ok) return { ok: false, message: res.message ?? t('Không đăng ký được') };
+  // The Settings list reads the same rows; refreshing it here is what makes a
+  // newly-registered device appear without a manual reload.
+  revalidatePath('/settings');
   return { ok: true };
 }
 
@@ -29,12 +32,18 @@ export async function subscribePush(raw: unknown) {
 // the endpoint URL, not the DB id. We list, find by endpoint, then delete
 // by id. Cheap (small N per user).
 export async function unsubscribePush(endpoint: string) {
+  const { t } = await getI18n();
   const list = await api.push.list();
-  if (!list.ok) return { ok: false };
+  if (!list.ok) {
+    return { ok: false, message: list.message ?? t('Không tắt được thông báo, thử lại sau') };
+  }
   const target = list.data.subscriptions.find((s) => s.endpoint === endpoint);
-  if (!target) return { ok: true }; // already gone
+  if (!target) return { ok: true }; // already gone — the desired state holds
   const res = await api.push.unregister(target.id);
-  if (!res.ok) return { ok: false };
+  if (!res.ok) {
+    return { ok: false, message: res.message ?? t('Không tắt được thông báo, thử lại sau') };
+  }
+  revalidatePath('/settings');
   return { ok: true };
 }
 

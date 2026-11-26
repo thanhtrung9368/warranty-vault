@@ -10,8 +10,8 @@
 //
 // The returned market rate is REFERENCE ONLY. It is never written into the
 // device's `fxRate`: that number is the user's actual locked rate, entered by
-// hand or derived from "Số tiền thực tế bị charge (VND)". `Device.fxRate` only
-// changes when the user saves, and only with the rate they chose.
+// hand or derived from the "Số tiền thẻ đã bị trừ (VND)" input. `Device.fxRate`
+// only changes when the user saves, and only with the rate they chose.
 
 import { api } from '@/lib/api';
 import { normalizeCurrency } from '@/lib/currency';

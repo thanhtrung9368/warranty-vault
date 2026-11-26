@@ -89,5 +89,5 @@ export async function resetPassword(
       message: res.message ?? t('Không đổi được mật khẩu'),
     };
   }
-  return { ok: true, message: res.data.message ?? t('Đã đổi mật khẩu. Vào /login để đăng nhập.') };
+  return { ok: true, message: res.data.message ?? t('Đã đổi mật khẩu. Đăng nhập lại để tiếp tục.') };
 }

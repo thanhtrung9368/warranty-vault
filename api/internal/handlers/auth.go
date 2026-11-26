@@ -971,7 +971,7 @@ func ResetPassword(d Deps) http.HandlerFunc {
 
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
 			"ok":      true,
-			"message": i18n.Text(ctx, "Đã đổi mật khẩu. Vào /login để đăng nhập."),
+			"message": i18n.Text(ctx, "Đã đổi mật khẩu. Đăng nhập lại để tiếp tục."),
 		})
 	}
 }
@@ -1263,7 +1263,7 @@ func ConfirmEmailChange(d Deps) http.HandlerFunc {
 
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
 			"ok":      true,
-			"message": i18n.Text(ctx, "Đã đổi email. Vào /login để đăng nhập lại bằng địa chỉ mới."),
+			"message": i18n.Text(ctx, "Đã đổi email. Đăng nhập lại bằng địa chỉ mới."),
 		})
 	}
 }

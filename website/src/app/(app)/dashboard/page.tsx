@@ -476,7 +476,7 @@ export default async function DashboardPage() {
                 <div className="stat-eyebrow mb-1.5">{t('Sắp gia hạn')}</div>
                 {subs.upcoming.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    {t('Không có gói nào sắp charge')}
+                    {t('Không có gói nào sắp bị trừ tiền')}
                   </p>
                 ) : (
                   <ul className="flex flex-col gap-1.5">
@@ -577,7 +577,7 @@ export default async function DashboardPage() {
             <Button asChild variant="outline" size="sm" className="h-9 bg-card">
               <Link href="/wishlist/new">
                 <Heart className="mr-1 h-3.5 w-3.5" />
-                Wishlist
+                {t('Wishlist')}
               </Link>
             </Button>
           </div>

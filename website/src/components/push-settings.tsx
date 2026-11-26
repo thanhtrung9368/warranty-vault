@@ -102,7 +102,14 @@ export function PushSettings() {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        await unsubscribePush(sub.endpoint);
+        const res = await unsubscribePush(sub.endpoint);
+        // Only drop the browser subscription after the server row is gone —
+        // otherwise Settings would still list a device that no longer receives
+        // push, and the toggle would claim a state the account does not hold.
+        if (!res.ok) {
+          toast.error(res.message ?? t('Không tắt được thông báo, thử lại sau'));
+          return;
+        }
         await sub.unsubscribe();
       }
       setState('unsubscribed');

@@ -22,9 +22,16 @@ export function DismissButton({
   const [pending, startTransition] = React.useTransition();
   const router = useRouter();
 
+  // Restore is also the toast's "Hoàn tác". It only refreshes and confirms
+  // after the server actually restored the row — a failed call must not look
+  // like it worked, and there is no second undo to offer.
   const restore = () =>
     startTransition(async () => {
-      await restoreWarrantyReminder(warrantyId);
+      const res = await restoreWarrantyReminder(warrantyId);
+      if (!res.ok) {
+        toast.error(res.message ?? t('Không hiện lại được nhắc nhở'));
+        return;
+      }
       router.refresh();
       toast.success(t('Đã hiện lại nhắc nhở'));
     });
@@ -38,11 +45,19 @@ export function DismissButton({
       onClick={() =>
         startTransition(async () => {
           if (isDismissed) {
-            await restoreWarrantyReminder(warrantyId);
+            const res = await restoreWarrantyReminder(warrantyId);
+            if (!res.ok) {
+              toast.error(res.message ?? t('Không hiện lại được nhắc nhở'));
+              return;
+            }
             router.refresh();
             toast.success(t('Đã hiện lại nhắc nhở'));
           } else {
-            await dismissWarrantyReminder(warrantyId);
+            const res = await dismissWarrantyReminder(warrantyId);
+            if (!res.ok) {
+              toast.error(res.message ?? t('Không ẩn được nhắc nhở'));
+              return;
+            }
             router.refresh();
             // The row leaves the list (force-dynamic page re-renders), so the
             // undo lives on the toast — mirrors the mobile snackbar/banner.

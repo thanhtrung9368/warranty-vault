@@ -193,7 +193,17 @@ export const devices = defineMessages({
   // `purchasePrice` is the ORIGINAL listed price in `currency`; the locked
   // `fxRate` is the ACTUAL VND per unit, derived from what the card was charged.
   // The market rate is a third, REFERENCE-ONLY number that is never stored.
-  'Số tiền thực tế bị charge (VND)': 'Actual amount charged (VND)',
+  //
+  // The stored `purchasePriceVnd` is a CONVERSION (price × locked rate), not a
+  // receipt of the card charge: the form's charged input is what derives the
+  // rate, but the displayed figure can also come from editing the rate. The
+  // label says so on the screens that show the SAVED figure; the form's
+  // before-save reference block uses 'Số tiền quy đổi (VND)' because nothing
+  // is saved yet.
+  'Số tiền quy đổi theo tỷ giá đã lưu (VND)':
+    'Amount converted at the saved rate (VND)',
+  'Số tiền quy đổi (VND)': 'Converted amount (VND)',
+  'Số tiền thẻ đã bị trừ (VND)': 'Amount your card was charged (VND)',
   'Nhập số tiền thẻ đã bị trừ — tỷ giá bên cạnh sẽ tự tính.':
     'Enter the amount your card was charged — the rate beside it is derived automatically.',
   'Tỷ giá tham khảo': 'Reference rate',
@@ -211,7 +221,7 @@ export const devices = defineMessages({
   'Giá gốc ({currency})': 'Original price ({currency})',
   'Tỷ giá thực tế': 'Actual rate',
   'Không lấy được tỷ giá tham khảo.': 'Could not fetch the reference rate.',
-  'Tỷ giá tham khảo chỉ để so sánh, không phải số tiền bị charge.':
+  'Tỷ giá tham khảo chỉ để so sánh, không phải số tiền đã bị trừ.':
     'The reference rate is for comparison only; it is not the amount charged.',
   'Có {count} gói bảo hành tính bằng ngoại tệ nhưng API chưa trả giá trị VND — các tổng bên dưới chưa gồm những gói đó.':
     {

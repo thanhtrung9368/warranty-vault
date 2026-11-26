@@ -56,9 +56,9 @@ export const settings = defineMessages({
   'Xoá vĩnh viễn tài khoản': 'Permanently delete account',
   'Xoá tài khoản sẽ xoá toàn bộ thiết bị, hoá đơn, ảnh BH và cài đặt push. Không thể hoàn tác.':
     'Deleting your account removes every device, invoice, warranty photo and push setting. This cannot be undone.',
-  'Tao muốn xoá tài khoản': 'I want to delete my account',
-  'Sau khi bấm xoá, toàn bộ dữ liệu của mày bị xoá vĩnh viễn. Tao khuyên mày xuất backup JSON trước.':
-    'Once you confirm, all of your data is gone for good. Export a JSON backup first.',
+  'Tôi muốn xoá tài khoản': 'I want to delete my account',
+  'Sau khi bấm xoá, toàn bộ dữ liệu của bạn bị xoá vĩnh viễn. Bạn nên xuất backup JSON trước.':
+    'Once you confirm, all of your data is gone for good. We recommend exporting a JSON backup first.',
   'Gõ': 'Type',
   'để xác nhận': 'to confirm',
 
@@ -84,6 +84,8 @@ export const settings = defineMessages({
   'Không đăng ký được': 'Could not subscribe',
   'Lỗi: {message}': 'Error: {message}',
   'Đã tắt thông báo trên thiết bị này': 'Notifications are off for this device',
+  'Không tắt được thông báo, thử lại sau':
+    'Could not turn notifications off, try again later',
   'Đã gửi': 'Sent',
   'Không gửi được': 'Could not send',
   'Trình duyệt này chưa hỗ trợ push notification. Thử Chrome, Edge, Firefox hoặc Safari phiên bản mới.':
@@ -113,7 +115,7 @@ export const settings = defineMessages({
     'Could not load the device list — try reloading the page.',
   'Chưa có thiết bị nào đăng ký nhận thông báo. Bật thông báo ở trên để thêm thiết bị này.':
     'No device is registered for notifications yet. Turn notifications on above to add this one.',
-  'Mọi thiết bị dưới đây đều nhận thông báo nhắc bảo hành. Gỡ bớt nếu mày không dùng nữa.':
+  'Mọi thiết bị dưới đây đều nhận thông báo nhắc bảo hành. Gỡ bớt nếu bạn không dùng nữa.':
     'Every device below receives warranty reminders. Remove the ones you no longer use.',
   'Không có thông tin thiết bị': 'No device information',
   'Thêm {date}': 'Added {date}',
@@ -385,7 +387,7 @@ export const settings = defineMessages({
   'Email không hợp lệ': 'Invalid email address',
   'Nhập mật khẩu hiện tại': 'Enter your current password',
   'Thiếu token': 'Missing token',
-  'Đã đổi email. Vào /login để đăng nhập lại bằng địa chỉ mới.':
+  'Đã đổi email. Đăng nhập lại bằng địa chỉ mới.':
     'Email changed. Sign in again with your new address.',
 
   // ── Email-change copy (`lib/email-change.ts`) ───────────────────────────

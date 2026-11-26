@@ -226,6 +226,6 @@ describeWithGo('mirror of api/internal/handlers/auth.go', () => {
   });
 
   it('keeps the success message the page surfaces', () => {
-    expect(authGoSource).toContain('Đã đổi email. Vào /login để đăng nhập lại bằng địa chỉ mới.');
+    expect(authGoSource).toContain('Đã đổi email. Đăng nhập lại bằng địa chỉ mới.');
   });
 });
