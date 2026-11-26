@@ -3,6 +3,13 @@ import WarrlyKit
 
 @main
 struct WarrlyApp: App {
+    /// MUST stay the first stored property. Swift initialises stored properties
+    /// in declaration order, so the `-ui-testing` reset (Keychain token, saved
+    /// language, app-lock switch, ads consent) has to happen before `AuthStore`,
+    /// `AppLockStore`, `LocalizationStore` or `AdsController` read those stores
+    /// in their own initialisers. A normal launch is a no-op.
+    private let uiTestBootstrap = UITestSupport.resetIfNeeded()
+
     @StateObject private var auth: AuthStore
     @StateObject private var push = PushRegistrar.shared
     @StateObject private var theme = ThemeStore()
@@ -124,6 +131,8 @@ enum AppConfig {
     /// Where the Go API backend lives (api/cmd/server, port 4000).
     ///
     /// Resolution order (see `BaseURLResolver` in WarrlyKit):
+    ///   0. `WV_API_BASE_URL` — only when launched with `-ui-testing` by the
+    ///      `WarrlyUITests` bundle; points at the in-process mock API.
     ///   1. `WV_BASE_URL` in the launch environment — local development and QA.
     ///   2. `WVAPIBaseURL` in the generated Info.plist, fed by
     ///      `Config/Debug.xcconfig` (`http://localhost:4000`) or
@@ -142,7 +151,8 @@ enum AppConfig {
                 ) as? String,
                 environmentValue: ProcessInfo.processInfo.environment[
                     BaseURLResolver.environmentKey
-                ]
+                ],
+                uiTestingValue: UITestSupport.baseURLOverride
             )
         } catch {
             fatalError("""

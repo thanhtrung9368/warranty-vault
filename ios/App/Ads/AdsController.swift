@@ -100,6 +100,12 @@ final class AdsController: ObservableObject {
         // picture of the prompt. Never set in a normal Debug run.
         if ProcessInfo.processInfo.environment["WV_QA_NO_ADS"] == "1" { return }
 #endif
+        // A UI-test run must never be interrupted by the Google consent form or
+        // the ATT alert: both are system UI the test cannot reliably dismiss,
+        // and both would sit on top of the screen under assertion. Keyed on the
+        // `-ui-testing` launch argument rather than DEBUG so it also holds for
+        // a Release-config test build; a shipped build has no such argument.
+        if UITestSupport.isEnabled { return }
         // ATT cannot prompt while the app is not active, and UMP's form cannot
         // present. A call from a background transition is simply ignored; the
         // foreground call retries it.

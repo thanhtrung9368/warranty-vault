@@ -14,6 +14,13 @@ import Foundation
 /// rather than a silent fallback — falling back would quietly send traffic to a
 /// server other than the one the caller explicitly asked for.
 ///
+/// The XCUITest bundle gets one more, deliberately narrower, key:
+/// `WV_API_BASE_URL`. It is passed by `WarrlyUITests` as a launch environment
+/// variable and only the app's `-ui-testing` path reads it, so a build that was
+/// not launched by the test runner can never be redirected by it. A normal
+/// launch (and every TestFlight/App Store launch, which has no launch
+/// arguments) keeps the exact precedence above.
+///
 /// Resolution is a pure function on purpose, so every failure mode (missing,
 /// malformed, unresolved build setting) is unit-tested instead of only being
 /// discovered on a TestFlight launch.
@@ -24,6 +31,11 @@ public enum BaseURLResolver {
 
     /// Launch-environment override used for local development and QA.
     public static let environmentKey = "WV_BASE_URL"
+
+    /// Environment variable read **only** on the `-ui-testing` launch path to
+    /// point the app at the UI-test mock server. Kept separate from
+    /// `WV_BASE_URL` so a normal launch has no extra override surface.
+    public static let uiTestingEnvironmentKey = "WV_API_BASE_URL"
 
     public enum ResolutionError: Error, Equatable, CustomStringConvertible {
         case missing(infoPlistKey: String, environmentKey: String)
@@ -44,11 +56,25 @@ public enum BaseURLResolver {
     /// - Parameters:
     ///   - bundleValue: the Info.plist value for `WVAPIBaseURL`, or `nil` when absent.
     ///   - environmentValue: the `WV_BASE_URL` environment value, or `nil` when unset.
+    ///   - uiTestingValue: the `WV_API_BASE_URL` value, or `nil`. The caller —
+    ///     `AppConfig` — passes this only when the app was launched with
+    ///     `-ui-testing`, which is what keeps the key out of a normal launch.
     /// - Throws: ``ResolutionError`` when neither source yields a usable URL, or
     ///   when the winning source is malformed. A malformed environment override
     ///   never falls through to the Info.plist value.
     public static func resolve(bundleValue: String?,
-                               environmentValue: String? = nil) throws -> URL {
+                               environmentValue: String? = nil,
+                               uiTestingValue: String? = nil) throws -> URL {
+        // The UI-test override wins only because the caller gated it on
+        // `-ui-testing`. It is validated by the same parser as every other
+        // source, so a malformed test URL is a loud console/fatal error rather
+        // than a request sent somewhere unintended.
+        if let testOverride = uiTestingValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !testOverride.isEmpty {
+            return try parse(testOverride,
+                             source: "UI-testing environment variable \(uiTestingEnvironmentKey)")
+        }
+
         // An empty/whitespace override is what Xcode passes when the variable is
         // declared but blank; treat it as "not set" rather than as an error.
         if let override = environmentValue?.trimmingCharacters(in: .whitespacesAndNewlines),

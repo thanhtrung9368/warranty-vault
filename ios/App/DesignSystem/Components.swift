@@ -1303,6 +1303,9 @@ struct WVPasswordField: View {
     /// private state, which is what the settings sheets use.
     var focus: FocusState<Bool>.Binding? = nil
     var onSubmit: (() -> Void)? = nil
+    /// Optional XCUITest anchor. Applied to the TextField/SecureField pair (not
+    /// this HStack), because that is the element the test has to type into.
+    var accessibilityID: String? = nil
 
     @State private var isRevealed = false
     @State private var shouldRestoreFocus = false
@@ -1365,6 +1368,23 @@ struct WVPasswordField: View {
         .focused(focus ?? $isFocused)
         .submitLabel(submitLabel)
         .onSubmit { onSubmit?() }
+        .modifier(OptionalAccessibilityIdentifier(identifier: accessibilityID))
+    }
+}
+
+/// Applies `.accessibilityIdentifier` only when an ID was supplied, so the
+/// shared components keep their element tree unchanged for every existing
+/// call site when the app is not driven by XCUITest.
+struct OptionalAccessibilityIdentifier: ViewModifier {
+    let identifier: String?
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let identifier {
+            content.accessibilityIdentifier(identifier)
+        } else {
+            content
+        }
     }
 }
 
