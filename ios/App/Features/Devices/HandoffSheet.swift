@@ -472,7 +472,11 @@ struct HandoffSheet: View {
                         .padding(.vertical, 10)
                         .background(WVColor.fill3)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        // `label` alone replaced the code with "Mã chuyển
+                        // chủ", so VoiceOver never read the one credential the
+                        // screen exists to deliver. The value carries it.
                         .accessibilityLabel(HandoffCopy.codeLabel)
+                        .accessibilityValue(handoff.code ?? "")
 
                     if let url {
                         Text(HandoffCopy.linkLabel)
