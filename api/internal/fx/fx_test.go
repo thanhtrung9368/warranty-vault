@@ -12,7 +12,7 @@ import (
 )
 
 // fakeClock is the injectable Now() used for every TTL assertion. A real clock
-// would make the 12-hour cache test either slow or flaky; this one jumps.
+// would make the 24-hour cache test either slow or flaky; this one jumps.
 type fakeClock struct {
 	mu  sync.Mutex
 	now time.Time
@@ -329,12 +329,12 @@ func TestSlowUpstreamIsBoundedByClientTimeout(t *testing.T) {
 	}
 }
 
-// The production defaults are part of the contract: 12h TTL (explained in the
+// The production defaults are part of the contract: 24h TTL (explained in the
 // package doc) and a 5s ceiling on one upstream request.
 func TestProductionDefaults(t *testing.T) {
 	svc := New(Options{})
-	if svc.ttl != 12*time.Hour {
-		t.Errorf("default TTL = %v, want 12h", svc.ttl)
+	if svc.ttl != 24*time.Hour {
+		t.Errorf("default TTL = %v, want 24h", svc.ttl)
 	}
 	if svc.client.Timeout != DefaultTimeout || DefaultTimeout != 5*time.Second {
 		t.Errorf("default timeout = %v, want 5s", svc.client.Timeout)

@@ -37,9 +37,10 @@ type Deps struct {
 	Email      *email.Client
 	Dispatcher *push.Dispatcher
 	AI         *ai.Client
-	// FX is the in-process-cached exchange-rate client behind
-	// GET /api/v1/fx/rates (migration 0022). Nil means "not configured"; the
-	// handler answers 503 and the client asks the user for the rate by hand.
+	// FX is the DB-cached exchange-rate client behind GET /api/v1/fx/rates
+	// (the ExchangeRate snapshot table, migration 0035; the device columns it
+	// prefills are 0022). Nil means "not configured"; the handler answers 503
+	// and the client asks the user for the rate by hand.
 	FX *fx.Service
 }
 

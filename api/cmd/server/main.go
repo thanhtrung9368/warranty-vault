@@ -74,7 +74,7 @@ func main() {
 		Email:      email.NewFromEnv(),
 		Dispatcher: push.NewFromEnv(),
 		AI:         ai.NewFromEnv(),
-		FX:         fx.NewFromEnv(),
+		FX:         fx.NewFromEnv(pool),
 	}
 
 	mux := http.NewServeMux()

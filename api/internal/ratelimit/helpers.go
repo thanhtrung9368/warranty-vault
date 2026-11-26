@@ -86,10 +86,11 @@ func CheckUserWriteN(ctx context.Context, limiter Limiter, userID string, cost i
 // CheckFXRate rate-limits GET /api/v1/fx/rates per authenticated user: 60
 // requests / 60s, the same budget as a write.
 //
-// The endpoint is normally nearly free (a 12-hour in-process cache), but a cache
-// MISS reaches a free third-party upstream — and a cache that is stale because
-// the upstream is down retries on every call. The bucket exists so one client
-// stuck in a retry loop cannot turn this service into a proxy for that upstream.
+// The endpoint is normally nearly free (a 24-hour snapshot cache in Postgres),
+// but a cache MISS reaches a free third-party upstream — and a snapshot that is
+// stale because the upstream is down retries on every call. The bucket exists so
+// one client stuck in a retry loop cannot turn this service into a proxy for
+// that upstream.
 //
 // It is a separate bucket from CheckUserWrite so prefilling the device form does
 // not eat into the 60 writes/minute a user actually has.

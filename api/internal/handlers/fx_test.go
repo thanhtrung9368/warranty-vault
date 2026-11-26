@@ -131,6 +131,9 @@ func setupFXTest(t *testing.T, upstream *fxUpstream, clock *fixedClock, client *
 		Client:   client,
 		TTL:      fx.DefaultTTL,
 		Now:      clock.Now,
+		// The production cache (migration 0035): these tests are the HTTP-level
+		// proof that the 24h snapshot really round-trips through Postgres.
+		Cache: fx.NewPostgresCache(pool),
 	})
 
 	mux := http.NewServeMux()
@@ -230,7 +233,7 @@ func TestFXRatesEndpointReturnsSnapshotAndCaches(t *testing.T) {
 		t.Fatalf("second status = %d, want 200", rec2.Code)
 	}
 	if upstream.callsCount() != 1 {
-		t.Errorf("upstream calls = %d, want 1 (12h cache)", upstream.callsCount())
+		t.Errorf("upstream calls = %d, want 1 (24h cache)", upstream.callsCount())
 	}
 }
 

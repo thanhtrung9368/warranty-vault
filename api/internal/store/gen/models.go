@@ -5,6 +5,7 @@
 package store
 
 import (
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
@@ -159,6 +160,16 @@ type EntitlementEvent struct {
 	ApplyNote             *string      `json:"applyNote"`
 	PayloadHash           *string      `json:"payloadHash"`
 	ReceivedAt            wire.Instant `json:"receivedAt"`
+}
+
+type ExchangeRate struct {
+	Base      string       `json:"base"`
+	Day       pgtype.Date  `json:"day"`
+	Rates     []byte       `json:"rates"`
+	FetchedAt wire.Instant `json:"fetchedAt"`
+	Source    string       `json:"source"`
+	CreatedAt wire.Instant `json:"createdAt"`
+	UpdatedAt wire.Instant `json:"updatedAt"`
 }
 
 type InstallmentPlan struct {
