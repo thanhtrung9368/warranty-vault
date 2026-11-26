@@ -47,6 +47,13 @@ Tạo một file `/opt/warranty-vault/.env` duy nhất.
 | `CRON_SECRET` | `openssl rand -hex 32` | ⚠️ Chỉ dùng cho `POST /api/v1/cron/warranty-check` (bearer hoặc `?secret=`), không phải cho binary cron. Compose vẫn bắt buộc. |
 | `APP_URL` | `https://<domain>` | ⚠️ Dùng để dựng link reset password; quên đổi → link trong email trỏ `http://localhost:3000/reset/...` |
 
+**Bắt buộc để tính năng chia sẻ chạy** (thiếu thì compose **vẫn boot** — chỉ nút
+“Tạo link chia sẻ” hỏng, và hỏng to tiếng; cố ý, xem ghi chú):
+
+| Biến | Giá trị | Lưu ý |
+|---|---|---|
+| `PUBLIC_API_URL` | `https://api.<domain>/api` | ⚠️ Địa chỉ **công khai** của Go API, KÈM hậu tố `/api`. Server dựng link phiếu bàn giao (`GET /api/v1/public/shares/<token>`) từ biến này, và **người mua mở link đó trên điện thoại của họ** — nên không thể dùng `GO_API_URL` (trong compose là `http://api:4000/api`: chỉ resolve trong docker network, ra link chết + lộ hostname nội bộ). Validation ở `website/src/lib/api/base-url.ts`: URL tuyệt đối, **https**, host công khai — từ chối `http`, `localhost`/IP riêng, hostname 1 nhãn kiểu `api`/`web`, `*.local`/`*.internal`/`*.svc`, IPv6 literal. Thiếu/sai ⇒ tạo link trả lỗi đã dịch và **không** tạo share; ⚠️ **không** fallback về `GO_API_URL` (Go chỉ lưu hash của token, nên một share tạo ra mà không hiện được link là mất token vĩnh viễn + mất 1 slot trong 10 link sống). |
+
 **Nên set** (có default nhưng default là giá trị dev):
 
 | Biến | Default | Ghi chú |
@@ -74,6 +81,10 @@ Tạo một file `/opt/warranty-vault/.env` duy nhất.
 - [ ] Đổi secret xong nhớ recreate container: `docker compose up -d` (compose tự
       recreate service có config đổi)
 - [ ] `.env` **không** nằm trong git: `git check-ignore -v .env` → in ra rule khớp
+- [ ] `PUBLIC_API_URL` đặt trong root `.env`, đúng dạng https + host công khai +
+      hậu tố `/api`: `grep '^PUBLIC_API_URL=' .env` → `PUBLIC_API_URL=https://api.<domain>/api`
+      (đây là biến **bắt buộc để chia sẻ chạy**; thiếu thì dialog báo lỗi và
+      không tạo link — xem bảng ở trên)
 
 ⚠️ **Các biến sau bị compose ghi đè, đừng đặt trong root `.env`**: `GO_API_URL`
 (service `web` = `http://api:4000/api` — **có** hậu tố `/api`, xem ghi chú dưới),
@@ -83,6 +94,13 @@ Tạo một file `/opt/warranty-vault/.env` duy nhất.
 > ⚠️ **`GO_API_URL` BẮT BUỘC kết thúc bằng `/api`.** `website/src/lib/api/client.ts`
 > ghép `GO_API_URL + '/v1/...'`, còn Go phục vụ `/api/v1/...`. Thiếu `/api` thì
 > **mọi** lời gọi web → Go trả 404 và web trông như hỏng hoàn toàn.
+
+> ⚠️ **Ngược lại, `PUBLIC_API_URL` BẮT BUỘC đặt trong root `.env`.** Compose chỉ
+> truyền `${PUBLIC_API_URL:-}` cho service `web` (không ghi đè) vì đây là domain
+> của bạn, không phải địa chỉ nội bộ. Giá trị đúng:
+> `PUBLIC_API_URL=https://api.<domain>/api` — KÈM `/api`, https, host công khai.
+> Thiếu biến này thì tính năng chia sẻ tắt có báo lỗi (bảng ở trên); thêm/sửa
+> xong nhớ `docker compose up -d web` để container nhận env mới.
 
 ✅ **`ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` ĐÃ được compose forward** vào service
 `api`. Chỉ cần đặt key trong root `.env` rồi `docker compose up -d api` là tính năng
@@ -314,6 +332,12 @@ curl -s -H "Authorization: Bearer $TOKEN" https://api.<domain>/api/v1/devices   
       `NODE_ENV=production` → test qua `http://<ip>:3000` sẽ không giữ được session)
 - [ ] Mobile: đổi `BASE_URL` sang `https://api.<domain>`, login + mở danh sách thiết bị
 - [ ] Export dữ liệu JSON trong web Settings → "Xuất dữ liệu" (chạm cả API lẫn quyền user)
+- [ ] Tạo thử 1 link chia sẻ (trang thiết bị → “Tạo link chia sẻ”) → link phải bắt
+      đầu bằng `https://api.<domain>/api/v1/public/shares/` và mở được **trên
+      điện thoại dùng 4G**, không phải WiFi nội bộ (đó chính là lý do
+      `PUBLIC_API_URL` tồn tại). Dialog báo lỗi cấu hình thì kiểm tra:
+      `docker compose exec web printenv PUBLIC_API_URL` → phải in đúng
+      `https://api.<domain>/api`; rỗng/tên nội bộ = chưa set hoặc set sai (§1)
 
 ---
 
