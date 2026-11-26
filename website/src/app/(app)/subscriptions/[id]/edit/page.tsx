@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { SubscriptionForm } from '@/components/subscription-form';
+import { ListLoadError } from '@/components/list-load-error';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { getDeviceFormCatalog } from '@/app/actions/catalog';
@@ -21,7 +22,7 @@ export default async function EditSubscriptionPage({
 }) {
   const { id } = await params;
   const { t } = await getI18n();
-  const [res, catalog] = await Promise.all([
+  const [res, catalogRes] = await Promise.all([
     api.subscriptions.get(id),
     getDeviceFormCatalog(),
   ]);
@@ -56,10 +57,15 @@ export default async function EditSubscriptionPage({
         title={t('Sửa gói')}
         description={sub.name}
       />
+      {!catalogRes.ok && (
+        <ListLoadError
+          message={t('Không tải được danh mục loại thiết bị — tải lại trang rồi thử lại.')}
+        />
+      )}
       <SubscriptionForm
         catalog={{
-          categories: catalog.categories,
-          brands: catalog.brands,
+          categories: catalogRes.catalog.categories,
+          brands: catalogRes.catalog.brands,
         }}
         initial={{
           id: sub.id,

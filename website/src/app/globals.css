@@ -28,9 +28,15 @@
 
     --ink: 30 21% 10%;
     --ink-2: 28 26% 22%;                /* #46382A */
-    --muted: 33 22% 44%;                /* #8A7558 */
-    --muted-foreground: 33 22% 44%;
-    --muted-2: 32 28% 61%;              /* #B89F7F */
+    /* Secondary text must clear WCAG AA (4.5:1) on the cream surfaces.
+       The old --muted (#8A7558) measured 4.19:1 on --background and the old
+       --muted-2 (#B89F7F) 2.58:1 on --card. These two clear both surfaces:
+       #685640 is 6.52:1 on #FFF7EE, #6E5B45 is 6.01:1 on it and 6.47:1 on
+       white. --muted stays the darker of the pair, so the hierarchy the two
+       tokens encode is unchanged. `primary-contrast.test.ts` pins the ratios. */
+    --muted: 33 24% 33%;                /* #685640 */
+    --muted-foreground: 33 24% 33%;
+    --muted-2: 32 23% 35%;              /* #6E5B45, ≈#6F5C46 */
 
     /* brand — coral */
     --primary: 13 100% 64%;             /* #FF6B45 */

@@ -46,8 +46,15 @@ const NO_MATCH: BrandLookupResolution = {
 export async function resolveBrandWarrantyLookup(
   brandName: string | null | undefined,
 ): Promise<BrandLookupResolution> {
-  const catalog = await getDeviceFormCatalog();
-  const match = matchBrand(brandName, catalog.brands, catalog.brandServiceInfo);
+  const catalogRes = await getDeviceFormCatalog();
+  // A failed catalog read is not a "no match": returning NO_MATCH keeps the
+  // honest no-page branch, and the device form shows the retryable banner.
+  if (!catalogRes.ok) return NO_MATCH;
+  const match = matchBrand(
+    brandName,
+    catalogRes.catalog.brands,
+    catalogRes.catalog.brandServiceInfo,
+  );
   if (!match) return NO_MATCH;
 
   const res = await api.brands.getServiceInfo(match.brandId);

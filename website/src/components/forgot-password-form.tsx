@@ -50,7 +50,10 @@ export function ForgotPasswordForm() {
 
       {state?.ok ? (
         <div className="space-y-4">
-          <div className="flex items-start gap-2.5 rounded-md border-[1.5px] border-emerald-soft bg-emerald-soft/60 p-3 text-sm font-medium text-emerald-ink">
+          <div
+            role="status"
+            className="flex items-start gap-2.5 rounded-md border-[1.5px] border-emerald-soft bg-emerald-soft/60 p-3 text-sm font-medium text-emerald-ink"
+          >
             <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <p>{state.message}</p>
           </div>
@@ -80,7 +83,10 @@ export function ForgotPasswordForm() {
             )}
           </div>
           {state?.message && !state.ok && (
-            <p className="rounded-md border-[1.5px] border-destructive/30 bg-destructive-soft/60 px-3 py-2 text-sm font-medium text-destructive">
+            <p
+              role="alert"
+              className="rounded-md border-[1.5px] border-destructive/30 bg-destructive-soft/60 px-3 py-2 text-sm font-medium text-destructive"
+            >
               {state.message}
             </p>
           )}

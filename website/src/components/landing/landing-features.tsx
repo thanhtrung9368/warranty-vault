@@ -57,12 +57,12 @@ function buildFeatures(t: Translator): Feature[] {
       visual: 'ac-remote',
       alt: t('Điều khiển điều hoà'),
       title: t('Nhắc trước khi hết hạn'),
-      // The old card promised "the web and the iOS/Android apps". There is no
-      // store link in this repo and iOS ships through TestFlight, so that was
-      // an unactionable claim. This names the one install a visitor can
-      // actually get.
+      // The old card promised "the web and the iOS/Android apps", which named
+      // two installs a visitor could not get. iOS is now on the App Store, so
+      // the card names that install; Android has no public Play listing in
+      // this repo, so the card does not claim one.
       desc: t(
-        'Thông báo đẩy trên web, và trên iOS beta qua TestFlight. Đủ sớm để bạn kịp xử lý.',
+        'Thông báo đẩy trên web và trên iOS — đã có trên App Store. Đủ sớm để bạn kịp xử lý.',
       ),
       href: '/reminders',
     },

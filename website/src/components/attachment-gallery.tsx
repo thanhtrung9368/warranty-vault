@@ -228,8 +228,16 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                           if (!confirm(t('Xóa file này?'))) return;
                           setPendingId(a.id);
                           try {
-                            await deleteAttachment(a.id);
+                            const res = await deleteAttachment(a.id);
+                            if (!res.ok) {
+                              toast.error(t('Không xóa được'));
+                              return;
+                            }
                             toast.success(t('Đã xóa file'));
+                            // The gallery is server-rendered from the device
+                            // row: without a refresh the deleted tile stays on
+                            // screen until the next navigation.
+                            router.refresh();
                           } catch {
                             toast.error(t('Không xóa được'));
                           } finally {

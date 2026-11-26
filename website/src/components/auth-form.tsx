@@ -153,6 +153,10 @@ export function AuthForm({
 
         {state?.message && (
           <p
+            // The action result is announced as soon as it lands: without a
+            // live region a screen-reader user hears nothing after submitting,
+            // because focus stays on the button.
+            role={state.ok ? 'status' : 'alert'}
             className={
               state.ok
                 ? 'rounded-md border-[1.5px] border-emerald-soft bg-emerald-soft/60 px-3 py-2 text-sm font-medium text-emerald-ink'

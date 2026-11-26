@@ -137,3 +137,28 @@ describe('primary button contrast (WCAG AA, 4.5:1)', () => {
     expect(button).not.toMatch(/rgba\(\s*120\s*,\s*40\s*,\s*15/);
   });
 });
+
+// Secondary text (subtitles, labels, placeholders) is the other half of the same
+// AA contract. The old `--muted` measured 4.19:1 on the cream page and the old
+// `--muted-2` 2.58:1 on white; the token values in `globals.css` are darkened
+// until both clear 4.5:1 on every light surface token they can sit on. The dark
+// palette is a separate set of values and is not part of this pin.
+describe('secondary text contrast (WCAG AA, 4.5:1), light mode', () => {
+  const root = ruleFor(':root');
+  const surfaces = ['background', 'card', 'surface-2', 'surface-3'] as const;
+  const tokens = ['muted', 'muted-foreground', 'muted-2'] as const;
+
+  for (const token of tokens) {
+    for (const surface of surfaces) {
+      it(`${token} clears AA on ${surface}`, () => {
+        const value = ratio(`${token} on ${surface}`, root[surface], root[token]);
+        // The number is in the message so a regression says "4.21:1", not
+        // "expected true to be true".
+        expect(
+          value,
+          `${token} on ${surface}: ${value.toFixed(2)}:1`,
+        ).toBeGreaterThanOrEqual(4.5);
+      });
+    }
+  }
+});

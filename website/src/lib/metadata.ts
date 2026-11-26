@@ -110,7 +110,7 @@ export const OG_TOKENS = {
   border: '35 60% 86%', // --border
   primary: '13 100% 64%', // --primary (coral)
   primaryInk: '12 86% 16%', // --primary-ink
-  muted: '33 22% 44%', // --muted
+  muted: '33 24% 33%', // --muted
 } as const;
 
 function hexFromToken(value: string): string {

@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { DeviceForm } from '@/components/device-form';
 import { InstallmentCard } from '@/components/installment-card';
+import { ListLoadError } from '@/components/list-load-error';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
@@ -21,7 +22,7 @@ export default async function EditDevicePage({
   await requireUser();
   const { t } = await getI18n();
   const { id } = await params;
-  const [res, catalog, directoryRes] = await Promise.all([
+  const [res, catalogRes, directoryRes] = await Promise.all([
     api.devices.get(id),
     getDeviceFormCatalog(),
     api.directory.get(id),
@@ -61,8 +62,13 @@ export default async function EditDevicePage({
         title={t('Sửa thiết bị')}
         description={device.name}
       />
+      {!catalogRes.ok && (
+        <ListLoadError
+          message={t('Không tải được danh mục loại thiết bị — tải lại trang rồi thử lại.')}
+        />
+      )}
       <DeviceForm
-        catalog={catalog}
+        catalog={catalogRes.catalog}
         initial={{
           id: device.id,
           name: device.name,

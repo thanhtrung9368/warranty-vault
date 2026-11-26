@@ -530,9 +530,15 @@ export async function importDevicesFromPaste(
     };
   }
 
-  const catalog = await getDeviceFormCatalog();
+  const catalogRes = await getDeviceFormCatalog();
+  if (!catalogRes.ok) {
+    return {
+      ok: false,
+      message: t('Không tải được danh mục loại thiết bị — tải lại trang rồi thử lại.'),
+    };
+  }
   const preview = parsePasteImport(text, {
-    categories: catalog.categories,
+    categories: catalogRes.catalog.categories,
     headerMode,
     locale,
   });
