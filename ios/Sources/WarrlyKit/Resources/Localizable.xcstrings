@@ -27938,6 +27938,40 @@
           }
         }
       }
+    },
+    "Đã đồng ý" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agreed"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã đồng ý"
+          }
+        }
+      }
+    },
+    "Chưa đồng ý" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not agreed"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa đồng ý"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -143,6 +143,7 @@ struct PushDevicesView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(L.t("Xoá thiết bị"))
             }
         }
         .padding(.horizontal, 16)

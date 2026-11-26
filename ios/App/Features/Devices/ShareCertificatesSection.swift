@@ -530,6 +530,9 @@ private struct OneTimeTokenSheet: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityElement(children: .combine)
+                .accessibilityValue(acknowledged ? L.t("Đã đồng ý") : L.t("Chưa đồng ý"))
+                .accessibilityAddTraits(acknowledged ? .isSelected : [])
 
                 // 8. Why "Đóng" is refused, printed before it is reached.
                 if !canClose {

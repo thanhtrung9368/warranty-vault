@@ -56,6 +56,7 @@ struct WishlistDetailView: View {
                         .font(.system(size: 17))
                         .foregroundStyle(WVColor.tint)
                 }
+                .accessibilityLabel(L.t("Tuỳ chọn"))
             }
         }
         .task { await reload() }

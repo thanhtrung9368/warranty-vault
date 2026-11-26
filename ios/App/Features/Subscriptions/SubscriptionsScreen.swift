@@ -262,6 +262,7 @@ struct SubscriptionsScreen: View {
                 WVIcon("filter", size: 18)
                     .foregroundStyle(WVColor.label2)
             }
+            .accessibilityLabel(L.t("Sắp xếp"))
         }
         ToolbarItem(placement: .topBarTrailing) {
             // The screen's one action.
@@ -269,6 +270,7 @@ struct SubscriptionsScreen: View {
                 WVIcon("plus", size: 17, weight: .semibold)
                     .foregroundStyle(WVColor.tint)
             }
+            .accessibilityLabel(L.t("Thêm gói"))
         }
     }
 
