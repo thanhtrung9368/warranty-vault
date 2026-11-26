@@ -2795,21 +2795,28 @@ paths:
 
         ### Cache và tuổi dữ liệu
 
-        * Server cache **trong tiến trình**, theo từng `base`, TTL **12 giờ**.
-          Lý do: chính nguồn chỉ cập nhật tối đa một lần mỗi ngày (trường
-          `time_next_update_utc` của nó là ~24 giờ), nên TTL ngắn hơn sẽ chỉ gọi
-          lại đúng những con số đó; 12 giờ giới hạn độ cũ ở tối đa một lần cập
-          nhật của nguồn mà vẫn chỉ tốn hai request nhỏ/ngày/tiền tệ/instance.
+        * Snapshot lấy **thành công** được lưu trong Postgres, bảng
+          `ExchangeRate` (migration 0035), **mỗi `base` một dòng mỗi ngày UTC**,
+          TTL **24 giờ**. Cache dùng chung cho cả deployment — mọi instance đọc
+          cùng một dòng — nên một lần lấy thành công phục vụ **tối đa một
+          request lên nguồn cho mỗi `base` trong 24 giờ**. Đây là thay đổi so
+          với TTL 12 giờ trong tiến trình của bản 0022: cache cũ chết theo mỗi
+          lần restart và nhân theo số instance. Lý do 24 giờ: chính nguồn chỉ
+          cập nhật tối đa một lần mỗi ngày (trường `time_next_update_utc` của nó
+          là ~24 giờ), nên TTL ngắn hơn sẽ chỉ gọi lại đúng những con số đó.
         * Request **không bao giờ chờ** nguồn quá lâu: timeout 5 giây, dưới
           `WriteTimeout` 30 giây của server.
-        * `stale: true` **chỉ** khi đang trả một giá trị cache **đã quá TTL** vì
-          lần làm mới thất bại. Khi đó `fetchedAt` là thời điểm của lần lấy
-          THÀNH CÔNG gần nhất, không phải "bây giờ". Client nên hiển thị rằng
-          đây là tỷ giá cũ.
-        * Nguồn không lấy được và **không có cache** ⇒ **503** `fx_unavailable`.
-          Server **không bịa** một tỷ giá và **không cache lỗi** như thể đó là
-          tỷ giá: request sau vẫn thử lại. Client phải mời người dùng **tự nhập**
-          tỷ giá.
+        * `stale: true` **chỉ** khi đang trả một snapshot **đã quá TTL** vì lần
+          làm mới thất bại. Khi đó `fetchedAt` là thời điểm của lần lấy THÀNH
+          CÔNG gần nhất, không phải "bây giờ". Client nên hiển thị rằng đây là
+          tỷ giá cũ.
+        * Nguồn không lấy được và **không có snapshot** ⇒ **503**
+          `fx_unavailable`. Server **không bịa** một tỷ giá và **không ghi một
+          lần lấy lỗi** vào bảng cache như thể đó là tỷ giá: request sau vẫn thử
+          lại. Client phải mời người dùng **tự nhập** tỷ giá.
+        * `source` cho biết bảng đến từ nguồn nào (bình thường
+          `open.er-api.com`) để màn hình tham khảo ghi rõ nguồn; đây là trường
+          **bổ sung**, client cũ bỏ qua.
 
         ### Hình dạng
 
@@ -4049,6 +4056,12 @@ components:
             `true` **chỉ** khi đang trả một giá trị cache **đã quá TTL** vì lần
             làm mới thất bại. Client nên nói rõ đây là tỷ giá cũ. Cache còn hạn
             và lần lấy mới thành công đều trả `false`.
+        source:
+          type: string
+          description: |
+            Host của nguồn đã cho bảng tỷ giá (bình thường `open.er-api.com`).
+            Trường **bổ sung** cùng cache DB (migration 0035); client cũ bỏ qua.
+            Màn hình tham khảo dùng nó để ghi rõ nguồn của con số.
 
     # POST /api/v1/ai/assess-claim. ADVICE ONLY — the endpoint writes no row and
     # changes no status; calling it twice can produce different prose. The

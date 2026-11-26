@@ -23,18 +23,24 @@
 //
 // ── Cache ──────────────────────────────────────────────────────────────────
 //
-// Results are cached in-process per base currency for DefaultTTL (12 hours).
-// Why 12h: the upstream itself refreshes at most once a day (its
-// time_next_update_utc is ~24h out), so a shorter TTL would re-request the SAME
-// numbers; 12h bounds staleness to at most one upstream refresh while keeping
-// outbound traffic to two small GETs per currency per server instance per day.
-// It is not a market-data feed and must not become one: a live rate here would
-// be a lie about what the user's device is worth.
+// Successful snapshots live in the Postgres table "ExchangeRate" (migration
+// 0035), one row per base per UTC day, for DefaultTTL (24 hours). The DB — not
+// process memory — is what makes the TTL mean "one upstream call per base per
+// 24h per deployment": every instance reads the same row, and a restart does not
+// throw the snapshot away. Why 24h: the upstream itself refreshes at most once a
+// day (its time_next_update_utc is ~24h out), so a shorter TTL would re-request
+// the SAME numbers. It is not a market-data feed and must not become one: a live
+// rate here would be a lie about what the user's device is worth.
 //
-// A failed refresh is NOT cached as if it were a rate. If a cached value exists
-// it is served with `stale: true` (and its original fetchedAt); if there is
-// none, the endpoint answers 503 and the client asks the user to type the rate.
-// Inventing a rate would corrupt every total the locked-rate design protects.
+// Within one process, concurrent requests that all see an expired row collapse
+// onto a single refresh (one mutex per base): the loser of that race re-reads the
+// row the winner just wrote instead of calling the upstream too.
+//
+// A failed refresh is NOT cached as if it were a rate — no row is written at all.
+// If a cached value exists it is served with `stale: true` (and its original
+// fetchedAt); if there is none, the endpoint answers 503 and the client asks the
+// user to type the rate. Inventing a rate would corrupt every total the
+// locked-rate design protects.
 package fx
 
 import (
@@ -43,10 +49,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
@@ -55,9 +65,13 @@ const (
 	// "rates":{…}}. It quotes VND (Frankfurter/ECB does not; see the package doc).
 	DefaultEndpoint = "https://open.er-api.com/v6/latest"
 
-	// DefaultTTL is how long a fetched table is considered fresh. See the
-	// package doc for why 12 hours.
-	DefaultTTL = 12 * time.Hour
+	// DefaultSource labels a snapshot when the configured endpoint cannot be
+	// parsed into a host. In production it is the host of DefaultEndpoint.
+	DefaultSource = "open.er-api.com"
+
+	// DefaultTTL is how long a stored snapshot is considered fresh. See the
+	// package doc for why 24 hours.
+	DefaultTTL = 24 * time.Hour
 
 	// DefaultTimeout bounds ONE upstream request. Deliberately short: prefilling
 	// a form field is not worth holding an HTTP request open. It is also well
@@ -148,6 +162,10 @@ type Snapshot struct {
 	// report false. A stale response means "this is the last rate we could
 	// verify, not today's" — the client should say so next to the field.
 	Stale bool `json:"stale"`
+	// Source is the upstream host the table came from ("open.er-api.com" in
+	// production). It is additive: the reference screen may label the number,
+	// and an older client that ignores it sees the exact pre-0035 body.
+	Source string `json:"source,omitempty"`
 }
 
 // Options are the injectable seams for tests. The zero value of each field picks
@@ -157,28 +175,38 @@ type Options struct {
 	Client   *http.Client
 	TTL      time.Duration
 	Now      func() time.Time
+	// Cache is the snapshot store. Nil picks a process-local cache, which keeps
+	// the package usable without a database (that is what the unit tests use).
+	// Production wiring MUST pass NewPostgresCache(pool): the shared DB row is
+	// what makes the TTL deployment-wide, while a local cache only dedupes
+	// requests within one process.
+	Cache Cache
 }
 
-// Service owns the in-process cache. Safe for concurrent use; one instance per
-// process (wired in cmd/server/main.go).
+// Service owns the snapshot cache and the upstream client. Safe for concurrent
+// use; one instance per process (wired in cmd/server/main.go).
 type Service struct {
 	endpoint string
 	client   *http.Client
 	ttl      time.Duration
 	now      func() time.Time
+	cache    Cache
+	// source is the upstream host recorded with every snapshot and returned in
+	// the body, so the client can say where the reference number came from.
+	source string
 
-	mu    sync.Mutex
-	cache map[string]cacheEntry
+	// mu guards refreshLocks, the per-base single-flight mutexes: a burst of
+	// requests that all see an expired row makes one upstream call, not one per
+	// request. Bounded by the supported-currency list.
+	mu           sync.Mutex
+	refreshLocks map[string]*sync.Mutex
 }
 
-type cacheEntry struct {
-	rates     map[string]float64
-	fetchedAt time.Time
-}
-
-// NewFromEnv builds the production service.
-func NewFromEnv() *Service {
-	return New(Options{})
+// NewFromEnv builds the production service backed by the shared ExchangeRate
+// table (migration 0035). The pool is required: without it the 24h TTL would be
+// per process again, which is precisely what the DB cache replaced.
+func NewFromEnv(pool *pgxpool.Pool) *Service {
+	return New(Options{Cache: NewPostgresCache(pool)})
 }
 
 // New builds a Service, filling omitted options with production defaults.
@@ -195,12 +223,18 @@ func New(opts Options) *Service {
 	if opts.Now == nil {
 		opts.Now = time.Now
 	}
+	if opts.Cache == nil {
+		opts.Cache = newMemoryCache()
+	}
+	endpoint := strings.TrimRight(opts.Endpoint, "/")
 	return &Service{
-		endpoint: strings.TrimRight(opts.Endpoint, "/"),
-		client:   opts.Client,
-		ttl:      opts.TTL,
-		now:      opts.Now,
-		cache:    make(map[string]cacheEntry),
+		endpoint:     endpoint,
+		client:       opts.Client,
+		ttl:          opts.TTL,
+		now:          opts.Now,
+		cache:        opts.Cache,
+		source:       sourceOf(endpoint),
+		refreshLocks: make(map[string]*sync.Mutex),
 	}
 }
 
@@ -208,14 +242,16 @@ func New(opts Options) *Service {
 // which is the documented default of the endpoint).
 //
 // Order of operations:
-//  1. a fresh cache entry is returned without touching the network and with
-//     stale=false;
-//  2. otherwise the upstream is fetched (bounded by the HTTP client timeout);
-//  3. on success the entry is cached and returned with stale=false;
-//  4. on failure, a cached entry — even expired — is returned with stale=true
-//     and its ORIGINAL fetchedAt. The failure is not cached: the next request
-//     tries again;
-//  5. on failure with no cached entry, ErrUpstream is returned. The caller
+//  1. a fresh snapshot (DB row inside the 24h TTL) is returned without touching
+//     the network and with stale=false — from any instance of the deployment;
+//  2. otherwise one refresh runs at a time per base per process (a burst of
+//     requests collapses onto it), and the upstream is fetched bounded by the
+//     HTTP client timeout;
+//  3. on success the snapshot is stored and returned with stale=false;
+//  4. on failure, the newest snapshot — even expired — is returned with
+//     stale=true and its ORIGINAL fetchedAt. The failure is not stored: the
+//     next request tries again;
+//  5. on failure with no snapshot at all, ErrUpstream is returned. The caller
 //     answers 503 and asks the user for the rate. Nothing is invented.
 func (s *Service) Rates(ctx context.Context, base string) (Snapshot, error) {
 	base = NormalizeCurrency(base)
@@ -226,46 +262,83 @@ func (s *Service) Rates(ctx context.Context, base string) (Snapshot, error) {
 		return Snapshot{}, ErrUnsupportedBase
 	}
 
-	now := s.now()
-	entry, cached := s.lookup(base)
-	if cached && now.Sub(entry.fetchedAt) < s.ttl {
-		return snapshotOf(base, entry, false), nil
+	last, cached, err := s.cache.Latest(ctx, base)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	if cached && s.fresh(last) {
+		return snapshotOf(base, last, false), nil
 	}
 
+	// Expired or absent. Only one goroutine per base refreshes; the others wait
+	// here, then re-read the cache below and normally find the winner's row.
+	lock := s.lockFor(base)
+	lock.Lock()
+	defer lock.Unlock()
+
+	last, cached, err = s.cache.Latest(ctx, base)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	if cached && s.fresh(last) {
+		return snapshotOf(base, last, false), nil
+	}
+
+	fetchedAt := s.now()
 	rates, err := s.fetch(ctx, base)
-	if err == nil {
-		s.store(base, rates, now)
-		return snapshotOf(base, cacheEntry{rates: rates, fetchedAt: now}, false), nil
+	if err != nil {
+		if cached {
+			// The last known good table, clearly labelled: served past its TTL,
+			// with the timestamp of the fetch that produced it (not "now").
+			return snapshotOf(base, last, true), nil
+		}
+		return Snapshot{}, err
 	}
 
-	if cached {
-		// The last known good table, clearly labelled: served past its TTL, with
-		// the timestamp of the fetch that produced it (not "now").
-		return snapshotOf(base, entry, true), nil
+	fresh := CachedRate{Rates: rates, FetchedAt: fetchedAt, Source: s.source}
+	if err := s.cache.Save(ctx, base, fresh); err != nil {
+		// The table itself is real — only persisting it failed. Serve it (the
+		// client gets today's number) but say so in the log: the next request
+		// will call the upstream again, because nothing was stored.
+		slog.Warn("fx: snapshot was not persisted", "base", base, "err", err)
 	}
-	return Snapshot{}, err
+	return snapshotOf(base, fresh, false), nil
 }
 
-func (s *Service) lookup(base string) (cacheEntry, bool) {
+func (s *Service) fresh(rate CachedRate) bool {
+	return s.now().Sub(rate.FetchedAt) < s.ttl
+}
+
+func (s *Service) lockFor(base string) *sync.Mutex {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	e, ok := s.cache[base]
-	return e, ok
+	lock, ok := s.refreshLocks[base]
+	if !ok {
+		lock = &sync.Mutex{}
+		s.refreshLocks[base] = lock
+	}
+	return lock
 }
 
-func (s *Service) store(base string, rates map[string]float64, at time.Time) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.cache[base] = cacheEntry{rates: rates, fetchedAt: at}
-}
-
-func snapshotOf(base string, e cacheEntry, stale bool) Snapshot {
+func snapshotOf(base string, rate CachedRate, stale bool) Snapshot {
 	return Snapshot{
 		Base:      base,
-		Rates:     e.rates,
-		FetchedAt: e.fetchedAt.UTC().Format(time.RFC3339),
+		Rates:     rate.Rates,
+		FetchedAt: rate.FetchedAt.UTC().Format(time.RFC3339),
 		Stale:     stale,
+		Source:    rate.Source,
 	}
+}
+
+// sourceOf names the upstream a snapshot came from, for the response body and
+// the stored row. It is the configured endpoint's host, so a test server is
+// labelled with its own host instead of pretending to be open.er-api.com.
+func sourceOf(endpoint string) string {
+	u, err := url.Parse(endpoint)
+	if err == nil && u.Host != "" {
+		return u.Host
+	}
+	return DefaultSource
 }
 
 // upstreamResponse is the shape of open.er-api.com's /v6/latest/<BASE>.
