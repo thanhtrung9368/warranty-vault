@@ -143,12 +143,20 @@ func main() {
 	// which the user is known.
 	handler := httpx.RequestID(httpx.Logging(httpx.Recover(i18n.Middleware(mux))))
 
+	// Read/Write deadlines are deliberately generous: the API accepts a 5 MB
+	// receipt (services/attachments.go), a 110 MB backup restore
+	// (handlers/backup.go) and a cron pass with a 5-minute budget
+	// (handlers/cron.go), and iOS uploads full-resolution JPEGs. A 30 s
+	// deadline cut all of those mid-transfer. WriteTimeout must stay above the
+	// cron budget so the handler can still write its stats after a 5-minute
+	// pass. ReadHeaderTimeout keeps the slowloris bound at 10 s, and every
+	// per-route body cap is unchanged — this widens time, not size.
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      30 * time.Second,
+		ReadTimeout:       6 * time.Minute,
+		WriteTimeout:      6 * time.Minute,
 		IdleTimeout:       120 * time.Second,
 	}
 
