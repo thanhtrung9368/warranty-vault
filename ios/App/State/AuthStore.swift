@@ -7,6 +7,14 @@ public final class AuthStore: ObservableObject {
     public enum Status: Equatable {
         case idle           // boot — checking keychain
         case unauthenticated
+        /// Bootstrap reached neither a session nor a rejection: airplane mode,
+        /// a timeout, a 5xx or a reply we could not decode.
+        ///
+        /// The Keychain token and the widget / Spotlight snapshot are kept —
+        /// only a real `401` ends the session — so this is a retry screen, not
+        /// a sign-out. `.unreachable` is deliberately distinct from `.idle`:
+        /// idle is "checking", this is "checked, could not tell".
+        case unreachable
         case authenticated(User)
     }
 
@@ -15,6 +23,11 @@ public final class AuthStore: ObservableObject {
     public let baseURL: URL
     public let keychain: KeychainStore
     public private(set) var client: APIClient
+
+    /// Set once by `observeAuthenticatedUnauthorizedIfNeeded`. `bootstrap` is
+    /// the one entry point every launch goes through, and it is re-entered by
+    /// the retry screen, so the flag is what keeps the subscription single.
+    private var hasUnauthorizedObserver = false
 
     public init(baseURL: URL, keychain: KeychainStore = .init()) {
         self.baseURL = baseURL
@@ -34,7 +47,24 @@ public final class AuthStore: ObservableObject {
 
     /// Try to restore the session on app launch. If we have a token in
     /// keychain, hit /me to verify; otherwise unauthenticated.
+    ///
+    /// A failed `/auth/me` is **classified, not an automatic sign-out**:
+    ///
+    /// * a `401` is the server refusing the stored bearer — the one failure
+    ///   that really ends the session, so the token and the out-of-app surfaces
+    ///   are dropped just as they were before this change;
+    /// * anything else (airplane mode, a timeout, a `5xx`, an undecodable
+    ///   reply) publishes `.unreachable` and keeps both, because the token was
+    ///   never refused and a retry can continue the session.
+    ///
+    /// The old code cleared the Keychain and the widget / Spotlight snapshot on
+    /// every throw, so one dropped packet on launch signed the user out.
     public func bootstrap() async {
+        // The one subscription for this store's lifetime: every request from
+        // here on is made by the same session, so one handler is the whole
+        // wiring (see `handleUnauthorizedSession`). Done before `/auth/me` so a
+        // later flow — login included — can never run without it.
+        await observeAuthenticatedUnauthorizedIfNeeded()
 #if DEBUG
         // QA hook: a launch env token authenticates directly, bypassing the
         // keychain. Never compiled into Release.
@@ -43,9 +73,13 @@ public final class AuthStore: ObservableObject {
             do {
                 let user = try await client.me()
                 status = .authenticated(user)
-            } catch {
+            } catch let error as APIError where error.isUnauthorized {
+                // A rejected QA token, not a rejected stored session: the
+                // Keychain is left alone on purpose.
                 status = .unauthenticated
                 await DeadlineSurface.shared.clear()
+            } catch {
+                status = .unreachable
             }
             return
         }
@@ -61,11 +95,53 @@ public final class AuthStore: ObservableObject {
         do {
             let user = try await client.me()
             status = .authenticated(user)
-        } catch {
+        } catch let error as APIError where error.isUnauthorized {
+            // The stored bearer is dead server-side: this really is a sign-out.
             keychain.clear()
             status = .unauthenticated
             await DeadlineSurface.shared.clear()
+        } catch {
+            // Network, timeout, `5xx`, decoding. The server never said the
+            // token was invalid, so keep it (and the widget / Spotlight
+            // snapshot) and let the retry screen try `/auth/me` again.
+            status = .unreachable
         }
+    }
+
+    /// Subscribes to the client's authenticated-`401` observer, once.
+    ///
+    /// `bootstrap` is the one entry point every launch and every retry goes
+    /// through, so the flag — checked and set before the `await`, on the main
+    /// actor — is enough to make it single.
+    private func observeAuthenticatedUnauthorizedIfNeeded() async {
+        guard !hasUnauthorizedObserver else { return }
+        hasUnauthorizedObserver = true
+        await client.setUnauthorizedObserver { [weak self] in
+            Task { @MainActor in
+                self?.handleUnauthorizedSession()
+            }
+        }
+    }
+
+    /// Runs when a request that carried the bearer came back `401`: the session
+    /// was revoked or expired while the app was open (the pull-to-refresh
+    /// case), and the app returns to Login exactly once.
+    private func handleUnauthorizedSession() {
+        // The one-shot guard. The status is claimed synchronously, on the main
+        // actor, before anything can suspend — so a pull-to-refresh that fires
+        // five lists at once signs out on the first 401 and every other one is
+        // a no-op instead of a second transition or a loop.
+        //
+        // It also keeps the observer out of bootstrap: while `/auth/me` is in
+        // flight the status is `.idle`, so a 401 there is owned by bootstrap's
+        // own catch (which is the call that knows whether a token existed).
+        guard case .authenticated = status else { return }
+        status = .unauthenticated
+        keychain.clear()
+        // RootView's `.unauthenticated` path drops the widget / Spotlight
+        // snapshot, the router and the app lock — the same cleanup a real
+        // sign-out gets. The remembered email is kept: this is the same person
+        // signing in again, not someone else picking up the phone.
     }
 
     public func login(email: String, password: String) async throws {

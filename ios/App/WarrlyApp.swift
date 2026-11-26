@@ -95,6 +95,12 @@ struct WarrlyApp: App {
                         localization.reset()
                         premium.reset()
                         ads.setAdFree(false)
+                    case .unreachable:
+                        // A session we could not verify is not a signed-out
+                        // one: the token, the account's language and the
+                        // Premium bit were never refused, so nothing is reset
+                        // here. The retry screen owns this state.
+                        break
                     case .idle:
                         break
                     }
@@ -108,6 +114,7 @@ struct WarrlyApp: App {
         switch auth.status {
         case .idle: return "idle"
         case .unauthenticated: return "anon"
+        case .unreachable: return "unreachable"
         case .authenticated(let u): return u.id
         }
     }

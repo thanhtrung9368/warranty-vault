@@ -21,6 +21,10 @@ struct RootView: View {
     /// request stays in `router` while either gate is closed.
     @State private var showsCaptureSheet = false
 
+    /// Retry in flight on the `.unreachable` screen. Kept here so the button
+    /// cannot start a second `/auth/me` before the first answer lands.
+    @State private var isRetrying = false
+
     private var isAuthenticated: Bool {
         if case .authenticated = auth.status { return true }
         return false
@@ -130,6 +134,9 @@ struct RootView: View {
                 presentPendingCaptureIfPossible()
                 return
             }
+            // `.unreachable` is deliberately not cleaned up here: that state
+            // keeps the session, so the widget / Spotlight snapshot must
+            // survive the retry screen. Only a real sign-out drops it.
             guard case .unauthenticated = status else { return }
             // Signing out (or bootstrap discovering a dead token) must drop
             // every out-of-app surface, including a destination queued before
@@ -161,8 +168,45 @@ struct RootView: View {
                 .task { await auth.bootstrap() }
         case .unauthenticated:
             LoginView()
+        case .unreachable:
+            retryScreen
         case .authenticated:
             MainTabView(client: auth.client)
+        }
+    }
+
+    /// Bootstrap could not prove the stored session — airplane mode, a timeout
+    /// or a `5xx` — but the token and the widget / Spotlight snapshot are still
+    /// there (only a `401` ends a session). This screen is therefore just the
+    /// retry: once `/auth/me` answers, the app continues where it left off.
+    private var retryScreen: some View {
+        ScrollView {
+            WVEmpty(
+                icon: "cloud",
+                title: L.t("Không kết nối được máy chủ."),
+                description: L.t("Kiểm tra kết nối rồi thử lại.")
+            ) {
+                VStack(spacing: WVSpacing.md) {
+                    WVButton(L.t("Thử lại")) { retryBootstrap() }
+                        .disabled(isRetrying)
+                    if isRetrying {
+                        ProgressView()
+                    }
+                }
+            }
+        }
+        .wvScreen()
+    }
+
+    /// One `/auth/me` at a time. `bootstrap` classifies the outcome itself: a
+    /// success moves to `.authenticated`, a `401` signs out, another failure
+    /// returns here.
+    private func retryBootstrap() {
+        guard !isRetrying else { return }
+        isRetrying = true
+        Task {
+            await auth.bootstrap()
+            isRetrying = false
         }
     }
 }

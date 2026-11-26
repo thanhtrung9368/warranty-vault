@@ -14,6 +14,11 @@ public actor APIClient {
     private let tokenProvider: @Sendable () async -> String?
     private let languageProvider: @Sendable () -> AppLanguage?
 
+    /// See `setUnauthorizedObserver`. One slot, not a list: the app holds one
+    /// session, so a second registration replaces the first rather than
+    /// stacking two sign-outs on the same 401.
+    private var unauthorizedObserver: (@Sendable () -> Void)?
+
     public init(
         baseURL: URL,
         session: URLSession = .shared,
@@ -24,6 +29,33 @@ public actor APIClient {
         self.session = session
         self.tokenProvider = tokenProvider
         self.languageProvider = languageProvider
+    }
+
+    // MARK: - Session expiry
+
+    /// Installs the app's observer for "the server no longer accepts the
+    /// stored session": an **authenticated** request that came back `401`.
+    ///
+    /// This is the only status that means the token is dead server-side
+    /// (revoked from another device, expired, password changed elsewhere). It
+    /// is deliberately narrow:
+    ///
+    /// * `authenticated: false` requests — login and register — never reach
+    ///   the observer. Their `401` is an answer about the credentials the user
+    ///   just typed, and signing out the stored session over a wrong password
+    ///   would replace the login form's error with a global sign-out.
+    /// * A request that sent no bearer (nothing in the Keychain) never reaches
+    ///   it either: there is no session to end.
+    /// * Transport failures, timeouts, decoding failures and `5xx` never reach
+    ///   it. Those mean "try again", not "signed out" — see
+    ///   `AuthStore.bootstrap`, which keeps the Keychain token for exactly
+    ///   that case.
+    ///
+    /// The closure is called on the client's own executor and must not block
+    /// or call back into the client synchronously; `AuthStore` hops to the main
+    /// actor from there.
+    public func setUnauthorizedObserver(_ observer: @escaping @Sendable () -> Void) {
+        unauthorizedObserver = observer
     }
 
     /// Attaches `Accept-Language` so the Go server answers in the language the
@@ -181,8 +213,10 @@ public actor APIClient {
             req.httpBody = try Self.encoder.encode(AnyEncodable(body))
         }
 
+        var bearerAttached = false
         if authenticated, let token = await tokenProvider() {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            bearerAttached = true
         }
 
         let (data, response) = try await session.data(for: req)
@@ -191,6 +225,16 @@ public actor APIClient {
         }
 
         if (200...299).contains(http.statusCode) { return data }
+
+        // The bearer went out and the server refused it: this session is dead.
+        // Reported before the throw so the caller's own error handling is
+        // unchanged — stores still see the 401 — while the observer re-routes
+        // the app to the login screen. Both conditions matter: `authenticated`
+        // keeps login/register's wrong-password 401 out, and `bearerAttached`
+        // keeps a request made with no token out.
+        if authenticated, bearerAttached, http.statusCode == 401 {
+            unauthorizedObserver?()
+        }
 
         // Try to parse our standard error envelope.
         if let envelope = try? Self.decoder.decode(APIErrorEnvelope.self, from: data) {
