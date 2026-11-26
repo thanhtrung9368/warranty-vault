@@ -26,6 +26,7 @@ import { DeviceStatusPill } from '@/components/device-status-pill';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/empty-state';
 import { DevicesFilterBar } from '@/components/devices-filter-bar';
+import { ListLoadError } from '@/components/list-load-error';
 import { api } from '@/lib/api';
 import type { DeviceListFilter } from '@/lib/api/devices';
 import { requireUser } from '@/lib/auth';
@@ -66,13 +67,19 @@ export default async function DevicesPage({
       <PageHeader
         eyebrow={t('Kho thiết bị')}
         title={t('Thiết bị')}
-        description={isFiltered
+        // No count when the read failed: "Tổng 0 thiết bị" is the same lie as
+        // the empty state below, just in the header.
+        description={
+          devicesRes.ok
+            ? isFiltered
               ? t('Tổng {count} thiết bị (đã lọc). Bấm vào từng cái để xem chi tiết.', {
                   count: devices.length,
                 })
               : t('Tổng {count} thiết bị. Bấm vào từng cái để xem chi tiết.', {
                   count: devices.length,
-                })}
+                })
+            : undefined
+        }
         actions={
           <>
           {/* đ/ngày (FEATURE_IDEAS #7) lives on /stats with the other money
@@ -110,7 +117,16 @@ export default async function DevicesPage({
 
       <DevicesFilterBar categories={categories} />
 
-      {devices.length === 0 ? (
+      {/* A failed read is NOT an empty vault. The banner below is the only
+          thing that changes; a successful read (including a genuinely empty
+          one) still renders the same empty state and table as before. */}
+      {!devicesRes.ok && (
+        <ListLoadError
+          message={t('Không tải được danh sách thiết bị — thử tải lại trang nhé.')}
+        />
+      )}
+
+      {devicesRes.ok && (devices.length === 0 ? (
         <>
           <EmptyState
             icon={isFiltered ? Search : Package}
@@ -254,7 +270,7 @@ export default async function DevicesPage({
             </TableBody>
           </Table>
         </Card>
-      )}
+      ))}
     </PageShell>
   );
 }

@@ -194,6 +194,10 @@ export const warranties = defineMessages({
   'Đã ẩn': 'Hidden',
   'Không tải được danh sách nhắc nhở đã ẩn — thử tải lại trang nhé.':
     'Could not load the hidden reminders — try reloading the page.',
+  // Same failure, different read: the ACTIVE reminders feed, whose failure must
+  // not render as the green "no reminders — nice!" empty state.
+  'Không tải được danh sách nhắc nhở — thử tải lại trang nhé.':
+    'Could not load reminders — try reloading the page.',
   'Chưa ẩn gói bảo hành nào. Gói nào mày bấm “Đã xem, ẩn đi” sẽ nằm ở đây để khôi phục lại.':
     'Nothing hidden yet. Anything you hide with “Seen, hide it” shows up here so you can bring it back.',
 

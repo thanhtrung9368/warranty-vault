@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { WarrantyPill } from '@/components/warranty-pill';
 import { EmptyState } from '@/components/empty-state';
+import { ListLoadError } from '@/components/list-load-error';
 import { StarterKit } from '@/components/starter-kit';
 import { SampleDataBanner } from '@/components/sample-data-banner';
 import { DeviceFixupPanel } from '@/components/device-fixup-panel';
@@ -288,6 +289,16 @@ export default async function DashboardPage() {
         description={t('Đây là tổng quan tình trạng bảo hành & chi phí của bạn hôm nay.')}
       />
 
+      {/* A failed device read keeps the subscriptions and wishlist that DID
+          load, and says the device numbers are missing instead of rendering
+          five zero tiles and the "no devices yet" card as if the account were
+          empty. */}
+      {!devicesRes.ok && (
+        <ListLoadError
+          message={t('Không tải được danh sách thiết bị — thử tải lại trang nhé.')}
+        />
+      )}
+
       {/* First run: the starter kit explains the loop in four checkable steps
           and offers three ways in — create, import the list you already keep,
           or look at sample data first. It replaces the old single-CTA panel;
@@ -306,12 +317,15 @@ export default async function DashboardPage() {
           numbers and offers the one-click removal. */}
       {sampleDevices.length > 0 && <SampleDataBanner count={sampleDevices.length} />}
 
-      {/* Stat cards */}
-      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {cards.map((c) => (
-          <StatCard key={c.label} {...c} />
-        ))}
-      </div>
+      {/* Stat cards — only from a real read. A failed one must not become
+          five zero tiles that read as the account's actual warranty state. */}
+      {devicesRes.ok && (
+        <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {cards.map((c) => (
+            <StatCard key={c.label} {...c} />
+          ))}
+        </div>
+      )}
 
       {/* Fix-up step: a saved row missing its purchase date, warranty end,
           price or receipt cannot produce the reminders the starter kit just
@@ -375,63 +389,67 @@ export default async function DashboardPage() {
           row's truncated text + pill (430px) — the whole page then overflows
           horizontally and the top bar/section cards are clipped. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Sắp hết bảo hành */}
-        <SectionCard
-          icon={AlertTriangle}
-          tint="amber"
-          title={t('Sắp hết bảo hành')}
-          href="/reminders"
-        >
-          {!hasDevices ? (
-            <div className="py-2 text-sm text-muted-foreground">
-              <p>{t(noDataCopy.description)}</p>
-              <Link
-                href={noDataCopy.ctaHref}
-                className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
-              >
-                {t(noDataCopy.ctaLabel)}
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          ) : stats.soonList.length === 0 ? (
-            <div className="py-3 text-sm text-muted-foreground">
-              <span className="text-emerald-ink">✓</span>{' '}
-              {t('Tất cả đều ngon, không có gì sắp hết trong 30 ngày tới đâu.')}
-            </div>
-          ) : (
-            <ul className="flex flex-col">
-              {stats.soonList.map((d) => (
-                <li key={d.id}>
-                  <Link
-                    href={`/devices/${d.id}`}
-                    className="info-row -mx-2 items-center gap-3 rounded-md px-2 transition-colors hover:bg-secondary"
-                  >
-                    <CategoryIconBadge category={d.category} size="sm" />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-ink">
-                        {d.name}
+        {/* Sắp hết bảo hành — hidden when the device read failed: the
+            "nothing is due" tick below would be a reassurance about data
+            nobody read, and the "no devices" nudge would be false too. */}
+        {devicesRes.ok && (
+          <SectionCard
+            icon={AlertTriangle}
+            tint="amber"
+            title={t('Sắp hết bảo hành')}
+            href="/reminders"
+          >
+            {!hasDevices ? (
+              <div className="py-2 text-sm text-muted-foreground">
+                <p>{t(noDataCopy.description)}</p>
+                <Link
+                  href={noDataCopy.ctaHref}
+                  className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+                >
+                  {t(noDataCopy.ctaLabel)}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            ) : stats.soonList.length === 0 ? (
+              <div className="py-3 text-sm text-muted-foreground">
+                <span className="text-emerald-ink">✓</span>{' '}
+                {t('Tất cả đều ngon, không có gì sắp hết trong 30 ngày tới đâu.')}
+              </div>
+            ) : (
+              <ul className="flex flex-col">
+                {stats.soonList.map((d) => (
+                  <li key={d.id}>
+                    <Link
+                      href={`/devices/${d.id}`}
+                      className="info-row -mx-2 items-center gap-3 rounded-md px-2 transition-colors hover:bg-secondary"
+                    >
+                      <CategoryIconBadge category={d.category} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold text-ink">
+                          {d.name}
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {categoryLabel(d.category, locale)}
+                          {d.brand ? ` • ${d.brand}` : ''} •{' '}
+                          {formatDate(d.purchaseDate, locale)}
+                          {' • '}
+                          {formatMoney(d.purchasePrice, d.currency, locale)}
+                          {d.currency !== 'VND' && d.purchasePriceVnd != null && (
+                            <span className="text-muted-foreground">
+                              {' · ≈ '}
+                              {formatVND(d.purchasePriceVnd, locale)}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {categoryLabel(d.category, locale)}
-                        {d.brand ? ` • ${d.brand}` : ''} •{' '}
-                        {formatDate(d.purchaseDate, locale)}
-                        {' • '}
-                        {formatMoney(d.purchasePrice, d.currency, locale)}
-                        {d.currency !== 'VND' && d.purchasePriceVnd != null && (
-                          <span className="text-muted-foreground">
-                            {' · ≈ '}
-                            {formatVND(d.purchasePriceVnd, locale)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <WarrantyPill warrantyEnd={d.effectiveWarrantyEnd} variant="badge" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </SectionCard>
+                      <WarrantyPill warrantyEnd={d.effectiveWarrantyEnd} variant="badge" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+        )}
 
         {/* Subscriptions */}
         {subs.count > 0 && (
@@ -573,7 +591,7 @@ export default async function DashboardPage() {
           account has used the app, so it keeps the normal dashboard plus this
           first-step card. `no-data`, not a green tick: there is still no device
           for the warranty picture to be about. */}
-      {!coldStart && !hasDevices && (
+      {devicesRes.ok && !coldStart && !hasDevices && (
         <EmptyState
           emptyReason="no-data"
           title={t('Chưa có thiết bị nào, bắt đầu nào')}
