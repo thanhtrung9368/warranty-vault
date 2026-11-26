@@ -3,6 +3,7 @@ import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import { ArrowLeft, Heart } from 'lucide-react';
 import { SubscriptionForm } from '@/components/subscription-form';
+import { ListLoadError } from '@/components/list-load-error';
 import { Button } from '@/components/ui/button';
 import { getDeviceFormCatalog } from '@/app/actions/catalog';
 import { api } from '@/lib/api';
@@ -15,7 +16,7 @@ export default async function NewSubscriptionPage({
 }) {
   const sp = await searchParams;
   const { t } = await getI18n();
-  const [catalog, fromItemRes] = await Promise.all([
+  const [catalogRes, fromItemRes] = await Promise.all([
     getDeviceFormCatalog(),
     sp.fromWishlist ? api.wishlist.get(sp.fromWishlist) : Promise.resolve(null),
   ]);
@@ -58,10 +59,15 @@ export default async function NewSubscriptionPage({
           </>
         }
       />
+      {!catalogRes.ok && (
+        <ListLoadError
+          message={t('Không tải được danh mục loại thiết bị — tải lại trang rồi thử lại.')}
+        />
+      )}
       <SubscriptionForm
         catalog={{
-          categories: catalog.categories,
-          brands: catalog.brands,
+          categories: catalogRes.catalog.categories,
+          brands: catalogRes.catalog.brands,
         }}
         initial={initial}
       />

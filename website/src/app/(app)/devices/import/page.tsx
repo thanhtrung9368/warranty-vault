@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
 export default async function ImportDevicesPage() {
   await requireUser();
   const { t } = await getI18n();
-  const catalog = await getDeviceFormCatalog();
+  const catalogRes = await getDeviceFormCatalog();
 
   return (
     <PageShell className="mx-auto max-w-4xl">
@@ -38,7 +38,7 @@ export default async function ImportDevicesPage() {
         )}
       />
 
-      <DevicePasteImport categories={catalog.categories} />
+      <DevicePasteImport categories={catalogRes.catalog.categories} />
     </PageShell>
   );
 }

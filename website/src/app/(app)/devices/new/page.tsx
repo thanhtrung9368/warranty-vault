@@ -5,6 +5,7 @@ import { ArrowLeft, Heart } from 'lucide-react';
 import { DeviceForm } from '@/components/device-form';
 import { Button } from '@/components/ui/button';
 import { getDeviceFormCatalog } from '@/app/actions/catalog';
+import { ListLoadError } from '@/components/list-load-error';
 import { api } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
 import { resolveBrandWarrantyLookup } from '@/lib/brand-warranty-lookup';
@@ -18,7 +19,7 @@ export default async function NewDevicePage({
   const sp = await searchParams;
   const { t } = await getI18n();
   const user = await requireUser();
-  const [catalog, fromItem] = await Promise.all([
+  const [catalogRes, fromItem] = await Promise.all([
     getDeviceFormCatalog(),
     sp.fromWishlist
       ? api.wishlist.get(sp.fromWishlist).then((res) => (res.ok ? res.data.item : null))
@@ -70,8 +71,13 @@ export default async function NewDevicePage({
           </>
         }
       />
+      {!catalogRes.ok && (
+        <ListLoadError
+          message={t('Không tải được danh mục loại thiết bị — tải lại trang rồi thử lại.')}
+        />
+      )}
       <DeviceForm
-        catalog={catalog}
+        catalog={catalogRes.catalog}
         initial={initial}
         fromWishlistId={fromItem?.id ?? undefined}
         aiEnabled={user.aiOptIn}

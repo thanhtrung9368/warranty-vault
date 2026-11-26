@@ -94,11 +94,11 @@ export const publicPages = defineMessages({
   'Món đang ngắm — ngày mục tiêu, giá, và mua xong thì thành thiết bị.':
     'The thing you are eyeing — a target date, the price, and one tap to make it a device.',
   'Nhắc trước khi hết hạn': 'Reminders before expiry',
-  // The app claim now matches what a visitor can actually download. There is
-  // no store listing for either native app in this repo and iOS is TestFlight
-  // only, so the old "on the web and in the iOS/Android apps" was unactionable.
-  'Thông báo đẩy trên web, và trên iOS beta qua TestFlight. Đủ sớm để bạn kịp xử lý.':
-    'Push notifications on the web, and on iOS beta via TestFlight. Early enough to act on it.',
+  // The app claim matches what a visitor can actually download: iOS is on the
+  // App Store. There is still no public Play listing in this repo, so Android
+  // is deliberately not named rather than promised as an install.
+  'Thông báo đẩy trên web và trên iOS — đã có trên App Store. Đủ sớm để bạn kịp xử lý.':
+    'Push notifications on the web and on iOS — now on the App Store. Early enough to act on it.',
   'Hoá đơn & phiếu bảo hành': 'Receipts & warranty slips',
   'Ảnh hoặc PDF, tối đa 5 tệp mỗi thiết bị, mã hoá AES-256. Mở lại đúng lúc bạn cần đi bảo hành.':
     'Photos or PDFs, up to 5 files per device, AES-256 encrypted. Open them exactly when you need to claim.',
@@ -223,8 +223,8 @@ export const publicPages = defineMessages({
   // The answers are facts from the repo, not reassurance: the limits come from
   // the Go constants, the export caveat from `services/backup_blobs.go` (blobs
   // are ciphertext wrapped by `FILE_MASTER_KEY`), the iPhone answer from the
-  // PWA metadata and the TestFlight-only status, and the last answer from the
-  // fact that Warrly records warranty dates and does not underwrite cover.
+  // PWA metadata and the App Store listing, and the last answer from the fact
+  // that Warrly records warranty dates and does not underwrite cover.
   'Hỏi thẳng': 'Straight answers',
   'Năm câu thường gặp.': 'Five questions we get.',
   'Nếu câu bạn cần không có ở đây, email hỗ trợ ở cuối trang.':
@@ -237,8 +237,8 @@ export const publicPages = defineMessages({
   'Không có gì tự xoá chỉ vì bạn không đăng nhập. Dữ liệu nằm đó cho đến khi bạn tự xoá tài khoản. Trước khi đi, vào Cài đặt → Sao lưu & khôi phục để tải JSON (thông tin) hoặc .zip (kèm nội dung ảnh đã mã hoá). Bản JSON không chứa ảnh; ảnh trong .zip chỉ mở lại được khi khôi phục vào một máy chủ còn giữ đúng khoá đó.':
     'Nothing is deleted just because you stop signing in. The data stays until you delete the account yourself. Before you go, open Settings → Backup & restore and download JSON (the records) or a .zip (the encrypted image files). The JSON carries no images; the images in the .zip can only be opened when restored to a server that still holds the matching key.',
   'Có dùng trên iPhone được không?': 'Does it work on iPhone?',
-  'Được, qua Safari — không cần tải app. Trên iOS 16.4 trở lên, bạn có thể thêm Warrly vào màn hình chính rồi bật thông báo đẩy. Bản iOS native hiện là beta qua TestFlight, chưa có trên App Store.':
-    'Yes, in Safari — no download needed. On iOS 16.4 or later you can add Warrly to your home screen and turn on push notifications. The native iOS app is in TestFlight beta; it is not on the App Store yet.',
+  'Được, qua Safari — không cần tải app. Trên iOS 16.4 trở lên, bạn có thể thêm Warrly vào màn hình chính rồi bật thông báo đẩy. Bản iOS native đã có trên App Store.':
+    'Yes, in Safari — no download needed. On iOS 16.4 or later you can add Warrly to your home screen and turn on push notifications. The native iOS app is now on the App Store.',
   'Dữ liệu của tôi có an toàn không?': 'Is my data safe?',
   'Hoá đơn được mã hoá AES-256-GCM trên máy chủ; mỗi tệp có một khoá riêng, khoá đó lại được bọc bằng khoá chủ của hệ thống. Mật khẩu lưu dưới dạng băm bcrypt, phiên đăng nhập nằm trong cookie đã mã hoá. Không có Google Analytics, không Facebook SDK, không bán dữ liệu; gói miễn phí có quảng cáo và quảng cáo có thể dùng cookie hoặc định danh thiết bị (xem Chính sách bảo mật, mục 5). Trợ lý AI mặc định tắt và chỉ gửi ảnh hoá đơn đã giải mã hoặc nội dung một lần đánh giá bảo hành tới Anthropic khi bạn tự bật.':
     'Receipts are encrypted on the server with AES-256-GCM; each file has its own key, and that key is wrapped by the system master key. Passwords are stored as bcrypt hashes, and your session lives in an encrypted cookie. There is no Google Analytics, no Facebook SDK and no data sold; the free tier carries ads, and ads may use cookies or device identifiers (see the privacy policy, section 5). The AI assistant is off by default and only sends a decrypted receipt image or the content of a claim assessment to Anthropic after you turn it on.',
@@ -645,6 +645,8 @@ export const publicPages = defineMessages({
   'Xoá dữ liệu trình duyệt sẽ xoá các mục này; xoá wv_consent khiến biểu ngữ cookie hiện lại.':
     'Clearing your browser data removes these entries; clearing wv_consent makes the cookie banner appear again.',
   '3. Cookie quảng cáo (chỉ ở gói miễn phí)': '3. Advertising cookies (free tier only)',
+  'Khi có quảng cáo, chúng nằm trong app iOS và Android và do Google AdMob phục vụ. Trên web hiện chưa có quảng cáo: Warrly không tải script quảng cáo và không đặt cookie quảng cáo trước khi mày đồng ý.':
+    'When ads run, they live in the iOS and Android apps and are served by Google AdMob. The web has no ads yet: Warrly loads no ad script and sets no advertising cookie before you agree.',
   'Quảng cáo trong app iOS và Android do Google AdMob phục vụ. Trên web hiện chưa có quảng cáo: Warrly không tải script quảng cáo và không đặt cookie quảng cáo trước khi mày đồng ý.':
     'Ads in the iOS and Android apps are served by Google AdMob. The web has no ads yet: Warrly loads no ad script and sets no advertising cookie before you agree.',
   'Trên app, khi mày đồng ý, AdMob có thể đọc định danh quảng cáo của thiết bị để chọn, giới hạn và đo lường quảng cáo. Gói trả phí không có quảng cáo, nên không có dữ liệu quảng cáo.':

@@ -21,6 +21,7 @@
 import { cache } from 'react';
 import { api } from '@/lib/api';
 import type {
+  Catalog,
   CategoryOption,
   BrandOption,
   StoreOption,
@@ -31,26 +32,41 @@ import type { BrandServiceInfo } from '@/lib/service-directory';
 
 export type { CategoryOption, BrandOption, StoreOption, RetailerOption, WarrantyProviderOption, BrandServiceInfo };
 
-const fetchCatalog = cache(async () => {
+/**
+ * The result of the one catalog read this module performs.
+ *
+ * `ok: false` means `GET /v1/catalog` failed; `catalog` is then the empty
+ * fallback shape so a caller that only reads a list still renders. A form whose
+ * category picker is required must check `ok` and show a retryable error —
+ * empty arrays alone are indistinguishable from an empty database and would
+ * leave a form that can never be submitted.
+ */
+export type DeviceCatalogResult = {
+  ok: boolean;
+  /** HTTP status of the failed read; absent when `ok` is true. */
+  status?: number;
+  catalog: Catalog;
+};
+
+const EMPTY_CATALOG: Catalog = {
+  categories: [],
+  brands: [],
+  stores: [],
+  retailers: [],
+  warrantyProviders: [],
+  brandServiceInfo: [],
+};
+
+const fetchCatalog = cache(async (): Promise<DeviceCatalogResult> => {
   const res = await api.catalog.get();
   if (!res.ok) {
-    // Catalog is non-essential; return empty arrays so pages still render
-    // (validation will reject category-required submissions on the API side
-    // and the UI shows them as empty selects).
-    return {
-      categories: [] as CategoryOption[],
-      brands: [] as BrandOption[],
-      stores: [] as StoreOption[],
-      retailers: [] as RetailerOption[],
-      warrantyProviders: [] as WarrantyProviderOption[],
-      brandServiceInfo: [] as BrandServiceInfo[],
-    };
+    return { ok: false, status: res.status, catalog: EMPTY_CATALOG };
   }
-  return res.data;
+  return { ok: true, catalog: res.data };
 });
 
 export async function getCategories(): Promise<CategoryOption[]> {
-  return (await fetchCatalog()).categories;
+  return (await fetchCatalog()).catalog.categories;
 }
 
 /**
@@ -61,9 +77,14 @@ export async function getCategories(): Promise<CategoryOption[]> {
  * surfaces that already hold a brand code and only need the link.
  */
 export async function getBrandServiceInfo(): Promise<BrandServiceInfo[]> {
-  return (await fetchCatalog()).brandServiceInfo;
+  return (await fetchCatalog()).catalog.brandServiceInfo;
 }
 
-export async function getDeviceFormCatalog() {
+/**
+ * The full bundle for the device / wishlist / subscription forms. Callers that
+ * render a required picker should surface `ok === false` (the forms use
+ * `ListLoadError`), not silently render an empty select.
+ */
+export async function getDeviceFormCatalog(): Promise<DeviceCatalogResult> {
   return fetchCatalog();
 }

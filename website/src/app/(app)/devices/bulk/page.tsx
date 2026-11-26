@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export default async function BulkAddDevicesPage() {
   await requireUser();
   const { t } = await getI18n();
-  const catalog = await getDeviceFormCatalog();
+  const catalogRes = await getDeviceFormCatalog();
 
   return (
     <PageShell className="mx-auto max-w-5xl">
@@ -36,7 +36,7 @@ export default async function BulkAddDevicesPage() {
         )}
       />
 
-      <DeviceBulkAdd categories={catalog.categories} />
+      <DeviceBulkAdd categories={catalogRes.catalog.categories} />
     </PageShell>
   );
 }

@@ -51,6 +51,11 @@ import {
 // would only cover the screens a test happens to render; the scan covers the
 // 180-odd files of the app whether or not anything imports them.
 //
+// The scan reads a whole file at a time, not one line at a time, so a call
+// whose argument sits on the next line — `t(\n  '…'\n)`, the shape the cookies
+// page uses — is still seen. The line number in a failure is derived from the
+// match offset instead.
+//
 // Two limits, stated so nobody trusts it further than it goes:
 //
 //   * Only LITERAL first arguments are visible. `t(section.title)` and
@@ -83,26 +88,44 @@ function sourceFiles(): string[] {
 
 // `t('key')` and `translate(locale, 'key')`, with a negative lookbehind so
 // `format('…')` / `obj.t('…')` are not mistaken for the translator.
+//
+// The literal must END the argument (`)` or `,` follows), not just start it: a
+// multi-line call keeps its argument on its own line, while a concatenation
+// like `translate(locale, 'first half ' + 'second half')` is ONE runtime key
+// that cannot be reconstructed from a fragment, so matching half of it would
+// demand a registration that does not exist.
 const KEY_CALL =
-  /(?<![\w.$])t\(\s*'((?:[^'\\]|\\.)*)'|\btranslate\(\s*[A-Za-z_$][\w.$]*\s*,\s*'((?:[^'\\]|\\.)*)'/g;
+  /(?<![\w.$])t\(\s*'((?:[^'\\]|\\.)*)'\s*[,)]|\btranslate\(\s*[A-Za-z_$][\w.$]*\s*,\s*'((?:[^'\\]|\\.)*)'\s*[,)]/g;
 
 function referencedKeys(): Map<string, string[]> {
   const found = new Map<string, string[]>();
   for (const file of sourceFiles()) {
     const rel = relative(SRC, file);
-    readFileSync(file, 'utf8')
-      .split('\n')
-      .forEach((line, index) => {
-        KEY_CALL.lastIndex = 0;
-        let match: RegExpExecArray | null;
-        while ((match = KEY_CALL.exec(line))) {
-          const raw = match[1] ?? match[2] ?? '';
-          if (!raw) continue;
-          const key = raw.replace(/\\'/g, "'").replace(/\\\\/g, '\\');
-          const where = `${rel}:${index + 1}`;
-          found.set(key, [...(found.get(key) ?? []), where]);
-        }
-      });
+    const source = readFileSync(file, 'utf8');
+    // Whole-file scan: `\s*` in KEY_CALL crosses the newline between `t(` and
+    // its literal, which a per-line scan could never see. Offsets are mapped
+    // back to line numbers only for the failure message.
+    const lineStarts = [0];
+    for (let i = 0; i < source.length; i += 1) {
+      if (source[i] === '\n') lineStarts.push(i + 1);
+    }
+    const lineAt = (offset: number): number => {
+      let line = 0;
+      while (line + 1 < lineStarts.length && lineStarts[line + 1] <= offset) {
+        line += 1;
+      }
+      return line + 1;
+    };
+
+    KEY_CALL.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = KEY_CALL.exec(source))) {
+      const raw = match[1] ?? match[2] ?? '';
+      if (!raw) continue;
+      const key = raw.replace(/\\'/g, "'").replace(/\\\\/g, '\\');
+      const where = `${rel}:${lineAt(match.index)}`;
+      found.set(key, [...(found.get(key) ?? []), where]);
+    }
   }
   return found;
 }

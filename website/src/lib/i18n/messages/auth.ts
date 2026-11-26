@@ -94,6 +94,11 @@ export const auth = defineMessages({
   'Đã đổi mật khẩu thành công': 'Password changed successfully',
   'Link không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.':
     'This link is invalid or has expired. Request a new one.',
+  // `lib/api/auth.ts` treats a 200 from `POST /auth/register` as "ambiguous":
+  // the account may be new, or the email already existed. Go normally sends
+  // this sentence itself; this is the fallback for a body with no message.
+  'Nếu email chưa đăng ký, tài khoản đã được tạo. Nếu đã có, vào đăng nhập hoặc quên mật khẩu.':
+    'If the email was new, the account has been created. If it already existed, sign in or reset the password.',
   'Không đổi được mật khẩu': 'Could not change the password',
   'Đã đổi mật khẩu. Vào /login để đăng nhập.':
     'Password changed. Sign in again to continue.',

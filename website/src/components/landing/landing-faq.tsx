@@ -51,7 +51,7 @@ function buildFaq(t: Translator): FaqEntry[] {
     {
       q: t('Có dùng trên iPhone được không?'),
       a: t(
-        'Được, qua Safari — không cần tải app. Trên iOS 16.4 trở lên, bạn có thể thêm Warrly vào màn hình chính rồi bật thông báo đẩy. Bản iOS native hiện là beta qua TestFlight, chưa có trên App Store.',
+        'Được, qua Safari — không cần tải app. Trên iOS 16.4 trở lên, bạn có thể thêm Warrly vào màn hình chính rồi bật thông báo đẩy. Bản iOS native đã có trên App Store.',
       ),
     },
     {
