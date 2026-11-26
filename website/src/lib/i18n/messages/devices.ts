@@ -188,6 +188,31 @@ export const devices = defineMessages({
     'Choose a currency other than VND to fetch a rate.',
   'Có gói bảo hành bằng ngoại tệ chưa được quy đổi — con số này chưa gồm gói đó.':
     'A warranty plan is priced in a foreign currency and has not been converted — this figure does not include it.',
+
+  // ── Price entry (build 36) ──────────────────────────────────────────────
+  // `purchasePrice` is the ORIGINAL listed price in `currency`; the locked
+  // `fxRate` is the ACTUAL VND per unit, derived from what the card was charged.
+  // The market rate is a third, REFERENCE-ONLY number that is never stored.
+  'Số tiền thực tế bị charge (VND)': 'Actual amount charged (VND)',
+  'Nhập số tiền thẻ đã bị trừ — tỷ giá bên cạnh sẽ tự tính.':
+    'Enter the amount your card was charged — the rate beside it is derived automatically.',
+  'Tỷ giá tham khảo': 'Reference rate',
+  'Chỉ tham khảo': 'Reference only',
+  'Đang lấy tỷ giá tham khảo…': 'Fetching the reference rate…',
+  'Tỷ giá thị trường hôm nay': "Today's market rate",
+  'Giá tham khảo (VND)': 'Reference value (VND)',
+  'Chênh lệch so với tham khảo': 'Difference vs reference',
+  'Tỷ giá tham khảo chỉ để so sánh, không bao giờ tự ghi đè tỷ giá bạn lưu.':
+    'The reference rate is for comparison only and never overwrites the rate you save.',
+  'Tỷ giá tham khảo có thể đã cũ (lấy lúc {time}).':
+    'The reference rate may be out of date (fetched {time}).',
+  'Lấy lúc {time}': 'Fetched {time}',
+  'Nguồn tỷ giá: {source}': 'Rate source: {source}',
+  'Giá gốc ({currency})': 'Original price ({currency})',
+  'Tỷ giá thực tế': 'Actual rate',
+  'Không lấy được tỷ giá tham khảo.': 'Could not fetch the reference rate.',
+  'Tỷ giá tham khảo chỉ để so sánh, không phải số tiền bị charge.':
+    'The reference rate is for comparison only; it is not the amount charged.',
   'Có {count} gói bảo hành tính bằng ngoại tệ nhưng API chưa trả giá trị VND — các tổng bên dưới chưa gồm những gói đó.':
     {
       en: '{count} warranty plans are priced in a foreign currency but the API does not return a VND value yet — the totals below do not include them.',

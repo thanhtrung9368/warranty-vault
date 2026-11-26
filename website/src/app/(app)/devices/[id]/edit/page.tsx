@@ -77,6 +77,7 @@ export default async function EditDevicePage({
           // reset a foreign-currency device to VND/null.
           currency: device.currency,
           fxRate: device.fxRate,
+          purchasePriceVnd: device.purchasePriceVnd,
           purchasePlace: device.purchasePlace,
           // Retailer link (migration 0030) — must round-trip, because PATCH
           // replaces the whole device and a build-23-shaped save without the key

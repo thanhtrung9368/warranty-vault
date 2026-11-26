@@ -3,7 +3,7 @@
 // The frozen contract:
 //
 //   GET /api/v1/fx/rates?base=USD
-//     → { base, rates, fetchedAt, stale }
+//     → { base, rates, fetchedAt, stale, source? }
 //
 // `base` is the device's currency. The rate the device needs is **VND per one
 // unit of `base`**, i.e. `rates.VND` when the server answers with the requested
@@ -25,6 +25,12 @@ export type FxRatesPayload = {
   rates: Record<string, number | string>;
   fetchedAt: string;
   stale: boolean;
+  /**
+   * Upstream host the snapshot came from ("open.er-api.com" in production).
+   * Additive with the DB-backed snapshot cache (migration 0035); an older
+   * server omits it, so the reference block must not require it.
+   */
+  source?: string;
 };
 
 export type FxLookupResult =
@@ -43,6 +49,30 @@ export type FxLookupResult =
       message: string;
     };
 
+/**
+ * The market rate used by the reference block. Unlike `FxLookupResult.rate`
+ * this one is deliberately NOT rounded: `referenceVnd` is
+ * `round(purchasePrice × rates.VND)`, and the contract keeps the provider's
+ * fractional number so the comparison is honest. It is never stored on the
+ * device — `Device.fxRate` remains the user's locked integer rate.
+ */
+export type FxReferenceResult =
+  | {
+      ok: true;
+      /** VND per one unit of the requested currency, exactly as reported. */
+      marketRate: number;
+      stale: boolean;
+      fetchedAt: string;
+      source: string | null;
+    }
+  | {
+      ok: false;
+      reason: 'unavailable' | 'invalid' | 'error';
+      status: number;
+      /** Already rendered in the request's language. */
+      message: string;
+    };
+
 function toPositiveRate(value: unknown): number | null {
   const parsed = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return null;
@@ -51,6 +81,21 @@ function toPositiveRate(value: unknown): number | null {
   // rate the API would reject.
   const rate = Math.round(parsed);
   return rate > 0 ? rate : null;
+}
+
+/**
+ * The provider's VND-per-unit number WITHOUT rounding.
+ *
+ * `extractVndRate` rounds because the value it feeds is stored as an integer.
+ * The reference block must use the raw number: `referenceVnd` is defined as
+ * `round(purchasePrice × rates.VND)`, so rounding the rate first would make the
+ * comparison disagree with the contract (and with the API response a careful
+ * reader can inspect).
+ */
+function toRawPositiveRate(value: unknown): number | null {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
 }
 
 /**
@@ -86,6 +131,55 @@ export function extractVndRate(
   // above already handles that. For any other base, do not silently use an
   // unrelated number.
   return null;
+}
+
+/** Same lookup rules as `extractVndRate`, but keeps the provider's decimals. */
+export function extractMarketVndRate(
+  currency: string,
+  payload: FxRatesPayload | null | undefined,
+): number | null {
+  if (!payload) return null;
+  const code = normalizeCurrency(currency);
+  const base = normalizeCurrency(payload.base);
+  const rates = payload.rates ?? {};
+
+  if (base === code) {
+    const direct = toRawPositiveRate(rates.VND ?? rates.vnd ?? rates.Vnd);
+    if (direct != null) return direct;
+  }
+
+  if (base === 'VND') {
+    const inverse = toRawPositiveRate(rates[code] ?? rates[code.toLowerCase()]);
+    if (inverse != null) {
+      const rate = 1 / inverse;
+      return Number.isFinite(rate) && rate > 0 ? rate : null;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * `referenceVnd = round(purchasePrice × rates.VND)` — today's market
+ * conversion, shown for comparison only. `null` when either input is missing
+ * or non-finite; the form then omits the reference figure rather than printing
+ * a made-up 0.
+ */
+export function referenceVndFor(
+  purchasePrice: number | null | undefined,
+  marketRate: number | null | undefined,
+): number | null {
+  if (purchasePrice == null || marketRate == null) return null;
+  if (!Number.isFinite(purchasePrice) || !Number.isFinite(marketRate)) return null;
+  if (purchasePrice < 0 || marketRate <= 0) return null;
+  return Math.round(purchasePrice * marketRate);
+}
+
+/** Trimmed upstream host, or `null` when an older server did not send one. */
+function normalizeSource(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const source = value.trim();
+  return source === '' ? null : source;
 }
 
 /**
@@ -139,5 +233,59 @@ export function resolveFxRate(
     rate,
     stale: res.data.stale === true,
     fetchedAt: typeof res.data.fetchedAt === 'string' ? res.data.fetchedAt : '',
+  };
+}
+
+/**
+ * Turn the API result into the reference block's data.
+ *
+ * The messages deliberately match `resolveFxRate`'s: the endpoint is the same
+ * and the failure modes are the same (503 is the documented "service
+ * unavailable", not the user's connection). What differs is that the number is
+ * never handed to the rate input — the caller shows it and stops there.
+ */
+export function resolveFxReference(
+  currency: string,
+  res: ApiResult<FxRatesPayload>,
+  locale: Locale,
+): FxReferenceResult {
+  if (!res.ok) {
+    const unavailable = res.status === 503;
+    return {
+      ok: false,
+      reason: unavailable ? 'unavailable' : 'error',
+      status: res.status,
+      message: unavailable
+        ? translate(
+            locale,
+            'Dịch vụ tỷ giá đang tạm thời không khả dụng — bạn nhập tỷ giá bằng tay nhé.',
+          )
+        : (res.message ??
+          translate(
+            locale,
+            'Không lấy được tỷ giá — bạn nhập tay bên dưới nhé.',
+          )),
+    };
+  }
+
+  const marketRate = extractMarketVndRate(currency, res.data);
+  if (marketRate == null) {
+    return {
+      ok: false,
+      reason: 'invalid',
+      status: 200,
+      message: translate(
+        locale,
+        'Không đọc được tỷ giá từ máy chủ — bạn nhập tay bên dưới nhé.',
+      ),
+    };
+  }
+
+  return {
+    ok: true,
+    marketRate,
+    stale: res.data.stale === true,
+    fetchedAt: typeof res.data.fetchedAt === 'string' ? res.data.fetchedAt : '',
+    source: normalizeSource(res.data.source),
   };
 }
