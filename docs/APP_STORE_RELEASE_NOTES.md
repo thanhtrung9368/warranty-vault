@@ -1,11 +1,112 @@
 # Warrly — App Store release & review notes
 
-Version: **1.0.2 (build 34)** · Bundle: `com.warrly` · Updated: 2026-11-24
+Version: **1.0.3 (build 36)** · Bundle: `com.warrly` · Updated: 2026-11-26
 
 > Dùng file này để copy từng mục vào App Store Connect. Không đưa mật khẩu demo
 > vào đây; demo account nằm trong **App Review Information** của ASC.
-> Mục **1.0.2** bên dưới là bản đang submit; các mục 1–5 là bản 1.0.0 giữ để
-> tham chiếu (phần Premium ở mục 3–4 vẫn dùng nguyên).
+> Mục **1.0.3 (build 36)** bên dưới là bản sắp submit; mục **1.0.2** giữ để tham
+> chiếu (bản đã submit trước đó), và các mục 1–5 là bản 1.0.0 giữ để tham chiếu
+> (phần Premium ở mục 3–4 vẫn dùng nguyên).
+
+## 1.0.3 (build 36) — What's New (English)
+
+```
+Warrly 1.0.3
+
+• Devices bought in another currency: enter the original listed price, the amount
+  your card was actually charged in VND, and see today's market rate as a
+  reference only.
+• The exchange rate you save is locked when you enter it, so totals never drift
+  with the market.
+• Fixed an issue where editing a device could remove its warranty.
+• More reliable sign-in when the network is unavailable.
+• VoiceOver, Dynamic Type and accessibility improvements.
+• Bug fixes and performance improvements.
+```
+
+## 1.0.3 (build 36) — What's New (Tiếng Việt)
+
+```
+Warrly 1.0.3
+
+• Thiết bị mua bằng ngoại tệ: nhập giá niêm yết gốc, số tiền thực tế bị charge
+  bằng VND, và xem tỷ giá thị trường hôm nay chỉ để tham khảo.
+• Tỷ giá bạn lưu được khoá tại lúc nhập, nên tổng tiền không đổi theo thị trường.
+• Sửa lỗi chỉnh sửa thiết bị có thể làm mất bảo hành.
+• Đăng nhập ổn định hơn khi không có mạng.
+• Cải thiện VoiceOver, Dynamic Type và khả năng tiếp cận.
+• Sửa lỗi và cải thiện hiệu năng.
+```
+
+## 1.0.3 (build 36) — Giá gốc, số tiền bị charge, tỷ giá tham khảo (VI/EN)
+
+### Tiếng Việt
+
+- **Giá gốc** — `purchasePrice` theo `currency` của thiết bị: con số niêm yết, không
+  quy đổi khi lưu.
+- **Số tiền thực tế bị charge** — ô **"Số tiền thực tế bị charge (VND)"**: nhập vào
+  thì app tính `fxRate = round(actualChargedVnd / purchasePrice)`, cho người dùng xem
+  và sửa tỷ giá; sửa tỷ giá thì tính lại số tiền sẽ lưu. Chỉ `purchasePrice`,
+  `currency`, `fxRate` được lưu — số tiền charge là ô tính, không phải cột mới.
+- **Tỷ giá tham khảo** — `GET /api/v1/fx/rates?base=<currency>` lấy tỷ giá thị trường
+  miễn phí hôm nay (`open.er-api.com`); form hiện `referenceVnd`, `actualVnd` và
+  `delta`. Badge **"Chỉ tham khảo"** / **"Reference only"**: đây **không phải** số
+  tiền bị charge và **không bao giờ** tự ghi đè `Device.fxRate`; tỷ giá đã lưu chỉ
+  đổi khi người dùng chọn.
+- **Miễn phí, cập nhật mỗi ngày** — nguồn cập nhật tối đa 1 lần/ngày; server cache
+  trong DB (`ExchangeRate`, migration `0035`) **24 giờ** cho mỗi `base`, dùng chung
+  mọi instance và sống qua restart/deploy. Nguồn lỗi thì trả bản cache cũ (`stale`)
+  kèm `fetchedAt` gốc; không có cache thì 503 và người dùng tự nhập tỷ giá. Tối đa
+  **1 request lên nguồn / base / 24 giờ / deployment**.
+
+### English
+
+- **Original price** — `purchasePrice` in the device's `currency`: the listed number,
+  never converted on save.
+- **Actual amount charged** — the **"Actual amount charged (VND)"** input: entering it
+  sets `fxRate = round(actualChargedVnd / purchasePrice)`, and the rate field stays
+  visible and editable; editing the rate recomputes the amount that will be saved.
+  Only `purchasePrice`, `currency` and `fxRate` are stored — the charged amount is a
+  calculator input, not a new column.
+- **Reference only** — `GET /api/v1/fx/rates?base=<currency>` returns today's free
+  market rate (`open.er-api.com`); the form shows `referenceVnd`, `actualVnd` and
+  `delta`. Badge **"Chỉ tham khảo"** / **"Reference only"**: this is **not** the amount
+  charged and it **never** automatically overwrites `Device.fxRate`; the saved rate
+  changes only when the user chooses.
+- **Free, updated daily** — the upstream refreshes at most once a day; the server
+  caches it in the DB (`ExchangeRate`, migration `0035`) for **24 hours** per `base`,
+  shared by every instance and surviving restarts/deploys. On upstream failure the
+  last cached rate is served as `stale` with its original `fetchedAt`; with no cache
+  the endpoint answers 503 and the user types the rate. At most **one upstream call
+  per base per 24 hours per deployment**.
+
+## 1.0.3 (build 36) — App Review Information → Notes (English)
+
+Thêm đoạn này vào **đầu** ô Notes; phần Premium ở mục 3 giữ nguyên bên dưới:
+
+```
+Warrly 1.0.3 adds a price-entry helper for devices bought in a currency other
+than VND. The user enters the original listed price in the device's currency and
+the amount their card was actually charged in VND; the app derives the exchange
+rate, and the user can see and edit it before saving. The saved rate is locked
+and is never refreshed afterwards.
+
+The app also shows today's free-market rate (open.er-api.com — free, no API key,
+refreshed at most once a day and cached by our server for 24 hours) as a
+REFERENCE only. That reference rate is NOT the amount charged: it is never saved
+automatically and never overwrites the rate the user locked. No purchase,
+payment or financial service is provided in the app for this feature.
+```
+
+## 1.0.3 (build 36) — Checklist trước khi submit
+
+- [ ] Build **36** của version **1.0.3** đã upload và được chọn
+- [ ] API đã deploy và migration **`0035`** (cache tỷ giá `ExchangeRate`) đã apply trên
+      production — `migrate status` báo goose version **35**
+- [ ] Review note ở trên đã dán vào **App Review Information → Notes**, nói rõ tỷ giá
+      tham khảo **không phải** số tiền bị charge
+- [ ] Thử trên máy thật với một thiết bị ngoại tệ: nhập giá niêm yết và số tiền thực
+      tế bị charge, sửa tỷ giá, thấy badge "Chỉ tham khảo" và số tiền sẽ lưu cập nhật
 
 ## 1.0.2 — What's New (English)
 
