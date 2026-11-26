@@ -1,14 +1,32 @@
 # Warrly — App Store release & review notes
 
-Version: **1.0.3 (build 36)** · Bundle: `com.warrly` · Updated: 2026-11-26
+Version: **1.0.3** · build trong repo: **37** · build kế tiếp/submit: **38** · Bundle: `com.warrly` · Updated: 2026-11-26
+Đang live: **1.0.2 (build 34)** · Apple ID **6824143315** · Listing: https://apps.apple.com/app/id6824143315
 
 > Dùng file này để copy từng mục vào App Store Connect. Không đưa mật khẩu demo
 > vào đây; demo account nằm trong **App Review Information** của ASC.
-> Mục **1.0.3 (build 36)** bên dưới là bản sắp submit; mục **1.0.2** giữ để tham
-> chiếu (bản đã submit trước đó), và các mục 1–5 là bản 1.0.0 giữ để tham chiếu
-> (phần Premium ở mục 3–4 vẫn dùng nguyên).
+> Mục **1.0.3** bên dưới là bản sắp submit — repo đang ở build **37**, lead đặt
+> build **38** trong `ios/project.yml` trước khi archive; submit build 38, không
+> submit build 36. Mục **1.0.2** giữ để tham chiếu (bản đang live từ 2026-11-25),
+> và các mục 1–5 là bản 1.0.0 giữ để tham chiếu (phần Premium ở mục 3–4 vẫn dùng
+> nguyên).
 
-## 1.0.3 (build 36) — What's New (English)
+## Trạng thái listing (kiểm 2026-11-26)
+
+- App ID: **6824143315** · ASC: https://appstoreconnect.apple.com/apps/6824143315
+- Listing công khai: https://apps.apple.com/app/id6824143315 — đã mở (HTTP 200),
+  chuyển tới bản US `warrly-warranty-tracker/id6824143315`. Đây là URL thật duy
+  nhất; repo không có URL listing nào khác, đừng tạo link thay thế.
+- Đang live: **1.0.2 (build 34)**, phát hành 2026-11-25. **1.0.3 chưa live.**
+- Age rating: **4+**. App Privacy: **đã Publish** — Identifiers + Usage Data dùng
+  để track; Purchases, Contact Info, User Content, Identifiers liên kết với người
+  dùng; Usage Data không liên kết. Khớp `ios/App/PrivacyInfo.xcprivacy`.
+- Screenshot đang live: **10 ảnh iPhone + 10 ảnh iPad** (tên `01-dashboard` …
+  `10-final`). Bộ Duo 10 inner + 10 outer nằm trong
+  `artifacts/appstore/duo-official/`; xem cảnh báo nguồn ảnh ở mục "Screenshot
+  sets" bên dưới.
+
+## 1.0.3 (build 37 → 38) — What's New (English)
 
 ```
 Warrly 1.0.3
@@ -20,11 +38,13 @@ Warrly 1.0.3
   with the market.
 • Fixed an issue where editing a device could remove its warranty.
 • More reliable sign-in when the network is unavailable.
+• Premium: the 7-day free trial is offered only when your account is eligible;
+  otherwise the subscribe button shows the regular plan.
 • VoiceOver, Dynamic Type and accessibility improvements.
 • Bug fixes and performance improvements.
 ```
 
-## 1.0.3 (build 36) — What's New (Tiếng Việt)
+## 1.0.3 (build 37 → 38) — What's New (Tiếng Việt)
 
 ```
 Warrly 1.0.3
@@ -34,11 +54,13 @@ Warrly 1.0.3
 • Tỷ giá bạn lưu được khoá tại lúc nhập, nên tổng tiền không đổi theo thị trường.
 • Sửa lỗi chỉnh sửa thiết bị có thể làm mất bảo hành.
 • Đăng nhập ổn định hơn khi không có mạng.
+• Premium: chỉ hiện ưu đãi dùng thử 7 ngày khi tài khoản đủ điều kiện; nếu không,
+  nút đăng ký hiển thị gói thường.
 • Cải thiện VoiceOver, Dynamic Type và khả năng tiếp cận.
 • Sửa lỗi và cải thiện hiệu năng.
 ```
 
-## 1.0.3 (build 36) — Giá gốc, số tiền bị charge, tỷ giá tham khảo (VI/EN)
+## 1.0.3 (build 37 → 38) — Giá gốc, số tiền bị charge, tỷ giá tham khảo (VI/EN)
 
 ### Tiếng Việt
 
@@ -80,7 +102,7 @@ Warrly 1.0.3
   the endpoint answers 503 and the user types the rate. At most **one upstream call
   per base per 24 hours per deployment**.
 
-## 1.0.3 (build 36) — App Review Information → Notes (English)
+## 1.0.3 (build 37 → 38) — App Review Information → Notes (English)
 
 Thêm đoạn này vào **đầu** ô Notes; phần Premium ở mục 3 giữ nguyên bên dưới:
 
@@ -96,19 +118,36 @@ refreshed at most once a day and cached by our server for 24 hours) as a
 REFERENCE only. That reference rate is NOT the amount charged: it is never saved
 automatically and never overwrites the rate the user locked. No purchase,
 payment or financial service is provided in the app for this feature.
+
+Build 37/38 also corrects when the Premium introductory offer is shown: the
+paywall reads StoreKit's per-account eligibility and only offers the 7-day free
+trial to an eligible account; otherwise it shows the regular subscription price.
+No new data is collected and the App Privacy answers are unchanged from 1.0.2.
 ```
 
-## 1.0.3 (build 36) — Checklist trước khi submit
+## 1.0.3 (build 37 → 38) — Checklist trước khi submit
 
-- [ ] Build **36** của version **1.0.3** đã upload và được chọn
+- [ ] Build **38** của version **1.0.3** đã upload và được chọn. Build **37** là
+      bản hiện tại trong repo; lead đặt **38** trong `ios/project.yml` — không
+      submit build 36.
 - [ ] API đã deploy và migration **`0035`** (cache tỷ giá `ExchangeRate`) đã apply trên
       production — `migrate status` báo goose version **35**
 - [ ] Review note ở trên đã dán vào **App Review Information → Notes**, nói rõ tỷ giá
-      tham khảo **không phải** số tiền bị charge
+      tham khảo **không phải** số tiền bị charge và trial chỉ hiện khi tài khoản đủ
+      điều kiện
 - [ ] Thử trên máy thật với một thiết bị ngoại tệ: nhập giá niêm yết và số tiền thực
       tế bị charge, sửa tỷ giá, thấy badge "Chỉ tham khảo" và số tiền sẽ lưu cập nhật
+- [ ] App Privacy vẫn **Published** và khớp `ios/App/PrivacyInfo.xcprivacy`; age
+      rating vẫn **4+** (1.0.3 không thêm SDK hay loại dữ liệu mới)
+- [ ] Listing URL/ID đúng: **6824143315** /
+      https://apps.apple.com/app/id6824143315
+- [ ] Bộ screenshot 10 iPhone + 10 iPad và 10+10 Duo còn gắn đúng version 1.0.3;
+      xem cảnh báo nguồn ảnh Duo trong mục "Screenshot sets"
 
 ## 1.0.2 — What's New (English)
+
+> 1.0.2 (build 34) **đã live** trên App Store từ 2026-11-25; phần này giữ để
+> tham chiếu lịch sử và để biết listing hiện tại đang nói gì.
 
 ```
 Warrly 1.0.2
@@ -147,13 +186,35 @@ both displays: inner 2007 × 2853 and outer 1398 × 2034.
 
 ## 1.0.2 — iPhone Duo screenshot checklist
 
-- [ ] Build **34** của version **1.0.2** đã upload và được chọn
+- [x] Build **34** của version **1.0.2** đã upload và được chọn
 - [ ] Version page → tab **iPhone Duo** (tab riêng, không dùng chung với iPhone)
-- [ ] Inner display — **10** ảnh, **2007 × 2853** (portrait)
-- [ ] Outer display — **10** ảnh, **1398 × 2034** (portrait)
-- [ ] Ảnh chụp từ build **1.0.2 (34)** — giao diện đã tối ưu cho Duo, không phải
-      giao diện iPhone phóng to
+- [x] Inner display — bộ **10** ảnh, **2007 × 2853** (portrait) có trong repo
+- [x] Outer display — bộ **10** ảnh, **1398 × 2034** (portrait) có trong repo
+- [ ] Ảnh chụp từ build **1.0.2 (34)** — xem cảnh báo nguồn ảnh bên dưới; bộ
+      hiện có **không phải** capture trực tiếp màn hình Duo
 - [ ] Upload đủ cả hai bộ trước khi **Add for Review**
+
+## Screenshot sets — kiểm 2026-11-26
+
+- Listing 1.0.2 đang live: **10 ảnh iPhone + 10 ảnh iPad**, tên
+  `01-dashboard` … `10-final`. Bộ này **không có trong repo**; repo chỉ còn bộ
+  5+5 cũ `artifacts/appstore/listing-*` / `listing-vi-*` và bộ iPad tương ứng.
+- Duo trong repo (đủ 10+10):
+  - `artifacts/appstore/duo-official/inner/` — 10 ảnh, 2007 × 2853
+  - `artifacts/appstore/duo-official/outer/` — 10 ảnh, 1398 × 2034
+  - Bản VI: `artifacts/appstore/duo-official/vi/inner/` và `vi/outer/`
+- **Nguồn ảnh Duo — cảnh báo:** `Tools/appstore_screenshots_duo_official.py`
+  dựng cả bộ inner **và** outer từ ảnh chụp iPad-width
+  (`artifacts/appstore/listing-ipad-*.png`) đặt vào khung Duo chính thức, không
+  phải capture trực tiếp màn hình trong/ngoài. `artifacts/appstore/duo/raw/README.md`
+  ghi rõ simulator không render được màn hình trong (framebuffer đen), và mọi
+  ảnh trong `duo/raw/` đều là màn hình ngoài. Vì vậy:
+  - **Không** dán câu "ảnh chụp từ build 1.0.2 (34), giao diện đã tối ưu cho Duo"
+    cho bộ `duo-official` — câu đó chỉ đúng nếu ảnh được chụp thật từ app trên
+    đúng màn hình.
+  - Nếu ASC/Apple yêu cầu ảnh Duo thật, phải chụp lại từ thiết bị/simulator có
+    render được cả hai màn hình trước khi submit; nếu không, coi đây là rủi ro
+    review đã biết, không phải bằng chứng đã xong.
 
 ## 1. Version 1.0.0 → What's New (English)
 
@@ -208,6 +269,11 @@ How to review Premium:
 ```
 
 ## 4. Subscription review — copy-paste checklist
+
+> Mục 4–5 là checklist của lần submit **1.0.0 (build 23)** — giữ để tham chiếu
+> lịch sử. Đừng dùng số build 23 hay câu "attach to version 1.0.0" cho 1.0.3;
+> checklist hiện hành nằm ở mục "1.0.3 (build 37 → 38) — Checklist trước khi
+> submit" phía trên.
 
 - Subscription group: **Warrly Premium**
 - `com.warrly.premium.monthly` — 1 month — **49,000đ** — **7-day free trial**

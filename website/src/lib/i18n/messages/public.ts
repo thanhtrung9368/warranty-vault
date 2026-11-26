@@ -374,16 +374,16 @@ export const publicPages = defineMessages({
   'Máy chủ đó có thể đặt ngoài Việt Nam — xem mục 11.':
     'That server may sit outside Vietnam — see section 11.',
 
-  // §4 — AI assistant, unchanged.
+  // §4 — AI assistant. The three uses are the same keys the opt-in disclosure
+  // in `settings.ts` / `ai-settings.tsx` uses; this section used to say "two
+  // things" and omitted warranty-card extraction while the consent named three.
   '4. Trợ lý AI (tự chọn bật)': '4. AI assistant (opt-in)',
   'Mặc định tính năng này': 'This feature is',
   'TẮT': 'OFF',
-  'Chỉ khi mày tự bật trong Cài đặt, trợ lý AI mới làm hai việc: đọc ảnh hoặc PDF hoá đơn mày chọn (được':
-    'by default. Only after you enable it in Settings does the AI assistant do two things: read a receipt image or PDF you pick (',
-  'giải mã và gửi tới nhà cung cấp AI bên thứ ba (Anthropic)':
-    'decrypted and sent to a third-party AI provider (Anthropic)',
-  'để tự điền thông tin thiết bị), và đánh giá một lần sửa chữa có thuộc diện bảo hành hay không (gửi nội dung phiếu sửa chữa, thông tin thiết bị và các điều khoản hợp đồng bảo hành tới cùng nhà cung cấp đó). Kết quả luôn là gợi ý để mày kiểm tra lại — không phải quyết định bảo hành, và không có gì được tự động lưu. Không bật thì ảnh không bao giờ rời máy chủ ở dạng đã giải mã và không nội dung nào được gửi đi. Mày có thể tắt lại bất cứ lúc nào.':
-    'to fill in the device details), and assess whether a repair is likely covered (sending the claim content, the device details and the warranty contract terms to that same provider). The result is always guidance for you to check — it is not a warranty decision, and nothing is saved automatically. With the feature off, an image never leaves the server decrypted and no content is sent. You can turn it back off at any time.',
+  'Chỉ khi mày tự bật trong Cài đặt, trợ lý AI mới làm ba việc:':
+    'Only after you enable it in Settings does the AI assistant do three things:',
+  'Kết quả luôn là gợi ý hoặc bản nháp để mày kiểm tra lại — không phải quyết định bảo hành. Với phần AI, Warrly chỉ lưu văn bản đọc được từ tệp dưới dạng plaintext để tìm kiếm; tệp gốc vẫn được mã hoá và không thiết bị, gói bảo hành hay phiếu sửa chữa nào được tự động tạo. Không bật thì ảnh không bao giờ rời máy chủ ở dạng đã giải mã và không nội dung nào được gửi đi. Mày có thể tắt lại bất cứ lúc nào.':
+    'Every result is a suggestion or a draft for you to check — not a warranty decision. For the AI features, Warrly stores only the text read from a file, as plaintext, so it can be searched; the file itself stays encrypted, and no device, warranty plan or claim is created automatically. With the feature off, an image never leaves the server decrypted and no content is sent. You can turn it back off at any time.',
 
   // §5 — advertising. Facts, not adjectives: AdMob is named, the two Google
   // entities are named, Google's role is stated, the default (non-personalised)
