@@ -380,6 +380,36 @@ targets:
         com.apple.security.application-groups:
           - group.com.warrly
 
+  # XCUITest bundle: black-box UI tests that drive the real app on a simulator
+  # or a physical iPhone. It is a `bundle.ui-testing` target, not a unit-test
+  # bundle, so it has no access to the app's code or process — everything it
+  # needs is in `ios/UITests/`: a small in-process mock HTTP server on
+  # 127.0.0.1 and deterministic fixtures (see `ios/UITests/README.md`).
+  #
+  # TEST_TARGET_NAME tells XCTest which app to install and launch; the target
+  # dependency on `Warrly` makes `xcodebuild build-for-testing` build the app
+  # first. Neither the app nor this bundle carries production credentials, and
+  # no test reads the real API: the launch environment points the app at the
+  # mock (see `App/UITestSupport.swift`).
+  WarrlyUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+        excludes:
+          - README.md
+    dependencies:
+      - target: Warrly
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.warrly.WarrlyUITests
+        PRODUCT_NAME: WarrlyUITests
+        TEST_TARGET_NAME: Warrly
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: H572CC5N6D
+
 schemes:
   # The app's own scheme MUST be declared here. It used to be "Xcode-managed",
   # which meant it lived only in the .xcodeproj — and `xcodegen generate`
@@ -392,6 +422,14 @@ schemes:
         Warrly: all
     run:
       config: Debug
+    # The UI test bundle is part of this scheme's test action, so
+    # `xcodebuild test -scheme Warrly` and Xcode's Test action both run it.
+    # It is not in the build action: `xcodebuild build -scheme Warrly` must keep
+    # producing just the app for release/CI, exactly as before.
+    test:
+      config: Debug
+      targets:
+        - WarrlyUITests
     archive:
       config: Release
 

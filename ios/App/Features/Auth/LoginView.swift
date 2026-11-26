@@ -101,7 +101,8 @@ struct LoginView: View {
                 submitLabel: .next,
                 focus: $emailFocused,
                 onSubmit: { passwordFocused = true },
-                error: fieldErrors["email"]?.first
+                error: fieldErrors["email"]?.first,
+                accessibilityID: "login.email"
             )
 
             AuthTextField(
@@ -119,7 +120,8 @@ struct LoginView: View {
                     Task { await submit() }
                 },
                 error: fieldErrors["password"]?.first,
-                labelAccessory: AnyView(forgotButton)
+                labelAccessory: AnyView(forgotButton),
+                accessibilityID: "login.password"
             )
 
             if let topError {
@@ -140,6 +142,7 @@ struct LoginView: View {
                 Task { await submit() }
             }
             .disabled(isSubmitting || !canSubmit)
+            .accessibilityIdentifier("login.submit")
             .padding(.top, WVSpacing.sm)
         }
         .padding(WVSpacing.lg)
@@ -239,6 +242,8 @@ struct AuthTextField: View {
     /// `Quên mật khẩu?`). `AnyView` keeps the shared component from growing a
     /// second generic parameter for a two-call-site feature.
     var labelAccessory: AnyView? = nil
+    /// Optional XCUITest anchor, applied to the TextField/SecureField itself.
+    var accessibilityID: String? = nil
 
     @FocusState private var internalFocus: Bool
 
@@ -305,7 +310,8 @@ struct AuthTextField: View {
                 keyboardType: keyboardType,
                 submitLabel: submitLabel,
                 focus: focus,
-                onSubmit: onSubmit
+                onSubmit: onSubmit,
+                accessibilityID: accessibilityID
             )
             .foregroundStyle(WVColor.label)
             .padding(.leading, WVSpacing.gutter)
@@ -326,6 +332,7 @@ struct AuthTextField: View {
                 .foregroundStyle(WVColor.label)
                 .multilineTextAlignment(.leading)
                 .padding(.horizontal, WVSpacing.gutter)
+                .modifier(OptionalAccessibilityIdentifier(identifier: accessibilityID))
         }
     }
 }

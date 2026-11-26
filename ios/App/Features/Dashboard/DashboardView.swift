@@ -119,6 +119,9 @@ struct DashboardView: View {
                 Spacer().frame(height: WVSpacing.xl)
             }
         }
+        // Stable XCUITest anchor: the tab shell and every screen are localised,
+        // so the UI tests must not search by Vietnamese/English copy.
+        .accessibilityIdentifier("dashboard.screen")
         .wvScreen()
         .navigationTitle(L.t("Tổng quan"))
         .navigationBarTitleDisplayMode(.large)
