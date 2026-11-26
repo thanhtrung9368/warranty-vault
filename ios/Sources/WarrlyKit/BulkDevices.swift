@@ -188,6 +188,11 @@ public enum BulkDeviceRules {
             // these rows would silently be denominated differently.
             input.currency = CurrencyRules.vnd
             input.fxRate = nil
+            // An explicit 0, not an omitted key: a bulk create has no warranty
+            // field, so this states "no warranty package". On PATCH the two are
+            // not the same — absent means "keep" — and the create path must not
+            // depend on that distinction to stay non-destructive.
+            input.warrantyMonths = 0
             return input
         }
     }

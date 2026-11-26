@@ -2657,14 +2657,18 @@ struct DeviceFormView: View {
         // seeded from the device and updated by the record sheet.
         BrandWarrantyRules.apply(brandWarranty, to: &input)
 
+        // The warranty block is create-only in this form. Create states the term
+        // explicitly (`0` means "no warranty"), while edit mode leaves
+        // `warrantyMonths` nil on purpose: an absent key means "keep the stored
+        // STANDARD warranty", whereas a present `0` means "delete it"
+        // server-side — the old `input.warrantyMonths = 0` here erased the
+        // warranty (and its reminders) on every edit.
         if !isEditing {
             // The create form asks only for the two facts that create the
             // deadline: the term and who backs it. The contact details belong
             // to the package's own form, which is where they are edited.
             input.warrantyMonths = Int(warrantyMonths) ?? 0
             input.warrantyProvider = warrantyProvider.isEmpty ? nil : warrantyProvider
-        } else {
-            input.warrantyMonths = 0
         }
 
         do {

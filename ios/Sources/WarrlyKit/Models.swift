@@ -1097,7 +1097,26 @@ public struct DeviceInput: Encodable, Sendable {
     public var retailerId: String?
     public var status: DeviceStatus = .ACTIVE
     public var notes: String?
-    public var warrantyMonths: Int = 0
+    /// Length in months of the inline STANDARD warranty, or `nil` when this
+    /// payload does not carry that block (openapi `DeviceInput.warrantyMonths`).
+    ///
+    /// TRI-state on PATCH:
+    ///
+    ///   * key absent (`nil`, dropped by the encoder) — keep the stored STANDARD
+    ///     warranty and its provider/address/phone/notes exactly as they are.
+    ///     This is what a form edit sends; before the property was optional the
+    ///     encoder always wrote `0`, so every edit deleted the warranty — and,
+    ///     by cascade, every reminder pointing at it.
+    ///   * `0` — explicit "no warranty". CREATE creates none (identical to
+    ///     absent, because there is nothing to preserve); UPDATE deletes the
+    ///     stored STANDARD row. Both create paths state it explicitly.
+    ///   * `N > 0` — create the STANDARD warranty (create), or create/replace it
+    ///     (update), covering N months.
+    ///
+    /// The four `warranty*` detail fields below belong to this block: the server
+    /// writes them only when this key is present, so a save that omits the block
+    /// cannot blank them.
+    public var warrantyMonths: Int?
     public var warrantyProvider: String?
     public var warrantyAddress: String?
     public var warrantyPhone: String?
@@ -1267,7 +1286,6 @@ public struct DeviceInput: Encodable, Sendable {
         try container.encode(purchaseDate, forKey: .purchaseDate)
         try container.encode(purchasePrice, forKey: .purchasePrice)
         try container.encode(status, forKey: .status)
-        try container.encode(warrantyMonths, forKey: .warrantyMonths)
         try container.encode(activationRequired, forKey: .activationRequired)
         // Optionals keep the synthesized `encodeIfPresent` behaviour: omitted,
         // not null. Go decodes both the same way for all of these.
@@ -1278,6 +1296,9 @@ public struct DeviceInput: Encodable, Sendable {
         // Tri-state: nil is omitted ("keep"), "" is sent as an explicit clear.
         try container.encodeIfPresent(retailerId, forKey: .retailerId)
         try container.encodeIfPresent(notes, forKey: .notes)
+        // Tri-state: nil is omitted ("keep the warranty"), 0 is sent as an
+        // explicit delete — see the field's documentation.
+        try container.encodeIfPresent(warrantyMonths, forKey: .warrantyMonths)
         try container.encodeIfPresent(warrantyProvider, forKey: .warrantyProvider)
         try container.encodeIfPresent(warrantyAddress, forKey: .warrantyAddress)
         try container.encodeIfPresent(warrantyPhone, forKey: .warrantyPhone)
