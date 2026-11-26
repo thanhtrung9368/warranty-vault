@@ -356,7 +356,7 @@ export default async function SubscriptionsPage({
 
                 {s.plan && (
                   <p className="text-xs text-ink-2">
-                    <span className="eyebrow mr-1.5">Plan</span>
+                    <span className="eyebrow mr-1.5">{t('Gói')}</span>
                     {s.plan}
                   </p>
                 )}

@@ -18,6 +18,7 @@ export const auth = defineMessages({
     'Signing up takes 30 seconds. No credit card. The free tier has ads; the paid tier does not.',
   'Tên hiển thị': 'Display name',
   'Để trống cũng được': 'You can leave this blank',
+  'vd: Trung': 'e.g. Trung',
   'Mật khẩu': 'Password',
   'Quên mật khẩu?': 'Forgot your password?',
   'Tối thiểu 8 ký tự': 'At least 8 characters',

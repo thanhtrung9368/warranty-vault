@@ -13,13 +13,12 @@ export function YearPicker({ years, value }: { years: number[]; value: number })
     router.replace(`/stats?${next.toString()}`);
   };
   return (
-    <div className="pill-group" role="tablist" aria-label={t('Chọn năm')}>
+    <div className="pill-group" role="group" aria-label={t('Chọn năm')}>
       {years.map((y) => (
         <button
           key={y}
           type="button"
-          role="tab"
-          aria-selected={y === value}
+          aria-pressed={y === value}
           data-active={y === value}
           onClick={() => go(y)}
         >

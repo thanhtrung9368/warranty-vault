@@ -141,8 +141,7 @@ describe('primary button contrast (WCAG AA, 4.5:1)', () => {
 // Secondary text (subtitles, labels, placeholders) is the other half of the same
 // AA contract. The old `--muted` measured 4.19:1 on the cream page and the old
 // `--muted-2` 2.58:1 on white; the token values in `globals.css` are darkened
-// until both clear 4.5:1 on every light surface token they can sit on. The dark
-// palette is a separate set of values and is not part of this pin.
+// until both clear 4.5:1 on every light surface token they can sit on.
 describe('secondary text contrast (WCAG AA, 4.5:1), light mode', () => {
   const root = ruleFor(':root');
   const surfaces = ['background', 'card', 'surface-2', 'surface-3'] as const;
@@ -154,6 +153,30 @@ describe('secondary text contrast (WCAG AA, 4.5:1), light mode', () => {
         const value = ratio(`${token} on ${surface}`, root[surface], root[token]);
         // The number is in the message so a regression says "4.21:1", not
         // "expected true to be true".
+        expect(
+          value,
+          `${token} on ${surface}: ${value.toFixed(2)}:1`,
+        ).toBeGreaterThanOrEqual(4.5);
+      });
+    }
+  }
+});
+
+// The dark palette is a separate set of values, so it needs its own pin: the
+// light block above only replays `:root`. The old dark `--muted-2` (#6C667F)
+// measured 3.45:1 on `--background` and 3.10:1 on `--card`, and the old
+// `--muted` fell to 3.87:1 on `--surface-3`. Both tokens were raised (on a dark
+// palette contrast comes from going lighter) until they clear 4.5:1 on every
+// dark surface they can sit on — the same four surfaces as light mode.
+describe('secondary text contrast (WCAG AA, 4.5:1), dark mode', () => {
+  const dark = ruleFor('.dark');
+  const surfaces = ['background', 'card', 'surface-2', 'surface-3'] as const;
+  const tokens = ['muted', 'muted-foreground', 'muted-2'] as const;
+
+  for (const token of tokens) {
+    for (const surface of surfaces) {
+      it(`${token} clears AA on ${surface}`, () => {
+        const value = ratio(`${token} on ${surface}`, dark[surface], dark[token]);
         expect(
           value,
           `${token} on ${surface}: ${value.toFixed(2)}:1`,

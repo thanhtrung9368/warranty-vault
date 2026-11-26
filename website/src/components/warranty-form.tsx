@@ -8,6 +8,7 @@ import { ChevronDown, Loader2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -62,11 +63,6 @@ type Initial = {
   claimsUsed?: number | null;
 };
 
-function FieldError({ errors }: { errors?: string[] }) {
-  if (!errors || errors.length === 0) return null;
-  return <p className="text-xs text-destructive">{errors[0]}</p>;
-}
-
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
@@ -82,11 +78,15 @@ function MoneyInput({
   name,
   id,
   currency = 'VND',
+  invalid,
+  describedBy,
 }: {
   defaultValue?: number | null;
   name: string;
   id?: string;
   currency?: string;
+  invalid?: boolean;
+  describedBy?: string;
 }) {
   // `formatNumber` needs the locale (1.200.000 / 1,200,000), so the input reads
   // it from the provider rather than taking a prop.
@@ -116,6 +116,8 @@ function MoneyInput({
           setValue(formatNumber(parseVNDInput(raw), locale));
         }}
         placeholder="0"
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         className="pr-10"
       />
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
@@ -271,7 +273,11 @@ export function WarrantyForm({
             {t('Loại gói')} <span className="text-destructive">*</span>
           </Label>
           <Select name="type" defaultValue={initial?.type ?? 'EXTENDED'}>
-            <SelectTrigger id="type">
+            <SelectTrigger
+              id="type"
+              aria-invalid={Boolean(errors.type?.length)}
+              aria-describedby={errors.type?.length ? 'type-error' : undefined}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -282,7 +288,7 @@ export function WarrantyForm({
               ))}
             </SelectContent>
           </Select>
-          <FieldError errors={errors.type} />
+          <FieldError id="type-error" errors={errors.type} />
         </div>
 
         <div className="space-y-2">
@@ -305,8 +311,10 @@ export function WarrantyForm({
             type="date"
             defaultValue={startDateDefault}
             required
+            aria-invalid={Boolean(errors.startDate?.length)}
+            aria-describedby={errors.startDate?.length ? 'startDate-error' : undefined}
           />
-          <FieldError errors={errors.startDate} />
+          <FieldError id="startDate-error" errors={errors.startDate} />
         </div>
 
         <div className="space-y-2">
@@ -320,8 +328,10 @@ export function WarrantyForm({
             min={1}
             defaultValue={initial?.months ?? 12}
             required
+            aria-invalid={Boolean(errors.months?.length)}
+            aria-describedby={errors.months?.length ? 'months-error' : undefined}
           />
-          <FieldError errors={errors.months} />
+          <FieldError id="months-error" errors={errors.months} />
         </div>
 
         <div className="space-y-2">
@@ -415,8 +425,10 @@ export function WarrantyForm({
               name="component"
               defaultValue={textDefault('component')}
               placeholder={t('vd: Màn hình (bỏ trống = toàn bộ máy)')}
+              aria-invalid={Boolean(errors.component?.length)}
+              aria-describedby={errors.component?.length ? 'component-error' : undefined}
             />
-            <FieldError errors={errors.component} />
+            <FieldError id="component-error" errors={errors.component} />
           </div>
 
           <div className="space-y-2">
@@ -427,8 +439,10 @@ export function WarrantyForm({
               name="region"
               defaultValue={textDefault('region')}
               placeholder={t('vd: Toàn quốc')}
+              aria-invalid={Boolean(errors.region?.length)}
+              aria-describedby={errors.region?.length ? 'region-error' : undefined}
             />
-            <FieldError errors={errors.region} />
+            <FieldError id="region-error" errors={errors.region} />
           </div>
 
           <div className="space-y-2 md:col-span-2">
@@ -440,8 +454,10 @@ export function WarrantyForm({
               defaultValue={textDefault('scope')}
               placeholder={t('vd: lỗi phần cứng, cháy nổ do điện')}
               rows={2}
+              aria-invalid={Boolean(errors.scope?.length)}
+              aria-describedby={errors.scope?.length ? 'scope-error' : undefined}
             />
-            <FieldError errors={errors.scope} />
+            <FieldError id="scope-error" errors={errors.scope} />
           </div>
 
           <div className="space-y-2">
@@ -451,8 +467,10 @@ export function WarrantyForm({
               id="cap"
               defaultValue={numberDefault('cap', initial?.cap)}
               name="cap"
+              invalid={Boolean(errors.cap?.length)}
+              describedBy={errors.cap?.length ? 'cap-error' : undefined}
             />
-            <FieldError errors={errors.cap} />
+            <FieldError id="cap-error" errors={errors.cap} />
           </div>
 
           <div className="space-y-2">
@@ -462,8 +480,10 @@ export function WarrantyForm({
               id="deductible"
               defaultValue={numberDefault('deductible', initial?.deductible)}
               name="deductible"
+              invalid={Boolean(errors.deductible?.length)}
+              describedBy={errors.deductible?.length ? 'deductible-error' : undefined}
             />
-            <FieldError errors={errors.deductible} />
+            <FieldError id="deductible-error" errors={errors.deductible} />
           </div>
 
           <div className="space-y-2">
@@ -478,8 +498,12 @@ export function WarrantyForm({
               inputMode="numeric"
               defaultValue={numberDefault('claimsAllowed', initial?.claimsAllowed) ?? ''}
               placeholder="0"
+              aria-invalid={Boolean(errors.claimsAllowed?.length)}
+              aria-describedby={
+                errors.claimsAllowed?.length ? 'claimsAllowed-error' : undefined
+              }
             />
-            <FieldError errors={errors.claimsAllowed} />
+            <FieldError id="claimsAllowed-error" errors={errors.claimsAllowed} />
           </div>
 
           <div className="space-y-2">
@@ -493,11 +517,15 @@ export function WarrantyForm({
               step={1}
               inputMode="numeric"
               defaultValue={numberDefault('claimsUsed', initial?.claimsUsed) ?? 0}
+              aria-invalid={Boolean(errors.claimsUsed?.length)}
+              aria-describedby={
+                errors.claimsUsed?.length ? 'claimsUsed-error' : undefined
+              }
             />
             {/* The server's own rule is `claimsUsed > claimsAllowed` → 400 on
                 this key; showing its error here is the whole point of
                 forwarding the field untouched. */}
-            <FieldError errors={errors.claimsUsed} />
+            <FieldError id="claimsUsed-error" errors={errors.claimsUsed} />
           </div>
 
           <div className="space-y-2">
@@ -511,7 +539,13 @@ export function WarrantyForm({
                   : transferableDefault
               }
             >
-              <SelectTrigger id="transferable">
+              <SelectTrigger
+                id="transferable"
+                aria-invalid={Boolean(errors.transferable?.length)}
+                aria-describedby={
+                  errors.transferable?.length ? 'transferable-error' : undefined
+                }
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -520,7 +554,7 @@ export function WarrantyForm({
                 <SelectItem value="false">{t('Không')}</SelectItem>
               </SelectContent>
             </Select>
-            <FieldError errors={errors.transferable} />
+            <FieldError id="transferable-error" errors={errors.transferable} />
           </div>
 
           <div className="space-y-2 md:col-span-2">
@@ -532,8 +566,10 @@ export function WarrantyForm({
               defaultValue={textDefault('exclusions')}
               placeholder={t('vd: rơi vỡ, vào nước, hao mòn tự nhiên')}
               rows={2}
+              aria-invalid={Boolean(errors.exclusions?.length)}
+              aria-describedby={errors.exclusions?.length ? 'exclusions-error' : undefined}
             />
-            <FieldError errors={errors.exclusions} />
+            <FieldError id="exclusions-error" errors={errors.exclusions} />
           </div>
         </div>
       </details>

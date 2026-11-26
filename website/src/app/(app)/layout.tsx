@@ -8,6 +8,7 @@ import { APP_BADGE_WITHIN_DAYS, dueBadgeCount } from '@/lib/app-badge';
 import { badgeCount } from '@/lib/action-queue';
 import { inboxCount } from '@/lib/inbox';
 import { requireUser } from '@/lib/auth';
+import { getI18n } from '@/lib/i18n/server';
 
 // Signed-in pages inherit the root layout's metadata, including its canonical
 // URL and homepage Open Graph card. Neither is true of `/dashboard`: these pages
@@ -23,6 +24,9 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
+  // The skip link is the first focusable control on every signed-in page. It is
+  // rendered in the request's language, like the rest of the shell.
+  const { t } = await getI18n();
   // Three sidebar badges, all derived server-side:
   //  - reminders: 30-day horizon to match the previous countActiveReminders()
   //    default. The Go endpoint already filters out dismissed reminders and only
@@ -46,6 +50,15 @@ export default async function AppLayout({
 
   return (
     <>
+      {/* WCAG 2.4.1: a keyboard or screen-reader user should not have to tab
+          through ten nav items before reaching the page content. Hidden until
+          focused, then pinned to the top-left corner. */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:border-[1.5px] focus:border-border focus:bg-card focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-ink"
+      >
+        {t('Bỏ qua để đến nội dung chính')}
+      </a>
       <div className="flex min-h-screen">
         <Sidebar
           reminderCount={reminderCount}
@@ -54,7 +67,14 @@ export default async function AppLayout({
         />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar user={user} />
-          <main className="flex-1 px-4 pb-28 pt-6 md:px-9 md:pb-12 md:pt-8">
+          {/* `tabIndex={-1}` lets the skip link move focus here instead of only
+              scrolling: an anchor jump does not focus a non-interactive
+              landmark, so the next Tab would start from the top again. */}
+          <main
+            id="main"
+            tabIndex={-1}
+            className="flex-1 px-4 pb-28 pt-6 focus:outline-none md:px-9 md:pb-12 md:pt-8"
+          >
             <div className="mx-auto w-full max-w-[1200px]">{children}</div>
           </main>
         </div>

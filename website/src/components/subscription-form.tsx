@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { LeadDaysField } from '@/components/lead-days-field';
@@ -122,11 +123,6 @@ function focusField(key: string) {
   }
 }
 
-function FieldError({ errors }: { errors?: string[] }) {
-  if (!errors || errors.length === 0) return null;
-  return <p className="text-xs text-destructive">{errors[0]}</p>;
-}
-
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
@@ -142,11 +138,15 @@ function MoneyInput({
   onChange,
   name,
   id,
+  invalid,
+  describedBy,
 }: {
   value: string;
   onChange: (v: string) => void;
   name: string;
   id?: string;
+  invalid?: boolean;
+  describedBy?: string;
 }) {
   const locale = useLocale();
   return (
@@ -160,6 +160,8 @@ function MoneyInput({
           onChange(n ? formatNumber(n, locale) : '');
         }}
         placeholder="0"
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         className="pr-10"
       />
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
@@ -180,11 +182,15 @@ function OptionalMoneyInput({
   onChange,
   name,
   id,
+  invalid,
+  describedBy,
 }: {
   value: string;
   onChange: (v: string) => void;
   name: string;
   id?: string;
+  invalid?: boolean;
+  describedBy?: string;
 }) {
   const locale = useLocale();
   return (
@@ -199,6 +205,8 @@ function OptionalMoneyInput({
           onChange(digits === '' ? '' : formatNumber(parseVNDInput(raw), locale));
         }}
         placeholder="0"
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         className="pr-10"
       />
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
@@ -468,8 +476,10 @@ export function SubscriptionForm({
               onChange={(e) => setName(e.target.value)}
               placeholder={t('vd: Apple One Family, ChatGPT Plus')}
               required
+              aria-invalid={Boolean(errors.name?.length)}
+              aria-describedby={errors.name?.length ? 'name-error' : undefined}
             />
-            <FieldError errors={errors.name} />
+            <FieldError id="name-error" errors={errors.name} />
           </div>
 
           <div className="space-y-2">
@@ -481,9 +491,10 @@ export function SubscriptionForm({
               onValueChange={setCategory}
               placeholder={t('Chọn loại (tuỳ chọn)')}
               searchPlaceholder={t('Tìm loại...')}
+              describedBy={errors.category?.length ? 'category-error' : undefined}
             />
             <input type="hidden" name="category" value={category} />
-            <FieldError errors={errors.category} />
+            <FieldError id="category-error" errors={errors.category} />
           </div>
 
           <div className="space-y-2">
@@ -586,16 +597,25 @@ export function SubscriptionForm({
               onChange={(e) => setIntervalDays(e.target.value)}
               disabled={billingCycle !== 'CUSTOM'}
               placeholder={t('vd: 14, 90')}
+              aria-invalid={Boolean(errors.intervalDays?.length)}
+              aria-describedby={errors.intervalDays?.length ? 'intervalDays-error' : undefined}
             />
-            <FieldError errors={errors.intervalDays} />
+            <FieldError id="intervalDays-error" errors={errors.intervalDays} />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="price">
               {t('Giá / chu kỳ (VND)')} <span className="text-destructive">*</span>
             </Label>
-            <MoneyInput id="price" value={price} onChange={setPrice} name="price" />
-            <FieldError errors={errors.price} />
+            <MoneyInput
+              id="price"
+              value={price}
+              onChange={setPrice}
+              name="price"
+              invalid={Boolean(errors.price?.length)}
+              describedBy={errors.price?.length ? 'price-error' : undefined}
+            />
+            <FieldError id="price-error" errors={errors.price} />
           </div>
 
           <div className="space-y-2">
@@ -609,8 +629,10 @@ export function SubscriptionForm({
               value={startedAt}
               onChange={(e) => setStartedAt(e.target.value)}
               required
+              aria-invalid={Boolean(errors.startedAt?.length)}
+              aria-describedby={errors.startedAt?.length ? 'startedAt-error' : undefined}
             />
-            <FieldError errors={errors.startedAt} />
+            <FieldError id="startedAt-error" errors={errors.startedAt} />
           </div>
 
           <div className="space-y-2 md:col-span-2">
@@ -658,8 +680,12 @@ export function SubscriptionForm({
                   type="date"
                   value={trialEndsAt}
                   onChange={(e) => handleTrialEndChange(e.target.value)}
+                  aria-invalid={Boolean(errors.trialEndsAt?.length)}
+                  aria-describedby={
+                    errors.trialEndsAt?.length ? 'trialEndsAt-error' : undefined
+                  }
                 />
-                <FieldError errors={errors.trialEndsAt} />
+                <FieldError id="trialEndsAt-error" errors={errors.trialEndsAt} />
               </div>
 
               {trialEndsAt ? (
@@ -672,8 +698,12 @@ export function SubscriptionForm({
                     name="convertsToPrice"
                     value={convertsToPrice}
                     onChange={setConvertsToPrice}
+                    invalid={Boolean(errors.convertsToPrice?.length)}
+                    describedBy={
+                      errors.convertsToPrice?.length ? 'convertsToPrice-error' : undefined
+                    }
                   />
-                  <FieldError errors={errors.convertsToPrice} />
+                  <FieldError id="convertsToPrice-error" errors={errors.convertsToPrice} />
                   <p className="text-xs text-muted-foreground">
                     {t(
                       'Từ ngày này gói bắt đầu tính phí. Không nhập giá nếu chưa biết.',
@@ -734,8 +764,10 @@ export function SubscriptionForm({
                 value={manageUrl}
                 onChange={(e) => setManageUrl(e.target.value)}
                 placeholder="https://..."
+                aria-invalid={Boolean(errors.manageUrl?.length)}
+                aria-describedby={errors.manageUrl?.length ? 'manageUrl-error' : undefined}
               />
-              <FieldError errors={errors.manageUrl} />
+              <FieldError id="manageUrl-error" errors={errors.manageUrl} />
             </div>
 
             <div className="space-y-2">
@@ -747,8 +779,10 @@ export function SubscriptionForm({
                 value={cancelUrl}
                 onChange={(e) => setCancelUrl(e.target.value)}
                 placeholder={t('https://... (1-click cancel nếu có)')}
+                aria-invalid={Boolean(errors.cancelUrl?.length)}
+                aria-describedby={errors.cancelUrl?.length ? 'cancelUrl-error' : undefined}
               />
-              <FieldError errors={errors.cancelUrl} />
+              <FieldError id="cancelUrl-error" errors={errors.cancelUrl} />
             </div>
 
             <div className="space-y-2 md:col-span-2">

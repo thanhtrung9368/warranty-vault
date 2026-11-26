@@ -71,13 +71,12 @@ export function WishlistFilterBar({ categories }: { categories: CategoryOption[]
             className="rounded-pill border-border-strong bg-surface-2 pl-9"
           />
         </div>
-        <div className="pill-group flex-wrap" role="tablist" aria-label={t('Trạng thái')}>
+        <div className="pill-group flex-wrap" role="group" aria-label={t('Trạng thái')}>
           {QUICK_STATUSES.map((s) => (
             <button
               key={s.value}
               type="button"
-              role="tab"
-              aria-selected={status === s.value}
+              aria-pressed={status === s.value}
               data-active={status === s.value}
               onClick={() => update('status', s.value)}
             >

@@ -27,6 +27,7 @@ import { AlertTriangle, ArrowRight, Loader2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -80,11 +81,6 @@ export type ClaimInitial = Pick<
   | 'coveredByWarranty'
 >;
 
-function FieldError({ errors }: { errors?: string[] }) {
-  if (!errors || errors.length === 0) return null;
-  return <p className="text-xs font-medium text-destructive">{errors[0]}</p>;
-}
-
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
@@ -119,7 +115,15 @@ function instantInputValue(value: string | null | undefined): string {
  * a real free repair and must survive. The action re-parses the hidden value,
  * so tampering is caught before the request.
  */
-function CostInput({ defaultValue }: { defaultValue?: number | null }) {
+function CostInput({
+  defaultValue,
+  invalid,
+  errorId,
+}: {
+  defaultValue?: number | null;
+  invalid?: boolean;
+  errorId?: string;
+}) {
   const locale = useLocale();
   const [value, setValue] = React.useState<string>(
     defaultValue != null ? formatNumber(defaultValue, locale) : '',
@@ -140,7 +144,8 @@ function CostInput({ defaultValue }: { defaultValue?: number | null }) {
         }}
         placeholder="0"
         className="pr-10"
-        aria-describedby="cost-hint"
+        aria-invalid={invalid || undefined}
+        aria-describedby={errorId ? `cost-hint ${errorId}` : 'cost-hint'}
       />
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
         ₫
@@ -263,7 +268,11 @@ export function ClaimForm({
             value={status}
             onValueChange={(value) => setStatus(value as ClaimStatus)}
           >
-            <SelectTrigger id="status">
+            <SelectTrigger
+              id="status"
+              aria-invalid={Boolean(errors.status?.length)}
+              aria-describedby={errors.status?.length ? 'status-error' : undefined}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -279,13 +288,17 @@ export function ClaimForm({
               {t('Máy chủ sẽ tự đặt ngày đóng khi lưu.')}
             </p>
           )}
-          <FieldError errors={errors.status} />
+          <FieldError id="status-error" errors={errors.status} />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="warrantyId">{t('Gói bảo hành')}</Label>
           <Select name="warrantyId" defaultValue={warrantyDefault}>
-            <SelectTrigger id="warrantyId">
+            <SelectTrigger
+              id="warrantyId"
+              aria-invalid={Boolean(errors.warrantyId?.length)}
+              aria-describedby={errors.warrantyId?.length ? 'warrantyId-error' : undefined}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -299,7 +312,7 @@ export function ClaimForm({
               ))}
             </SelectContent>
           </Select>
-          <FieldError errors={errors.warrantyId} />
+          <FieldError id="warrantyId-error" errors={errors.warrantyId} />
         </div>
 
         <div className="space-y-2">
@@ -312,8 +325,10 @@ export function ClaimForm({
             type="date"
             defaultValue={openedDefault}
             required
+            aria-invalid={Boolean(errors.openedAt?.length)}
+            aria-describedby={errors.openedAt?.length ? 'openedAt-error' : undefined}
           />
-          <FieldError errors={errors.openedAt} />
+          <FieldError id="openedAt-error" errors={errors.openedAt} />
         </div>
 
         <div className="space-y-2">
@@ -323,8 +338,12 @@ export function ClaimForm({
             name="expectedReturnAt"
             type="date"
             defaultValue={expectedDefault}
+            aria-invalid={Boolean(errors.expectedReturnAt?.length)}
+            aria-describedby={
+              errors.expectedReturnAt?.length ? 'expectedReturnAt-error' : undefined
+            }
           />
-          <FieldError errors={errors.expectedReturnAt} />
+          <FieldError id="expectedReturnAt-error" errors={errors.expectedReturnAt} />
         </div>
 
         <div className="space-y-2">
@@ -334,8 +353,10 @@ export function ClaimForm({
             name="ticketNumber"
             defaultValue={initial?.ticketNumber ?? ''}
             placeholder={t('vd: 2026-0912')}
+            aria-invalid={Boolean(errors.ticketNumber?.length)}
+            aria-describedby={errors.ticketNumber?.length ? 'ticketNumber-error' : undefined}
           />
-          <FieldError errors={errors.ticketNumber} />
+          <FieldError id="ticketNumber-error" errors={errors.ticketNumber} />
         </div>
 
         <div className="space-y-2">
@@ -345,8 +366,10 @@ export function ClaimForm({
             name="serviceCenter"
             defaultValue={initial?.serviceCenter ?? ''}
             placeholder={t('vd: FPT Shop Nguyễn Trãi')}
+            aria-invalid={Boolean(errors.serviceCenter?.length)}
+            aria-describedby={errors.serviceCenter?.length ? 'serviceCenter-error' : undefined}
           />
-          <FieldError errors={errors.serviceCenter} />
+          <FieldError id="serviceCenter-error" errors={errors.serviceCenter} />
         </div>
       </div>
 
@@ -361,8 +384,10 @@ export function ClaimForm({
           placeholder={t('Mô tả ngắn gọn lỗi')}
           required
           rows={3}
+          aria-invalid={Boolean(errors.issue?.length)}
+          aria-describedby={errors.issue?.length ? 'issue-error' : undefined}
         />
-        <FieldError errors={errors.issue} />
+        <FieldError id="issue-error" errors={errors.issue} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -374,8 +399,10 @@ export function ClaimForm({
             defaultValue={initial?.diagnosis ?? ''}
             placeholder={t('Trung tâm nói gì?')}
             rows={3}
+            aria-invalid={Boolean(errors.diagnosis?.length)}
+            aria-describedby={errors.diagnosis?.length ? 'diagnosis-error' : undefined}
           />
-          <FieldError errors={errors.diagnosis} />
+          <FieldError id="diagnosis-error" errors={errors.diagnosis} />
         </div>
 
         <div className="space-y-2">
@@ -386,25 +413,37 @@ export function ClaimForm({
             defaultValue={initial?.outcome ?? ''}
             placeholder={t('Đã sửa xong, đổi mới, hoàn tiền...')}
             rows={3}
+            aria-invalid={Boolean(errors.outcome?.length)}
+            aria-describedby={errors.outcome?.length ? 'outcome-error' : undefined}
           />
-          <FieldError errors={errors.outcome} />
+          <FieldError id="outcome-error" errors={errors.outcome} />
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="cost">{t('Chi phí (VND)')}</Label>
-          <CostInput defaultValue={initial?.cost} />
+          <CostInput
+            defaultValue={initial?.cost}
+            invalid={Boolean(errors.cost?.length)}
+            errorId={errors.cost?.length ? 'cost-error' : undefined}
+          />
           <p id="cost-hint" className="text-xs text-muted-foreground">
             {t('Để trống nếu chưa biết. 0 ₫ nghĩa là sửa miễn phí.')}
           </p>
-          <FieldError errors={errors.cost} />
+          <FieldError id="cost-error" errors={errors.cost} />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="coveredByWarranty">{t('Có được bảo hành không?')}</Label>
           <Select name="coveredByWarranty" defaultValue={coverageDefault}>
-            <SelectTrigger id="coveredByWarranty">
+            <SelectTrigger
+              id="coveredByWarranty"
+              aria-invalid={Boolean(errors.coveredByWarranty?.length)}
+              aria-describedby={
+                errors.coveredByWarranty?.length ? 'coveredByWarranty-error' : undefined
+              }
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -416,7 +455,7 @@ export function ClaimForm({
           <p className="text-xs text-muted-foreground">
             {t('“Chưa xác định” khác với “Không được bảo hành”.')}
           </p>
-          <FieldError errors={errors.coveredByWarranty} />
+          <FieldError id="coveredByWarranty-error" errors={errors.coveredByWarranty} />
         </div>
       </div>
 

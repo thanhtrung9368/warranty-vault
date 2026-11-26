@@ -8,13 +8,9 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FieldError } from '@/components/ui/field-error';
 import { useT } from '@/lib/i18n/client';
 import { changePassword, type AuthFormState } from '@/app/actions/auth';
-
-function FieldError({ errors }: { errors?: string[] }) {
-  if (!errors || errors.length === 0) return null;
-  return <p className="text-xs text-destructive">{errors[0]}</p>;
-}
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -54,8 +50,10 @@ export function ChangePasswordForm() {
           type="password"
           autoComplete="current-password"
           required
+          aria-invalid={Boolean(errors.currentPassword?.length)}
+          aria-describedby={errors.currentPassword?.length ? 'currentPassword-error' : undefined}
         />
-        <FieldError errors={errors.currentPassword} />
+        <FieldError id="currentPassword-error" errors={errors.currentPassword} />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
@@ -67,8 +65,10 @@ export function ChangePasswordForm() {
             autoComplete="new-password"
             minLength={8}
             required
+            aria-invalid={Boolean(errors.newPassword?.length)}
+            aria-describedby={errors.newPassword?.length ? 'newPassword-error' : undefined}
           />
-          <FieldError errors={errors.newPassword} />
+          <FieldError id="newPassword-error" errors={errors.newPassword} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="confirmPassword">{t('Xác nhận mật khẩu mới')}</Label>
@@ -79,8 +79,10 @@ export function ChangePasswordForm() {
             autoComplete="new-password"
             minLength={8}
             required
+            aria-invalid={Boolean(errors.confirmPassword?.length)}
+            aria-describedby={errors.confirmPassword?.length ? 'confirmPassword-error' : undefined}
           />
-          <FieldError errors={errors.confirmPassword} />
+          <FieldError id="confirmPassword-error" errors={errors.confirmPassword} />
         </div>
       </div>
       {state?.message && !state.ok && (

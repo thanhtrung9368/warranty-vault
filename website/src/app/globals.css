@@ -160,9 +160,17 @@
 
     --ink: 38 60% 91%;
     --ink-2: 35 38% 75%;
-    --muted: 269 13% 59%;
-    --muted-foreground: 269 13% 59%;
-    --muted-2: 254 11% 45%;
+    /* Secondary text mirrors the light-mode AA contract. The old values failed
+       it on the dark surfaces: --muted-2 (#6C667F) measured 3.45:1 on
+       --background and 3.10:1 on --card, and --muted (#9689A4) fell to 3.87:1
+       on --surface-3. On a dark palette contrast comes from going LIGHTER, so
+       both tokens were raised: --muted (#ADA3B8) now clears 7.81:1 on
+       --background / 5.25:1 on --surface-3, --muted-2 (#9E99AD) 6.83:1 / 4.59:1.
+       --muted stays the higher-contrast of the pair, as it is in light mode.
+       `primary-contrast.test.ts` pins the ratios on all four surfaces. */
+    --muted: 269 13% 68%;               /* #ADA3B8 */
+    --muted-foreground: 269 13% 68%;
+    --muted-2: 254 11% 64%;             /* #9E99AD */
 
     --primary: 14 100% 69%;             /* #FF8060 */
     --primary-2: 18 100% 77%;
