@@ -43,6 +43,15 @@ struct MoreScreen: View {
         return ""
     }
 
+    /// The build actually running, not a string frozen at 1.0.0. This footer
+    /// said "v1.0.0" while the app shipped 1.0.3 (37); the bundle is the only
+    /// source that cannot go stale.
+    private var appVersion: String {
+        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+        let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+        return b.isEmpty ? v : "\(v) (\(b))"
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -75,7 +84,7 @@ struct MoreScreen: View {
                 }
 
                 Spacer().frame(height: WVSpacing.sm)
-                Text("Warrly iOS · v1.0.0")
+                Text("Warrly iOS · v\(appVersion)")
                     .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .padding(.vertical, WVSpacing.gutter)

@@ -416,6 +416,27 @@ struct DeviceDetailView: View {
                     icon: "shieldCheck",
                     isExpanded: $warrantyRepairExpanded
                 ) {
+                    // A failed detail read leaves `warranties` and `claims`
+                    // empty because nothing arrived, not because the device has
+                    // none. Say so here, before the add rows and the "Chưa có
+                    // lần sửa chữa nào" empty states below can turn the failure
+                    // into a fact.
+                    if case let .error(message) = store.state {
+                        VStack(alignment: .leading, spacing: 8) {
+                            WVNotice(
+                                tone: .error,
+                                title: L.t("Không tải được bảo hành & sửa chữa"),
+                                message: message
+                            )
+                            WVButton(L.t("Thử lại"), kind: .secondary,
+                                     size: .small, fullWidth: false) {
+                                Task { await store.load() }
+                            }
+                        }
+                        .padding(.horizontal, WVSpacing.gutter)
+                        .padding(.top, WVSpacing.sm)
+                    }
+
                     // The per-package progress cards are the overview; the
                     // list below is where a package is added or edited.
                     if !warranties.isEmpty {

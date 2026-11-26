@@ -28381,6 +28381,74 @@
           }
         }
       }
+    },
+    "Không tải được bảo hành & sửa chữa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load warranties and repairs"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tải được bảo hành & sửa chữa"
+          }
+        }
+      }
+    },
+    "Không tải được gói đăng ký": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load your subscriptions"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tải được gói đăng ký"
+          }
+        }
+      }
+    },
+    "Không tải được wishlist": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load your wishlist"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tải được wishlist"
+          }
+        }
+      }
+    },
+    "Warrly": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warrly"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warrly"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

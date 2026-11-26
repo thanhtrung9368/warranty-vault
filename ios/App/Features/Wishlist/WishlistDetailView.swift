@@ -43,6 +43,20 @@ struct WishlistDetailView: View {
                 mainContent(w)
             } else if isLoading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let errorMsg {
+                // Same rule as the subscription detail: a failed read is an
+                // error with a retry, not "not found" — the item still exists
+                // on the server.
+                WVEmpty(
+                    icon: "alert",
+                    title: L.t("Không tải được wishlist"),
+                    description: errorMsg
+                ) {
+                    WVButton(L.t("Thử lại"), kind: .secondary) {
+                        Task { await reload() }
+                    }
+                    .padding(.horizontal, WVSpacing.gutter)
+                }
             } else {
                 WVEmpty(icon: "alert", title: L.t("Không tìm thấy"))
             }
@@ -114,6 +128,21 @@ struct WishlistDetailView: View {
     private func mainContent(_ w: WishlistItem) -> some View {
         ScrollView {
             VStack(spacing: 0) {
+                // Same as the subscription detail: a seeded row must not hide a
+                // failed detail read, or the empty price history reads as "no
+                // price was ever recorded".
+                if let errorMsg {
+                    VStack(alignment: .leading, spacing: 8) {
+                        WVNotice(tone: .error, message: errorMsg)
+                        WVButton(L.t("Thử lại"), kind: .secondary,
+                                 size: .small, fullWidth: false) {
+                            Task { await reload() }
+                        }
+                    }
+                    .padding(.horizontal, WVSpacing.gutter)
+                    .padding(.top, WVSpacing.md)
+                }
+
                 heroSection(w)
                 if w.purchasedDeviceId != nil { purchasedBanner(w) }
                 priceCard(w)             .padding(.top, WVSpacing.sm)
@@ -142,7 +171,7 @@ struct WishlistDetailView: View {
                 .wvFont(.title2Emphasis)
                 .tracking(-0.4)
                 .foregroundStyle(WVColor.label)
-            let sub = [w.brand, w.category]
+            let sub = [w.brand, w.category.map { CategoryLabels.label(for: $0) }]
                 .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
             if !sub.isEmpty {
                 Text(sub)

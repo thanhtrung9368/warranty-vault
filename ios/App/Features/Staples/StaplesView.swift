@@ -211,7 +211,7 @@ private struct StapleRow: View {
         ).day ?? 0
         if days < 0 { return L.t("Đến lúc kiểm tra") }
         if days == 0 { return L.t("Hôm nay") }
-        return L.t("Còn %d ngày", days)
+        return L.p("Còn %d ngày", days)
     }
 
     var body: some View {

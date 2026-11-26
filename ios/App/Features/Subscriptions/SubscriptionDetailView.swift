@@ -42,6 +42,20 @@ struct SubscriptionDetailView: View {
             } else if isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let errorMsg {
+                // The read failed, not the subscription. Saying "Không tìm
+                // thấy" here claimed the row was gone and offered no way back;
+                // the retry re-reads the same id without leaving the screen.
+                WVEmpty(
+                    icon: "alert",
+                    title: L.t("Không tải được gói đăng ký"),
+                    description: errorMsg
+                ) {
+                    WVButton(L.t("Thử lại"), kind: .secondary) {
+                        Task { await reload() }
+                    }
+                    .padding(.horizontal, WVSpacing.gutter)
+                }
             } else {
                 WVEmpty(icon: "alert", title: L.t("Không tìm thấy"))
             }
@@ -107,6 +121,22 @@ struct SubscriptionDetailView: View {
     private func mainContent(_ sub: Subscription) -> some View {
         ScrollView {
             VStack(spacing: 0) {
+                // The list store can hand this screen a stale row, which keeps
+                // the hero and price on screen while the detail read (payments,
+                // renewal window) failed. That failure must not be silent: the
+                // numbers below are then incomplete, not zero.
+                if let errorMsg {
+                    VStack(alignment: .leading, spacing: 8) {
+                        WVNotice(tone: .error, message: errorMsg)
+                        WVButton(L.t("Thử lại"), kind: .secondary,
+                                 size: .small, fullWidth: false) {
+                            Task { await reload() }
+                        }
+                    }
+                    .padding(.horizontal, WVSpacing.gutter)
+                    .padding(.top, WVSpacing.md)
+                }
+
                 heroSection(sub)
                 costCard(sub)        .padding(.top, WVSpacing.sm)
                 // Trial ("Dùng thử", Feature B). Shown only when a trial end date
@@ -168,7 +198,9 @@ struct SubscriptionDetailView: View {
                 .tracking(-0.4)
                 .foregroundStyle(WVColor.label)
 
-            let meta = [sub.brand, sub.plan, sub.category]
+            // The catalogue label, never the raw wire code: a hero reading
+            // "Apple · STREAMING" is the same defect the rows already avoid.
+            let meta = [sub.brand, sub.plan, sub.category.map { CategoryLabels.label(for: $0) }]
                 .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
             if !meta.isEmpty {
                 Text(meta)
@@ -243,7 +275,7 @@ struct SubscriptionDetailView: View {
                         // really the first charge. Both words come from
                         // `SubscriptionTrial`, so the distinction is testable.
                         Text(sub.billingCycle == .LIFETIME
-                             ? "LIFETIME"
+                             ? sub.billingCycle.shortLabel
                              : SubscriptionTrial.termHeading(trialEndsAt: sub.trialEndsAt))
                             .wvFont(.captionEmphasis)
                             .tracking(0.5)

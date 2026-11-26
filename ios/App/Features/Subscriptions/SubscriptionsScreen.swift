@@ -139,7 +139,9 @@ struct SubscriptionsScreen: View {
                 )
                 .padding(.horizontal, WVSpacing.gutter)
 
-                if filtered.isEmpty {
+                if store.subscriptions.isEmpty, case let .error(message) = store.state {
+                    loadErrorState(message)
+                } else if filtered.isEmpty {
                     emptyState
                 } else {
                     subList
@@ -312,6 +314,24 @@ struct SubscriptionsScreen: View {
     }
 
     // MARK: - Empty state
+
+    /// The read failed. This used to fall through to `emptyState`, so a
+    /// transport error on a full account said "Chưa có gói nào" and offered
+    /// "Thêm gói" — the one screen state that must never invent an empty
+    /// account. A stale list is still shown when it exists (the rows are real);
+    /// this branch only runs when nothing arrived.
+    private func loadErrorState(_ message: String) -> some View {
+        WVEmpty(
+            icon: "alert",
+            title: L.t("Không tải được gói đăng ký"),
+            description: message
+        ) {
+            WVButton(L.t("Thử lại"), kind: .secondary) {
+                Task { await store.load() }
+            }
+            .padding(.horizontal, WVSpacing.gutter)
+        }
+    }
 
     @ViewBuilder
     private var emptyState: some View {

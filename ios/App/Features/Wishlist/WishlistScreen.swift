@@ -148,7 +148,9 @@ struct WishlistScreen: View {
 
                 Spacer().frame(height: WVSpacing.md)
 
-                if filtered.isEmpty {
+                if store.items.isEmpty, case let .error(message) = store.state {
+                    loadErrorState(message)
+                } else if filtered.isEmpty {
                     WVEmpty(
                         icon: query.isEmpty ? "heart" : "search",
                         title: query.isEmpty ? L.t("Wishlist trống") : L.t("Không có gì khớp"),
@@ -236,6 +238,25 @@ struct WishlistScreen: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, WVSpacing.gutter)
             .padding(.top, WVSpacing.sm)
+    }
+
+    // MARK: - Load failure
+
+    /// A failed read must not render as "Wishlist trống" plus "Thêm món": the
+    /// user would be told they own nothing and offered a create action while
+    /// their rows are still on the server. Only reachable when no stale rows
+    /// exist; a list that is already on screen stays.
+    private func loadErrorState(_ message: String) -> some View {
+        WVEmpty(
+            icon: "alert",
+            title: L.t("Không tải được wishlist"),
+            description: message
+        ) {
+            WVButton(L.t("Thử lại"), kind: .secondary) {
+                Task { await store.load() }
+            }
+            .padding(.horizontal, WVSpacing.gutter)
+        }
     }
 
     // MARK: - List
@@ -408,7 +429,11 @@ private struct WishRowContent: View {
             Text(item.name)
                 .wvFont(.bodyEmphasis)
                 .foregroundStyle(WVColor.label)
-                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+                // The name is the one thing a row must not lose: at the Duo's
+                // 382 pt cover panel the reserved price column left it one
+                // line, so "Màn hình Dell UltraSharp" rendered as
+                // "Màn hình Dell U…". Two lines, like the device row.
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 2)
                 .fixedSize(horizontal: false, vertical: true)
 
             if !meta.isEmpty || delta != nil {
