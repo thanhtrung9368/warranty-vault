@@ -45,6 +45,16 @@ struct DeviceDetailView: View {
     @State private var actionError: String?
     @State private var deviceStatus: DeviceStatus
     @State private var statusSaving = false
+    /// The reference-only market table for a foreign-priced device.
+    ///
+    /// Fetched from `GET /api/v1/fx/rates` purely to describe today's market;
+    /// `Device.fxRate` — the rate locked at entry — is never written from it.
+    /// `fxFailed` is a bool, not a message: the detail screen only needs to say
+    /// that the reference is unavailable, and the rate field it could be typed
+    /// into lives on the form.
+    @State private var fxTable: FxRates?
+    @State private var fxLoading = false
+    @State private var fxFailed = false
     /// Advisory `warnings` returned by the status PATCH. Non-blocking: the
     /// status change did happen, this only says the serial looks odd.
     @State private var statusWarnings: [DeviceWarning] = []
@@ -267,16 +277,27 @@ struct DeviceDetailView: View {
     }
 
     /// The purchase price as the row shows it: the amount **in its own
-    /// currency**, plus the server's VND equivalent when the device was priced
-    /// abroad. The VND line is not a client conversion — it is
-    /// `purchasePriceVnd` from the read, computed at the rate locked at entry.
-    private var purchasePriceDisplay: (detail: String, subtitle: String?) {
-        let detail = WVFormat.currency(currentDevice.purchasePrice, currentDevice.currency)
-        guard currentDevice.usesForeignCurrency,
-              let vnd = currentDevice.purchasePriceInVnd else {
-            return (detail, nil)
-        }
-        return (detail, "≈ " + WVFormat.vnd(vnd))
+    /// currency**, which is the original listed price the user entered. The VND
+    /// side of the story has its own rows (`Thực tế bị charge` and
+    /// `Tỷ giá đã chốt`) so a dollar amount can never be mistaken for the
+    /// charged number.
+    private var purchasePriceDisplay: String {
+        WVFormat.currency(currentDevice.purchasePrice, currentDevice.currency)
+    }
+
+    /// The contract's actual charged amount — the server's `purchasePriceVnd`,
+    /// computed at the rate locked at entry. Never re-derived from the market.
+    private var actualChargedDisplay: String? {
+        guard currentDevice.usesForeignCurrency else { return nil }
+        return currentDevice.purchasePriceInVnd.map(WVFormat.vnd) ?? "—"
+    }
+
+    /// The locked rate, as `1 USD = 26.130 ₫`, or `—` when a legacy foreign row
+    /// has no usable rate. It is history, not a live quote.
+    private var lockedRateDisplay: String? {
+        guard currentDevice.usesForeignCurrency else { return nil }
+        guard let rate = currentDevice.fxRate else { return "—" }
+        return L.t("1 %@ = %@", currentDevice.currencyCode, WVFormat.rate(rate))
     }
 
     /// The VND equivalent of a recorded sale, or nil when there is nothing to
@@ -285,6 +306,65 @@ struct DeviceDetailView: View {
         guard currentDevice.usesForeignCurrency,
               let vnd = currentDevice.soldPriceInVnd else { return nil }
         return "≈ " + WVFormat.vnd(vnd)
+    }
+
+    // MARK: - Reference-only FX
+
+    /// Whether there is a foreign listed price to compare with the market. A
+    /// VND device has nothing to convert, and a `0` price makes every
+    /// reference number a meaningless `0 ₫`.
+    private var showsFxReference: Bool {
+        currentDevice.usesForeignCurrency && currentDevice.purchasePrice > 0
+    }
+
+    /// What `.task(id:)` re-runs on — the quoted base. An empty key for VND
+    /// means switching the device back to dong cancels the reference read.
+    private var fxReferenceKey: String {
+        showsFxReference ? currentDevice.currencyCode : ""
+    }
+
+    /// `referenceVnd` / `actualVnd` / `delta` + the table's provenance. `nil`
+    /// while the read is in flight, after a failure, or when a stale answer for
+    /// a previous currency is still in `fxTable`.
+    private var fxReference: FxReference? {
+        guard showsFxReference,
+              let table = fxTable,
+              CurrencyRules.normalized(table.base) == currentDevice.currencyCode
+        else { return nil }
+        return FxReference(purchasePrice: currentDevice.purchasePrice,
+                           actualVnd: currentDevice.purchasePriceInVnd,
+                           table: table)
+    }
+
+    /// Reads today's reference table for the device's currency.
+    ///
+    /// Reference-only: nothing here is written to the device. A failure — the
+    /// endpoint's documented 503 included — only hides the reference numbers;
+    /// the locked rate above stays exactly as stored.
+    private func loadFxReference() async {
+        guard showsFxReference else { return }
+        let requested = currentDevice.currencyCode
+        fxLoading = true
+        fxFailed = false
+        defer { if !Task.isCancelled { fxLoading = false } }
+
+        do {
+            let table = try await client.fxRates(base: requested)
+            // A slow answer for a currency the device no longer uses must not
+            // put the wrong base's quote on screen.
+            guard requested == currentDevice.currencyCode else { return }
+            fxTable = table
+        } catch {
+            guard requested == currentDevice.currencyCode else { return }
+            fxTable = nil
+            fxFailed = true
+        }
+    }
+
+    /// `+1.234.567 ₫` for a positive difference, the formatter's own `-…` for a
+    /// negative one.
+    private func signedVnd(_ amount: Int) -> String {
+        amount > 0 ? "+" + WVFormat.vnd(amount) : WVFormat.vnd(amount)
     }
 
     /// The brand warranty fields from the list projection, which every save on
@@ -456,18 +536,22 @@ struct DeviceDetailView: View {
                     WVDivider()
                     DeviceFactRow(icon: "wallet",
                                   title: L.t("Giá mua"),
-                                  subtitle: purchasePriceDisplay.subtitle,
-                                  detail: purchasePriceDisplay.detail)
-                    if currentDevice.usesForeignCurrency {
+                                  detail: purchasePriceDisplay)
+                    if let charged = actualChargedDisplay, let rate = lockedRateDisplay {
                         WVDivider()
-                        // The locked rate, stated so the two prices above make
-                        // sense together. It is history, not a live quote.
+                        // The amount the card was actually charged, in VND.
+                        // It is `purchasePriceVnd` from the read — the server's
+                        // conversion at the rate locked at entry.
+                        DeviceFactRow(icon: "creditCard",
+                                      title: L.t("Thực tế bị charge"),
+                                      detail: charged)
+                        WVDivider()
+                        // The locked rate, stated so the listed price and the
+                        // charged amount make sense together. It is history,
+                        // not a live quote.
                         DeviceFactRow(icon: "globe",
-                                      title: L.t("Tiền tệ"),
-                                      subtitle: currentDevice.fxRate.map {
-                                          L.t("1 %@ = %@", currentDevice.currencyCode, WVFormat.rate($0))
-                                      },
-                                      detail: currentDevice.currencyCode)
+                                      title: L.t("Tỷ giá đã chốt"),
+                                      detail: rate)
                     }
                     WVDivider()
                     DeviceFactRow(icon: "store",
@@ -477,6 +561,13 @@ struct DeviceDetailView: View {
                     DeviceFactRow(icon: "hash",
                                   title: "Serial / IMEI",
                                   detail: currentDevice.serialNumber ?? "—")
+                }
+
+                // Today's market quote — reference only, and never the number
+                // the totals use. Omitted entirely for a VND device and for a
+                // device with no listed price to convert.
+                if showsFxReference {
+                    fxReferenceSection
                 }
 
                 // Resale handoff (Warrly 2.0). The section exists for BOTH
@@ -877,9 +968,15 @@ struct DeviceDetailView: View {
             }
 #endif
         }
+        // The reference-only market table. Keyed on the device's currency so a
+        // save that switches it re-reads the new base, and skipped for a VND
+        // device (empty key). Separate from the detail read on purpose: a
+        // failing market call must not make the device look unreadable.
+        .task(id: fxReferenceKey) { await loadFxReference() }
         .refreshable {
             await store.load()
             await attachmentsModel.reload()
+            await loadFxReference()
         }
         // Same reason as the dashboard: the permission can be changed in iOS
         // Settings while this screen is in the background, and the note under
@@ -888,6 +985,102 @@ struct DeviceDetailView: View {
             guard phase == .active else { return }
             Task { await push.refreshPermission() }
         }
+    }
+
+    // MARK: - Reference-only FX section
+
+    /// Today's market conversion of the listed price — **reference only**.
+    ///
+    /// The numbers come from `GET /api/v1/fx/rates` and the device's own locked
+    /// values; nothing here is stored on the device and nothing here writes
+    /// `Device.fxRate`. The badge says so at the top, and the footer states the
+    /// delta's direction so a `+` cannot be read backwards.
+    private var fxReferenceSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            WVSectionHeader(L.t("Tỷ giá tham khảo"))
+            WVGroup {
+                HStack(spacing: 8) {
+                    WVReferenceBadge()
+                    Text(L.t("Không thay đổi tỷ giá đã chốt."))
+                        .wvFont(.caption)
+                        .foregroundStyle(WVColor.label3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .layoutPriority(1)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, WVSpacing.gutter)
+                .padding(.vertical, WVSpacing.sm + 2)
+
+                WVDivider(inset: WVSpacing.gutter)
+
+                if fxLoading {
+                    fxReferenceStatusRow(L.t("Đang lấy tỷ giá…"), loading: true)
+                } else if fxFailed {
+                    fxReferenceStatusRow(L.t("Không lấy được tỷ giá tham khảo."),
+                                         systemIcon: "alert", warning: true)
+                } else if let reference = fxReference {
+                    DeviceFactRow(icon: "chart",
+                                  title: L.t("Tỷ giá thị trường"),
+                                  detail: L.t("1 %@ = %@", currentDevice.currencyCode,
+                                              WVFormat.rate(reference.marketRate)))
+                    WVDivider()
+                    DeviceFactRow(icon: "tag",
+                                  title: L.t("Giá tham khảo"),
+                                  detail: WVFormat.vnd(reference.referenceVnd))
+                    WVDivider()
+                    DeviceFactRow(icon: "line",
+                                  title: L.t("Chênh lệch"),
+                                  detail: reference.delta.map(signedVnd) ?? "—")
+                    if let fetched = reference.fetchedAtDate {
+                        WVDivider()
+                        DeviceFactRow(icon: "clock",
+                                      title: L.t("Cập nhật"),
+                                      subtitle: reference.stale
+                                          ? L.t("Tỷ giá tham khảo có thể đã cũ.") : nil,
+                                      detail: WVFormat.dateTime(fetched))
+                    }
+                    if let source = reference.source {
+                        WVDivider()
+                        DeviceFactRow(icon: "globe",
+                                      title: L.t("Nguồn"),
+                                      detail: source)
+                    }
+                } else if fxTable == nil {
+                    // The automatic read has not started/landed yet.
+                    fxReferenceStatusRow(L.t("Đang lấy tỷ giá…"), loading: true)
+                } else {
+                    // The table arrived without a usable VND quote.
+                    fxReferenceStatusRow(L.t("Không lấy được tỷ giá tham khảo."),
+                                         systemIcon: "alert", warning: true)
+                }
+            }
+            WVSectionFooter(L.t("Chênh lệch = số tiền thực tế bị charge − giá tham khảo thị trường."))
+        }
+    }
+
+    /// A one-line status row for the reference group: loading, or the "no
+    /// reference available" note. Never an error state for the device itself.
+    private func fxReferenceStatusRow(_ text: String,
+                                      systemIcon: String? = nil,
+                                      loading: Bool = false,
+                                      warning: Bool = false) -> some View {
+        HStack(spacing: 8) {
+            if loading {
+                ProgressView()
+                    .controlSize(.small)
+            } else if let systemIcon {
+                WVIcon(systemIcon, size: 12)
+                    .foregroundStyle(warning ? WVColor.orange : WVColor.label3)
+            }
+            Text(text)
+                .wvFont(.caption)
+                .foregroundStyle(warning ? WVColor.orange : WVColor.label3)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, WVSpacing.gutter)
+        .frame(minHeight: 44)
+        .padding(.vertical, WVSpacing.sm)
     }
 
     // MARK: - Hero section

@@ -11072,23 +11072,6 @@
         }
       }
     },
-    "Lấy tỷ giá": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Get rate"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lấy tỷ giá"
-          }
-        }
-      }
-    },
     "Lần gửi này không tạo thiết bị nào": {
       "extractionState": "manual",
       "localizations": {
@@ -18592,23 +18575,6 @@
         }
       }
     },
-    "Tỷ giá có thể đã cũ. Kiểm tra lại trước khi lưu.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This rate may be out of date. Check it before saving."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tỷ giá có thể đã cũ. Kiểm tra lại trước khi lưu."
-          }
-        }
-      }
-    },
     "Tỷ giá không hợp lệ": {
       "extractionState": "manual",
       "localizations": {
@@ -21297,23 +21263,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đã lưu trữ"
-          }
-        }
-      }
-    },
-    "Đã lấy tỷ giá: 1 %@ = %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rate fetched: 1 %@ = %@"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Đã lấy tỷ giá: 1 %@ = %@"
           }
         }
       }
@@ -27969,6 +27918,295 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Chưa đồng ý"
+          }
+        }
+      }
+    },
+    "Số tiền thực tế bị charge (VND)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actual amount charged (VND)"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Số tiền thực tế bị charge (VND)"
+          }
+        }
+      }
+    },
+    "Nhập số tiền thẻ bị trừ để tính tỷ giá.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter what the card was charged to derive the rate."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhập số tiền thẻ bị trừ để tính tỷ giá."
+          }
+        }
+      }
+    },
+    "Tỷ giá tham khảo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reference rate"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tỷ giá tham khảo"
+          }
+        }
+      }
+    },
+    "Chỉ tham khảo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reference only"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉ tham khảo"
+          }
+        }
+      }
+    },
+    "Tỷ giá thị trường": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Market rate"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tỷ giá thị trường"
+          }
+        }
+      }
+    },
+    "Giá tham khảo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reference price"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giá tham khảo"
+          }
+        }
+      }
+    },
+    "Chênh lệch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Difference"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chênh lệch"
+          }
+        }
+      }
+    },
+    "Chênh lệch = số tiền thực tế bị charge − giá tham khảo thị trường.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Difference = actual amount charged − reference market value."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chênh lệch = số tiền thực tế bị charge − giá tham khảo thị trường."
+          }
+        }
+      }
+    },
+    "Cập nhật: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updated: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cập nhật: %@"
+          }
+        }
+      }
+    },
+    "Nguồn: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nguồn: %@"
+          }
+        }
+      }
+    },
+    "Tỷ giá tham khảo có thể đã cũ.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The reference rate may be out of date."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tỷ giá tham khảo có thể đã cũ."
+          }
+        }
+      }
+    },
+    "Không lấy được tỷ giá tham khảo.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not fetch the reference rate."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không lấy được tỷ giá tham khảo."
+          }
+        }
+      }
+    },
+    "Lấy tỷ giá tham khảo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fetch reference rate"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lấy tỷ giá tham khảo"
+          }
+        }
+      }
+    },
+    "Không thay đổi tỷ giá đã chốt.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Does not change the locked rate."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không thay đổi tỷ giá đã chốt."
+          }
+        }
+      }
+    },
+    "Tỷ giá đã chốt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Locked rate"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tỷ giá đã chốt"
+          }
+        }
+      }
+    },
+    "Thực tế bị charge": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actually charged"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thực tế bị charge"
+          }
+        }
+      }
+    },
+    "Cập nhật": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updated"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cập nhật"
           }
         }
       }

@@ -1438,22 +1438,23 @@ public struct BulkCreateDevicesResult: Decodable, Sendable, Equatable {
 
 // MARK: - FX rates
 //
-// `GET /api/v1/fx/rates?base=USD` → `{base, rates, fetchedAt, stale}`. The app
-// asks for the device's currency as `base` and reads the VND quote out of
-// `rates`; the user can always type the rate instead, because the endpoint is
-// allowed to answer 503.
+// `GET /api/v1/fx/rates?base=USD` → `{base, rates, fetchedAt, stale, source}`.
+// The app asks for the device's currency as `base` and reads the VND quote out
+// of `rates` **only to show a reference**: `Device.fxRate` is locked at entry
+// and is never overwritten by this table. The user can always type the rate
+// instead, because the endpoint is allowed to answer 503.
 
 public struct FxRates: Decodable, Sendable, Equatable {
     /// The currency the rates are quoted from — the `?base=` that was asked for.
     public let base: String
 
     /// Quote currency → how many units of it one `base` unit buys. The app
-    /// needs the `VND` entry; read it through `vndRate`.
+    /// needs the `VND` entry; read it through `vndQuote` / `vndRate`.
     public let rates: [String: Double]
 
     /// When the provider fetched the table, as the server's date-time string.
-    /// Kept raw (not a `Date`): it is only ever shown next to a "may be stale"
-    /// note, never compared or bucketed by calendar day.
+    /// Kept raw (see `fetchedAtDate` for the display value) because it is the
+    /// provider's own instant, never a calendar day the app re-zones.
     public let fetchedAt: String?
 
     /// Whether the server's provider cache had expired and it served the last
@@ -1461,27 +1462,60 @@ public struct FxRates: Decodable, Sendable, Equatable {
     /// decodes; `nil` is treated as fresh.
     public let stale: Bool?
 
+    /// Host of the upstream that produced the table (`"open.er-api.com"` in
+    /// production). Additive on the wire (migration 0035): an older response
+    /// omits it, in which case the reference screen names no source rather
+    /// than inventing one.
+    public let source: String?
+
     public init(base: String, rates: [String: Double],
-                fetchedAt: String? = nil, stale: Bool? = nil) {
+                fetchedAt: String? = nil, stale: Bool? = nil,
+                source: String? = nil) {
         self.base = base
         self.rates = rates
         self.fetchedAt = fetchedAt
         self.stale = stale
+        self.source = source
     }
 
     /// Whether the table is a cached fallback.
     public var isStale: Bool { stale ?? false }
 
+    /// VND per one unit of `base` **unrounded**. The reference price is
+    /// `round(purchasePrice × quote)`, so it must round the product, not the
+    /// quote; `vndRate` is only for displaying the rate itself.
+    public var vndQuote: Double? {
+        let quoted = rates[CurrencyRules.vnd]
+            ?? rates.first(where: { $0.key.uppercased() == CurrencyRules.vnd })?.value
+        guard let quoted, quoted.isFinite, quoted > 0 else { return nil }
+        return quoted
+    }
+
     /// VND per one unit of `base`, rounded to the whole đồng the wire field
     /// (`Device.fxRate`) stores. `nil` when the payload has no positive VND
     /// quote, which the form reads as "type it yourself" rather than as 1:1.
     public var vndRate: Int? {
-        let quoted = rates[CurrencyRules.vnd]
-            ?? rates.first(where: { $0.key.uppercased() == CurrencyRules.vnd })?.value
-        guard let quoted, quoted.isFinite, quoted > 0 else { return nil }
+        guard let quoted = vndQuote else { return nil }
         let rounded = quoted.rounded()
-        guard rounded >= 1, rounded <= Double(Int.max) else { return nil }
+        guard rounded >= 1, rounded < Double(Int.max) else { return nil }
         return Int(rounded)
+    }
+
+    /// `fetchedAt` parsed for display. The wire value is RFC3339 (UTC with a
+    /// `Z`); the offset-less fallbacks tolerate an older/hand-made payload. A
+    /// string that will not parse yields `nil`, and the screen then omits the
+    /// line instead of printing a raw timestamp.
+    public var fetchedAtDate: Date? {
+        guard let fetchedAt, !fetchedAt.isEmpty else { return nil }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso.date(from: fetchedAt) { return date }
+        iso.formatOptions = [.withInternetDateTime]
+        if let date = iso.date(from: fetchedAt) { return date }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        return formatter.date(from: fetchedAt)
     }
 }
 

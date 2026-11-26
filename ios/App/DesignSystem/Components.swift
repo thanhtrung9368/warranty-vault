@@ -201,6 +201,27 @@ struct WVSectionFooter: View {
     }
 }
 
+// MARK: - Reference-only badge
+
+/// The "Chỉ tham khảo" pill that marks a market number as information.
+///
+/// Neutral on purpose: the number is not an error and not a state of the
+/// device, so colouring it would make a reference rate read as a warning
+/// (§5.1). The same badge sits in the device form and on the detail screen, so
+/// the two cannot describe the same quote with different words.
+struct WVReferenceBadge: View {
+    var body: some View {
+        Text(L.t("Chỉ tham khảo"))
+            .wvFont(.pill)
+            .foregroundStyle(WVColor.label2)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(WVColor.fill3)
+            .clipShape(Capsule())
+            .fixedSize()
+    }
+}
+
 // MARK: - Deadline reachability line
 
 /// A quiet state line under a deadline surface: "notifications are off, so
