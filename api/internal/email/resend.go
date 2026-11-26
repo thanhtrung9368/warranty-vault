@@ -3,6 +3,8 @@ package email
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -10,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
@@ -55,6 +58,60 @@ type sendRequest struct {
 	Text    string   `json:"text"`
 }
 
+// ── log correlation (SEC-01) ─────────────────────────────────────────────────
+//
+// The reset and email-change mails carry a single-use credential in their body.
+// A log line about one may name the recipient, the subject and the flow, but
+// never the URL, the raw token, or the rendered message. What replaces them is
+// a 12-character handle derived from sha256(token): it is one-way, so a log
+// reader cannot replay it as a credential, and it is stable for the token, so a
+// support report ("the reset I received at 10:04") can be matched to the send
+// that minted it. It hashes the TOKEN, not the recipient — the address is
+// already logged in the clear, and hashing it would give every mail to the same
+// account the same handle, which is the opposite of a correlation handle.
+
+// Flow names the mail a log line is about. The values are stable strings, shared
+// by the handlers' "email client unavailable" lines and the send path.
+type Flow string
+
+const (
+	FlowPasswordReset    Flow = "password_reset"
+	FlowEmailChange      Flow = "email_change"
+	FlowReminderFallback Flow = "reminder_fallback"
+)
+
+// TokenHandle returns the non-reversible correlation handle for a single-use
+// token: the first 12 hex characters of sha256(token).
+func TokenHandle(rawToken string) string {
+	sum := sha256.Sum256([]byte(rawToken))
+	return hex.EncodeToString(sum[:])[:12]
+}
+
+// tokenFromLink returns the raw token a reset / confirm link ends in. Both links
+// are built by the handlers as "<APP_URL>/reset/<token>" and
+// "<APP_URL>/confirm-email/<token>", and the token is base64url (it cannot
+// contain "/"), so the last path segment is the token itself. Extracted here so
+// SendPasswordReset logs the same TokenHandle the handler computes from the
+// token it minted, without either the link or the token reaching the log.
+func tokenFromLink(link string) string {
+	if i := strings.LastIndexByte(link, '/'); i >= 0 {
+		return link[i+1:]
+	}
+	return link
+}
+
+// PasswordResetSubject and EmailChangeSubject render the subject a real send
+// would use. They are exported for the handlers' "email client unavailable" log
+// line, so the operator sees which mail was not delivered while the template
+// stays the single source of the copy.
+func PasswordResetSubject(lang i18n.Tag) string {
+	return i18n.Translate(lang, "Đặt lại mật khẩu Warrly")
+}
+
+func EmailChangeSubject(lang i18n.Tag) string {
+	return i18n.Translate(lang, "Xác nhận đổi email Warrly")
+}
+
 // ── language ─────────────────────────────────────────────────────────────────
 //
 // Both templates below are rendered in the RECIPIENT's language, passed in by the
@@ -79,7 +136,7 @@ type sendRequest struct {
 
 // SendPasswordReset emails the password-reset link, in `lang`.
 func (c *Client) SendPasswordReset(ctx context.Context, lang i18n.Tag, to, resetLink string) error {
-	subject := i18n.Translate(lang, "Đặt lại mật khẩu Warrly")
+	subject := PasswordResetSubject(lang)
 	heading := i18n.Translate(lang, "Đặt lại mật khẩu")
 
 	// Plain-text body. It is the same four sentences as the HTML in the same
@@ -111,7 +168,7 @@ func (c *Client) SendPasswordReset(ctx context.Context, lang i18n.Tag, to, reset
 		i18n.Translate(lang, "Link có hiệu lực trong %d phút. Nếu không phải bạn, bỏ qua email này.", resetTTLMin),
 	)
 
-	return c.send(ctx, to, subject, text, htmlBody)
+	return c.send(ctx, FlowPasswordReset, TokenHandle(tokenFromLink(resetLink)), to, subject, text, htmlBody)
 }
 
 // SendEmailChange emails the confirmation link for an email change (roadmap #10).
@@ -128,7 +185,7 @@ func (c *Client) SendPasswordReset(ctx context.Context, lang i18n.Tag, to, reset
 // stored preference on that row is the right one even though the mail is
 // addressed to an address that is not yet the account's.
 func (c *Client) SendEmailChange(ctx context.Context, lang i18n.Tag, to, oldEmail, confirmLink, token string) error {
-	subject := i18n.Translate(lang, "Xác nhận đổi email Warrly")
+	subject := EmailChangeSubject(lang)
 	heading := i18n.Translate(lang, "Xác nhận đổi email")
 	greeting := i18n.Translate(lang, "Chào bạn,")
 	changeLine := i18n.Translate(lang, "Có yêu cầu đổi email của tài khoản Warrly từ %s sang địa chỉ này.", oldEmail)
@@ -164,7 +221,7 @@ func (c *Client) SendEmailChange(ctx context.Context, lang i18n.Tag, to, oldEmai
 		i18n.Translate(lang, "Link có hiệu lực trong %d phút. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận. Nếu không phải bạn, bỏ qua email này — không có gì thay đổi.", resetTTLMin),
 	)
 
-	return c.send(ctx, to, subject, text, htmlBody)
+	return c.send(ctx, FlowEmailChange, TokenHandle(token), to, subject, text, htmlBody)
 }
 
 // ── reminder email fallback ──────────────────────────────────────────────────
@@ -278,7 +335,7 @@ func (c *Client) SendReminderFallback(ctx context.Context, lang i18n.Tag, to str
 		footer,
 	)
 
-	return c.send(ctx, to, subject, text, htmlBody)
+	return c.send(ctx, FlowReminderFallback, "", to, subject, text, htmlBody)
 }
 
 // reminderCopy renders the kind-specific subject and body sentence. The two
@@ -313,13 +370,22 @@ func reminderCopy(lang i18n.Tag, n ReminderNotice) (subject, line string) {
 	return subject, line
 }
 
-func (c *Client) send(ctx context.Context, to, subject, text, html string) error {
+func (c *Client) send(ctx context.Context, flow Flow, handle, to, subject, text, html string) error {
 	if c.apiKey == "" {
-		slog.Info("email dev-mode (no RESEND_API_KEY)",
+		// Dev mode: the BODY IS NOT LOGGED. Both link mails embed the reset /
+		// confirmation URL and the raw token in it, so logging `text` handed a
+		// working credential to anyone with log access. `handle` is the
+		// sha256(token)[:12] correlation value instead (SEC-01): support asks
+		// for the handle, never for the link.
+		attrs := []any{
+			"flow", string(flow),
 			"to", to,
 			"subject", subject,
-			"text", text,
-		)
+		}
+		if handle != "" {
+			attrs = append(attrs, "handle", handle)
+		}
+		slog.Info("email dev-mode (no RESEND_API_KEY)", attrs...)
 		return nil
 	}
 
