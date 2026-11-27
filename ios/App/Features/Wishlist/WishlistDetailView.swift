@@ -496,6 +496,9 @@ struct WishlistDetailView: View {
         input.initialPrice = w.initialPrice
         input.currentPrice = w.currentPrice
         input.buyUrl       = w.buyUrl
+        // PATCH /wishlist/{id} is a full replacement, so a status change must
+        // carry the image link the web recorded or it is erased.
+        input.imageUrl     = w.imageUrl
         // Carried back unchanged: decoded in the device's zone, so written in the
         // device's zone. `WireDay` is the exact inverse of that decode.
         input.targetDate   = w.targetDate.map { WireDay.string(from: $0) }

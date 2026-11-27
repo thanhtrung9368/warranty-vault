@@ -17,15 +17,6 @@ struct DeviceFormView: View {
     let client: APIClient
     @ObservedObject var store: DevicesStore
     let device: Device?   // nil = create mode
-    /// `true` when this form is the root of a sheet's own `NavigationStack`.
-    ///
-    /// The two presentations need different leading controls. A sheet root has
-    /// nothing to go back to, so it shows "Huỷ" and must never show a back
-    /// chevron; pushed from a tab it shows the system back button instead, and
-    /// its own "Huỷ" would overlap that button. The sheet presenter sets this;
-    /// every push leaves it `false`.
-    private let presentedAsSheet: Bool
-
     @EnvironmentObject private var catalog: CatalogStore
     /// Shared inbox state: an upload from this screen must move the "Thêm"
     /// badge immediately, not on the next screen load.
@@ -350,12 +341,10 @@ struct DeviceFormView: View {
         )
     }
 
-    init(client: APIClient, store: DevicesStore, device: Device?,
-         presentedAsSheet: Bool = false) {
+    init(client: APIClient, store: DevicesStore, device: Device?) {
         self.client = client
         self.store = store
         self.device = device
-        self.presentedAsSheet = presentedAsSheet
         // A create starts from the user's most recent device: the second device
         // of the same kind must not cost what the first one did. The list can
         // still be in flight when this form is pushed (the dashboard quick add,
@@ -1861,21 +1850,21 @@ struct DeviceFormView: View {
         .wvScreen()
         .navigationTitle(isEditing ? L.t("Sửa thiết bị") : L.t("Thiết bị mới"))
         .navigationBarTitleDisplayMode(.inline)
-        // A sheet root has no previous screen to go back to. Hiding the system
-        // back button here makes the leading edge unambiguous even if a
-        // presentation inherits one; when pushed, the system back button is the
-        // single leading control and the form does not add a second one.
-        .navigationBarBackButtonHidden(presentedAsSheet)
+        // A pushed form throws the whole draft away with a swipe, and this
+        // form is long enough that losing it is expensive. Hide the system back
+        // button on both presentations (a sheet root has none, a pushed screen
+        // loses its one) and make Huỷ go through the discard alert; hiding the
+        // back button also disables the interactive pop, so a swipe cannot
+        // bypass the confirmation.
+        .navigationBarBackButtonHidden(true)
         .toolbar {
-            if presentedAsSheet {
-                ToolbarItem(placement: .topBarLeading) {
-                    if didSave {
-                        Button(L.t("Đóng")) { dismiss() }
-                            .foregroundStyle(WVColor.tint)
-                    } else {
-                        Button(L.t("Huỷ")) { showDiscardAlert = true }
-                            .foregroundStyle(WVColor.tint)
-                    }
+            ToolbarItem(placement: .topBarLeading) {
+                if didSave {
+                    Button(L.t("Đóng")) { dismiss() }
+                        .foregroundStyle(WVColor.tint)
+                } else {
+                    Button(L.t("Huỷ")) { showDiscardAlert = true }
+                        .foregroundStyle(WVColor.tint)
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {

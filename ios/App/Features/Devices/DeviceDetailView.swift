@@ -88,9 +88,7 @@ struct DeviceDetailView: View {
             let current = devicesStore.devices.first { $0.id == device.id } ?? device
             _ = try await devicesStore.update(
                 id: current.id,
-                Self.deviceInput(for: current,
-                                 status: status,
-                                 standardWarranty: warranties?.standardWarranty)
+                Self.deviceInput(for: current, status: status)
             )
         }
         _store = StateObject(wrappedValue: warranties)
@@ -1361,8 +1359,7 @@ struct DeviceDetailView: View {
         pendingStatus = nil
 
         let d = currentDevice
-        let input = Self.deviceInput(for: d, status: status,
-                                     standardWarranty: store.standardWarranty)
+        let input = Self.deviceInput(for: d, status: status)
         do {
             let result = try await devicesStore.update(id: d.id, input)
             // PATCH /devices/{id} carries the same advisory array as create. The
@@ -1388,8 +1385,7 @@ struct DeviceDetailView: View {
     /// `PATCH /api/v1/devices/{id}` replaces every field, so each preserved
     /// block below is load-bearing — omitting one erases data
     /// recorded on the web or on Android.
-    private static func deviceInput(for d: Device, status: DeviceStatus,
-                                    standardWarranty: Warranty?) -> DeviceInput {
+    private static func deviceInput(for d: Device, status: DeviceStatus) -> DeviceInput {
         // `d.purchaseDate` came from the shared decoder, which reads the Z-less
         // wire value in the device's own zone. Writing it back through a
         // zone-pinned formatter would move the day east of that pin — so a bare
@@ -1439,22 +1435,23 @@ struct DeviceDetailView: View {
         // from the brand's page. `brandWarrantyFields` is the fresh list
         // projection; `recordBrandWarranty` overrides it with the fresh answer.
         BrandWarrantyRules.apply(BrandWarrantyRules.carried(from: d), to: &input)
-        // The legacy inline-warranty block, and the one block that is NOT
-        // merely "nice to preserve": `PATCH /devices/{id}` reads
-        // `warrantyMonths > 0` as "update the STANDARD warranty row" and
-        // **anything else as "delete it"** (`services/devices.go`, the
-        // `else if hasExisting { DeleteWarranty }` branch). The encoder always
-        // sends the key, so a save that omits these fields sends `0` and takes
-        // the device's warranty — and every expiry reminder attached to it —
-        // with it. A status tap used to do exactly that; the claim sync below
-        // would have inherited it.
-        if let standardWarranty, standardWarranty.months > 0 {
-            input.warrantyMonths = standardWarranty.months
-            input.warrantyProvider = standardWarranty.provider
-            input.warrantyAddress = standardWarranty.address
-            input.warrantyPhone = standardWarranty.phone
-            input.warrantyNotes = standardWarranty.notes
-        }
+        // Deliberately NO inline-warranty block.
+        //
+        // On PATCH, `warrantyMonths > 0` is a request to create/replace the
+        // STANDARD row: `services/devices.go` re-anchors StartDate/EndDate to
+        // `purchaseDate` and resolves the target with
+        // GetStandardWarrantyForDevice, which picks the OLDEST STANDARD row and
+        // applies no component filter. A device may hold up to five warranty
+        // rows and more than one of them can be STANDARD, so sending that block
+        // from a save that did not edit the warranty would silently move a
+        // window the user never touched — and could rewrite a component-scoped
+        // row instead of the whole-unit one.
+        //
+        // None of this builder's three callers edits the warranty: a status
+        // tap, the claim-sync status write and the brand-check sheet. Leaving
+        // the key absent is the contract's "keep every warranty row exactly as
+        // stored" answer, and the warranty form owns changes through its own
+        // endpoints (as does DeviceFormView on create).
         return input
     }
 
@@ -1462,8 +1459,7 @@ struct DeviceDetailView: View {
     /// `warrantyMismatch` (and the brand fields) update in place.
     private func recordBrandWarranty(_ fields: BrandWarrantyFields) async throws {
         let d = currentDevice
-        var input = Self.deviceInput(for: d, status: d.status,
-                                     standardWarranty: store.standardWarranty)
+        var input = Self.deviceInput(for: d, status: d.status)
         BrandWarrantyRules.apply(fields, to: &input)
         _ = try await devicesStore.update(id: d.id, input)
         await store.load()

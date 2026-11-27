@@ -7,11 +7,6 @@ struct SubscriptionFormView: View {
     let client: APIClient
     @ObservedObject var store: SubscriptionsStore
     var subscription: Subscription?          // nil → create
-    /// `true` when this form is the root of a sheet's own `NavigationStack`:
-    /// the sheet shows Huỷ / Thêm and no back chevron; a pushed form keeps the
-    /// system back button as its only leading control. See `DeviceFormView`.
-    private let presentedAsSheet: Bool
-
     @EnvironmentObject private var catalog: CatalogStore
     @EnvironmentObject private var toast:   WVToastCenter
     @Environment(\.dismiss) private var dismiss
@@ -179,12 +174,10 @@ struct SubscriptionFormView: View {
 
     // MARK: - Init
 
-    init(client: APIClient, store: SubscriptionsStore, subscription: Subscription? = nil,
-         presentedAsSheet: Bool = false) {
+    init(client: APIClient, store: SubscriptionsStore, subscription: Subscription? = nil) {
         self.client       = client
         self.store        = store
         self.subscription = subscription
-        self.presentedAsSheet = presentedAsSheet
 
         let sub = subscription
 
@@ -552,10 +545,11 @@ struct SubscriptionFormView: View {
         .wvScreen()
         .navigationTitle(isEditing ? L.t("Sửa gói") : L.t("Gói mới"))
         .navigationBarTitleDisplayMode(.inline)
-        // As a sheet root there is nothing to go back to: Huỷ is the leading
-        // control and any inherited back chevron is hidden. Pushed from a tab,
-        // the system back button is the only leading control.
-        .navigationBarBackButtonHidden(presentedAsSheet)
+        // Huỷ is the one way out, and it asks before dropping the draft. The
+        // system back button is hidden on both presentations (a sheet root has
+        // none, a pushed screen loses its one), which also turns off the
+        // interactive pop so a swipe cannot bypass the alert.
+        .navigationBarBackButtonHidden(true)
         // Screenshot-QA only: the charge-date control sits below the fold at the
         // default text size and the simulator cannot be scrolled headlessly.
         // `.top` is the normal behaviour; the QA value just starts the form
@@ -570,11 +564,9 @@ struct SubscriptionFormView: View {
         .onChange(of: billingCycle) { _, _ in syncRenewalDate() }
         .onChange(of: intervalDays) { _, _ in syncRenewalDate() }
         .toolbar {
-            if presentedAsSheet {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(L.t("Huỷ")) { showDiscard = true }
-                        .foregroundStyle(WVColor.tint)
-                }
+            ToolbarItem(placement: .topBarLeading) {
+                Button(L.t("Huỷ")) { showDiscard = true }
+                    .foregroundStyle(WVColor.tint)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(isEditing ? L.t("Lưu") : L.t("Thêm")) { Task { await submit() } }
