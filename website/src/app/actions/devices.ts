@@ -76,10 +76,23 @@ function bool(formData: FormData, key: string): boolean {
   return formData.get(key) === 'true';
 }
 
-function buildDeviceInput(formData: FormData): DeviceInput {
+function buildDeviceInput(formData: FormData, mode: 'create' | 'edit'): DeviceInput {
   // Required fields are surfaced as empty strings — server returns 400 with
   // Vietnamese fieldErrors which are passed through as-is.
   const status = str(formData, 'status');
+  // The inline warranty block on PATCH is tri-state and, for N > 0, the server
+  // keeps the stored window when the term is unchanged. Carry the term only
+  // when the edit form's input actually changed (the hidden marker holds the
+  // loaded value); an omitted key is the server's "keep the stored row". On
+  // create there is nothing to preserve, so the old `?? 0` stays.
+  const warrantyMonths = num(formData, 'warrantyMonths');
+  const warrantyMonthsInitial = num(formData, 'warrantyMonthsInitial');
+  const warrantyMonthsBlock: Pick<DeviceInput, 'warrantyMonths'> =
+    mode === 'create'
+      ? { warrantyMonths: warrantyMonths ?? 0 }
+      : warrantyMonths !== undefined && warrantyMonths !== warrantyMonthsInitial
+        ? { warrantyMonths }
+        : {};
   // Multi-currency: `currency` defaults to VND (the server default) and a VND
   // device NEVER carries a rate — a stale hidden field is dropped here, not
   // forwarded. A non-VND device keeps the parsed integer; the pre-flight check
@@ -128,7 +141,7 @@ function buildDeviceInput(formData: FormData): DeviceInput {
     // `{returnWindowDays: null, receivedAt: null}` only ever means "there is no
     // window to preserve". See `lib/device-return-window.ts`.
     ...returnWindowFieldsFromFormData(formData),
-    warrantyMonths: num(formData, 'warrantyMonths') ?? 0,
+    ...warrantyMonthsBlock,
     warrantyProvider: str(formData, 'warrantyProvider') ?? null,
     warrantyAddress: str(formData, 'warrantyAddress') ?? null,
     warrantyPhone: str(formData, 'warrantyPhone') ?? null,
@@ -208,7 +221,7 @@ export async function createDevice(
   _prev: DeviceFormState,
   formData: FormData,
 ): Promise<DeviceFormState> {
-  const input = buildDeviceInput(formData);
+  const input = buildDeviceInput(formData, 'create');
   const invalid = await preflightFormState(input);
   if (invalid) return invalid;
   const fromWishlistId = str(formData, 'fromWishlistId') ?? null;
@@ -233,7 +246,7 @@ export async function updateDevice(
   _prev: DeviceFormState,
   formData: FormData,
 ): Promise<DeviceFormState> {
-  const input = buildDeviceInput(formData);
+  const input = buildDeviceInput(formData, 'edit');
   const invalid = await preflightFormState(input);
   if (invalid) return invalid;
   const res = await api.devices.update(id, input);
@@ -263,13 +276,6 @@ export async function updateDevice(
 
 /** Rebuild the complete PATCH payload from the device as the server sent it. */
 function deviceToInput(device: DeviceDetail): DeviceInput {
-  // The edit form uses the OLDEST standard warranty (see the edit page), so
-  // re-saving a device here must resolve to the same row. `warrantyMonths` etc.
-  // are therefore idempotent, not a second copy.
-  const standard = device.warranties
-    .filter((w) => w.type === 'STANDARD')
-    .sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0))[0];
-
   return {
     name: device.name,
     category: device.category,
@@ -288,11 +294,11 @@ function deviceToInput(device: DeviceDetail): DeviceInput {
     soldPrice: device.soldPrice,
     returnWindowDays: device.returnWindowDays,
     receivedAt: device.receivedAt,
-    warrantyMonths: standard?.months ?? 0,
-    warrantyProvider: standard?.provider ?? null,
-    warrantyAddress: standard?.address ?? null,
-    warrantyPhone: standard?.phone ?? null,
-    warrantyNotes: standard?.notes ?? null,
+    // The inline warranty block is deliberately absent. On PATCH an omitted
+    // `warrantyMonths` means "keep the stored STANDARD row untouched"; sending
+    // the stored months back would ask the server to rebuild the term. A
+    // brand-check has no reason to edit the warranty at all, so it carries no
+    // warranty* fields — including the ones only written with that block.
     leadDays: device.leadDays,
     activationRequired: device.activationRequired,
     activatedAt: device.activatedAt,

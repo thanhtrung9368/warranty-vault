@@ -164,16 +164,19 @@ type DeviceInput struct {
 	//     absent, because there is nothing to preserve); UPDATE deletes the
 	//     stored STANDARD warranty if there is one. This is the only way to say
 	//     "remove it", and it must keep working.
-	//   * N > 0 — create the STANDARD warranty (create) or create/replace it
-	//     (update) covering N months.
+	//   * N > 0 — create the STANDARD warranty (create) or create/update it
+	//     (update) covering N months. On update an unchanged term is a no-op;
+	//     a changed term keeps the stored startDate and recomputes its endDate,
+	//     falling back to purchaseDate only when no startDate is stored.
 	//
 	// The four warranty* detail fields below belong to this block: they are
-	// written only when WarrantyMonths is non-nil, so a PATCH that omits the
-	// block cannot blank them. When the block IS supplied with N > 0 its details
-	// are a full replacement, like every other optional field on PATCH: an
-	// absent provider/address/phone/notes stores NULL. A client that wants to
-	// edit a saved warranty's terms without touching the coverage window uses
-	// PATCH /api/v1/warranties/{id} instead.
+	// written only when WarrantyMonths is non-nil AND the block changes the row
+	// (a fresh insert or a different term), so a PATCH that omits the block — or
+	// repeats the stored term — cannot blank them. When the block does write,
+	// its details are a full replacement, like every other optional field on
+	// PATCH: an absent provider/address/phone/notes stores NULL. A client that
+	// wants to edit a saved warranty's terms without touching the coverage
+	// window uses PATCH /api/v1/warranties/{id} instead.
 	WarrantyMonths   *int32  `json:"warrantyMonths,omitempty"`
 	WarrantyProvider *string `json:"warrantyProvider,omitempty"`
 	WarrantyAddress  *string `json:"warrantyAddress,omitempty"`
@@ -1398,7 +1401,12 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 	//     is the bug fix: before it, "absent" fell into the same branch as "0"
 	//     and deleted the warranty (and every reminder hanging off it).
 	//   * 0 ⇒ delete the stored STANDARD warranty, if any.
-	//   * N > 0 ⇒ create or replace it, covering N months.
+	//   * N > 0 ⇒ create the STANDARD warranty, or update the stored one when
+	//     its term actually changes. Repeating the stored term is a NO-OP: the
+	//     row is left untouched. A changed term keeps the stored startDate (the
+	//     user may have chosen one in the warranty form) and recomputes
+	//     endDate = startDate + N; purchaseDate is only the fallback for a fresh
+	//     row with no stored startDate.
 	//
 	// The stored-row read is inside this guard on purpose: a PATCH that does not
 	// carry the block (the overwhelming majority — status taps, brand-check
@@ -1412,65 +1420,81 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 
 		months := *in.WarrantyMonths
 		if months > 0 {
-			end := addMonths(purchaseDate, int(months))
-			if hasExisting {
-				// The device form edits the coverage WINDOW, not the contract
-				// terms. UpdateWarranty is a full replacement, so the nine
-				// migration-0017 columns must be carried through from the stored
-				// row or saving an unrelated device edit would silently delete
-				// the user's cap, deductible, exclusions and claim counter.
-				if _, uerr := tq.UpdateWarranty(ctx, store.UpdateWarrantyParams{
-					ID:            existing.ID,
-					UserId:        userID,
-					Type:          "STANDARD",
-					Provider:      in.WarrantyProvider,
-					StartDate:     wire.Date(purchaseDate),
-					EndDate:       wire.Date(end),
-					Months:        months,
-					Cost:          existing.Cost,
-					Address:       in.WarrantyAddress,
-					Phone:         in.WarrantyPhone,
-					Notes:         in.WarrantyNotes,
-					Component:     existing.Component,
-					Scope:         existing.Scope,
-					Cap:           existing.Cap,
-					Deductible:    existing.Deductible,
-					Exclusions:    existing.Exclusions,
-					Region:        existing.Region,
-					Transferable:  existing.Transferable,
-					ClaimsAllowed: existing.ClaimsAllowed,
-					ClaimsUsed:    existing.ClaimsUsed,
-				}); uerr != nil {
-					return DeviceVND{}, fmt.Errorf("update warranty: %w", uerr)
+			// Clients carry the stored term back on every save, so an unchanged
+			// term says nothing about the warranty. Re-deriving the window from
+			// purchaseDate here used to move a warranty — and every reminder
+			// hanging off it — back to `purchaseDate … purchaseDate + N` even
+			// when the user had deliberately started it on another date.
+			if !hasExisting || existing.Months != months {
+				// Preserve a start date the user chose. The warranty form lets
+				// them set one; the inline `warrantyMonths` block only edits the
+				// term, so the stored startDate is the anchor for a changed term.
+				// purchaseDate applies only to a fresh row (or a legacy row whose
+				// startDate is NULL).
+				startDate := purchaseDate
+				if hasExisting && existing.StartDate.Valid {
+					startDate = existing.StartDate.Time
 				}
-			} else {
-				// This is a second door into "Warranty", so it must obey the same
-				// per-device ceiling as the warranty form (services.CreateWarranty).
-				// `hasExisting` is false for a device with five EXTENDED/THIRD_PARTY
-				// rows and no STANDARD row — the inline sync used to treat that as
-				// "no warranty" and insert a sixth. Count inside this transaction,
-				// before the insert, and return the identical ErrLimit shape.
-				count, cerr := tq.CountWarrantiesByDevice(ctx, id)
-				if cerr != nil {
-					return DeviceVND{}, fmt.Errorf("count warranties: %w", cerr)
-				}
-				if qerr := enforceWarrantyQuota(ctx, count); qerr != nil {
-					return DeviceVND{}, qerr
-				}
-				if _, cerr := tq.CreateWarranty(ctx, store.CreateWarrantyParams{
-					ID:        auth.NewID(),
-					DeviceId:  id,
-					Type:      "STANDARD",
-					Provider:  in.WarrantyProvider,
-					StartDate: wire.Date(purchaseDate),
-					EndDate:   wire.Date(end),
-					Months:    months,
-					Cost:      nil,
-					Address:   in.WarrantyAddress,
-					Phone:     in.WarrantyPhone,
-					Notes:     in.WarrantyNotes,
-				}); cerr != nil {
-					return DeviceVND{}, fmt.Errorf("create warranty: %w", cerr)
+				end := addMonths(startDate, int(months))
+				if hasExisting {
+					// The device form edits the coverage WINDOW, not the contract
+					// terms. UpdateWarranty is a full replacement, so the nine
+					// migration-0017 columns must be carried through from the stored
+					// row or saving an unrelated device edit would silently delete
+					// the user's cap, deductible, exclusions and claim counter.
+					if _, uerr := tq.UpdateWarranty(ctx, store.UpdateWarrantyParams{
+						ID:            existing.ID,
+						UserId:        userID,
+						Type:          "STANDARD",
+						Provider:      in.WarrantyProvider,
+						StartDate:     wire.Date(startDate),
+						EndDate:       wire.Date(end),
+						Months:        months,
+						Cost:          existing.Cost,
+						Address:       in.WarrantyAddress,
+						Phone:         in.WarrantyPhone,
+						Notes:         in.WarrantyNotes,
+						Component:     existing.Component,
+						Scope:         existing.Scope,
+						Cap:           existing.Cap,
+						Deductible:    existing.Deductible,
+						Exclusions:    existing.Exclusions,
+						Region:        existing.Region,
+						Transferable:  existing.Transferable,
+						ClaimsAllowed: existing.ClaimsAllowed,
+						ClaimsUsed:    existing.ClaimsUsed,
+					}); uerr != nil {
+						return DeviceVND{}, fmt.Errorf("update warranty: %w", uerr)
+					}
+				} else {
+					// This is a second door into "Warranty", so it must obey the same
+					// per-device ceiling as the warranty form (services.CreateWarranty).
+					// `hasExisting` is false for a device with five EXTENDED/THIRD_PARTY
+					// rows and no STANDARD row — the inline sync used to treat that as
+					// "no warranty" and insert a sixth. Count inside this transaction,
+					// before the insert, and return the identical ErrLimit shape.
+					count, cerr := tq.CountWarrantiesByDevice(ctx, id)
+					if cerr != nil {
+						return DeviceVND{}, fmt.Errorf("count warranties: %w", cerr)
+					}
+					if qerr := enforceWarrantyQuota(ctx, count); qerr != nil {
+						return DeviceVND{}, qerr
+					}
+					if _, cerr := tq.CreateWarranty(ctx, store.CreateWarrantyParams{
+						ID:        auth.NewID(),
+						DeviceId:  id,
+						Type:      "STANDARD",
+						Provider:  in.WarrantyProvider,
+						StartDate: wire.Date(startDate),
+						EndDate:   wire.Date(end),
+						Months:    months,
+						Cost:      nil,
+						Address:   in.WarrantyAddress,
+						Phone:     in.WarrantyPhone,
+						Notes:     in.WarrantyNotes,
+					}); cerr != nil {
+						return DeviceVND{}, fmt.Errorf("create warranty: %w", cerr)
+					}
 				}
 			}
 		} else if hasExisting {
