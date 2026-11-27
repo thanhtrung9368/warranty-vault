@@ -38,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,24 +88,24 @@ fun SubscriptionEditSheet(
             .format(Date())
     }
 
-    var name by remember { mutableStateOf(existing?.name ?: "") }
-    var brand by remember { mutableStateOf(existing?.brand ?: "") }
-    var plan by remember { mutableStateOf(existing?.plan ?: "") }
-    var category by remember { mutableStateOf(existing?.category ?: "") }
-    var price by remember { mutableStateOf((existing?.price ?: 0).takeIf { it > 0 }?.toString() ?: "") }
-    var cycle by remember { mutableStateOf(existing?.billingCycle ?: BillingCycle.MONTHLY) }
-    var intervalDays by remember {
+    var name by rememberSaveable { mutableStateOf(existing?.name ?: "") }
+    var brand by rememberSaveable { mutableStateOf(existing?.brand ?: "") }
+    var plan by rememberSaveable { mutableStateOf(existing?.plan ?: "") }
+    var category by rememberSaveable { mutableStateOf(existing?.category ?: "") }
+    var price by rememberSaveable { mutableStateOf((existing?.price ?: 0).takeIf { it > 0 }?.toString() ?: "") }
+    var cycle by rememberSaveable { mutableStateOf(existing?.billingCycle ?: BillingCycle.MONTHLY) }
+    var intervalDays by rememberSaveable {
         mutableStateOf(existing?.intervalDays?.toString() ?: "")
     }
-    var startedAt by remember { mutableStateOf(existing?.startedAt?.take(10) ?: today) }
-    var renewalDate by remember { mutableStateOf(existing?.renewalDate?.take(10) ?: "") }
-    var autoRenew by remember { mutableStateOf(existing?.autoRenew ?: true) }
-    var status by remember { mutableStateOf(existing?.status ?: SubscriptionStatus.ACTIVE) }
-    var accountEmail by remember { mutableStateOf(existing?.accountEmail ?: "") }
-    var paymentMethod by remember { mutableStateOf(existing?.paymentMethod ?: "") }
-    var manageUrl by remember { mutableStateOf(existing?.manageUrl ?: "") }
-    var cancelUrl by remember { mutableStateOf(existing?.cancelUrl ?: "") }
-    var notes by remember { mutableStateOf(existing?.notes ?: "") }
+    var startedAt by rememberSaveable { mutableStateOf(existing?.startedAt?.take(10) ?: today) }
+    var renewalDate by rememberSaveable { mutableStateOf(existing?.renewalDate?.take(10) ?: "") }
+    var autoRenew by rememberSaveable { mutableStateOf(existing?.autoRenew ?: true) }
+    var status by rememberSaveable { mutableStateOf(existing?.status ?: SubscriptionStatus.ACTIVE) }
+    var accountEmail by rememberSaveable { mutableStateOf(existing?.accountEmail ?: "") }
+    var paymentMethod by rememberSaveable { mutableStateOf(existing?.paymentMethod ?: "") }
+    var manageUrl by rememberSaveable { mutableStateOf(existing?.manageUrl ?: "") }
+    var cancelUrl by rememberSaveable { mutableStateOf(existing?.cancelUrl ?: "") }
+    var notes by rememberSaveable { mutableStateOf(existing?.notes ?: "") }
     // Reminder schedule (`leadDays`): 1..5 days, each 0..365, sorted descending.
     // The picker normalises each change. An older server that omits the field
     // decodes to the fixed 30/7 schedule the cron used, so the UI never claims
@@ -118,8 +119,8 @@ fun SubscriptionEditSheet(
     // A stored price with no stored date is dropped on load for the same reason:
     // keeping it hidden would block Save with an invisible field.
     val initialTrialEndsAt = trialEndsAtInput(existing?.trialEndsAt)
-    var trialEndsAt by remember { mutableStateOf(initialTrialEndsAt) }
-    var convertsToPrice by remember {
+    var trialEndsAt by rememberSaveable { mutableStateOf(initialTrialEndsAt) }
+    var convertsToPrice by rememberSaveable {
         mutableStateOf(
             if (initialTrialEndsAt.isBlank()) {
                 ""
@@ -138,7 +139,7 @@ fun SubscriptionEditSheet(
     // Deleting a subscription destroys its payment history for good, so it asks
     // first — the same AlertDialog pattern as deleting a device / a warranty.
     // (iOS: `SubscriptionDetailView` → "Xoá gói đăng ký?".)
-    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
 
     fun performDelete(target: Subscription) {
         scope.launch {

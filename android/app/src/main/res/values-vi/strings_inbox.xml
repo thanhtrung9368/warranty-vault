@@ -42,5 +42,7 @@
     </plurals>
     <string name="inbox_pick_another_device">Chọn thiết bị khác</string>
     <string name="inbox_delete_receipt">Xoá hoá đơn</string>
+    <string name="inbox_delete_confirm_title">Xoá hoá đơn này?</string>
+    <string name="inbox_delete_confirm_body">“%1$s” sẽ bị xoá vĩnh viễn. Không thể hoàn tác.</string>
 
 </resources>

@@ -27,10 +27,29 @@ import okhttp3.Response
  * (`ApiClient.build`); the raw file-download client derives from the same base
  * client but deliberately carries neither header, because the caller attaches
  * them per request.
+ *
+ * ## Dead-session observer
+ *
+ * [#onUnauthorized] is the single "the server no longer accepts this session"
+ * hook. It fires once per request when the request carried a bearer and the
+ * response is `401` — the only status that means the token is dead server-side
+ * (revoked from another device, expired, password changed elsewhere). The
+ * caller (`App.onCreate`) forwards it to `AuthStore.handleUnauthorizedSession`,
+ * which makes the transition one-shot; this interceptor does not retry and does
+ * not touch the response.
+ *
+ * Deliberately narrow, mirroring iOS `APIClient.setUnauthorizedObserver`:
+ *  * a request with no bearer never notifies — there is no session to end;
+ *  * the credential-verification calls (`/auth/login`, `/auth/register`) never
+ *    notify even if an old bearer happened to ride along: their `401` is an
+ *    answer about the credentials just typed, not about the stored session;
+ *  * transport failures, timeouts, decoding failures and `5xx` never notify —
+ *    those mean "try again", not "signed out" (see `AuthStore.bootstrap`).
  */
 class AuthInterceptor(
     private val tokenProvider: () -> String?,
     private val languageProvider: () -> String? = { null },
+    private val onUnauthorized: () -> Unit = {},
 ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -38,9 +57,14 @@ class AuthInterceptor(
         val builder = request.newBuilder()
         var touched = false
 
+        // A caller may already have attached a bearer; count it too, so the
+        // observer follows "the request carried a bearer", not "we added one".
+        var carriedBearer = request.header("Authorization")?.startsWith("Bearer ") == true
+
         tokenProvider()?.takeIf { it.isNotBlank() }?.let { token ->
             builder.addHeader("Authorization", "Bearer $token")
             touched = true
+            carriedBearer = true
         }
 
         if (request.header("Accept-Language") == null) {
@@ -50,6 +74,17 @@ class AuthInterceptor(
             }
         }
 
-        return chain.proceed(if (touched) builder.build() else request)
+        val response = chain.proceed(if (touched) builder.build() else request)
+
+        if (carriedBearer && response.code == 401 && !isCredentialVerification(request)) {
+            onUnauthorized()
+        }
+        return response
+    }
+
+    /** Login/register answer 401 about the password, never about a session. */
+    private fun isCredentialVerification(request: okhttp3.Request): Boolean {
+        val path = request.url.encodedPath.trimEnd('/')
+        return path.endsWith("/auth/login") || path.endsWith("/auth/register")
     }
 }

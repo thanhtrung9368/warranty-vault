@@ -80,7 +80,6 @@ import com.warrly.network.DeviceStatus
 import com.warrly.network.DeviceWarning
 import com.warrly.network.DraftDevice
 import com.warrly.network.StoreOption
-import com.warrly.network.WarrantyType
 import com.warrly.network.fieldErrors
 import com.warrly.network.leadDaysForRequest
 import com.warrly.network.normalizeLeadDays
@@ -129,52 +128,37 @@ fun AddDeviceSheet(
     val scope = rememberCoroutineScope()
     val isEdit = existing != null
 
-    // The inline STANDARD package when the loaded device has one. `PATCH
-    // /devices/{id}` treats `warrantyMonths` as a tri-state, and a save that
-    // omits the block leaves the stored row alone — but a save that carries the
-    // wrong value (`0`) DELETES it, together with every reminder pointing at it.
-    // This sheet never edits the package (edit mode hides the field), so it must
-    // carry the stored row back verbatim. `months > 0` is deliberate: `0` is the
-    // delete sentinel and removal has its own action, `DELETE
-    // /api/v1/warranties/{id}`. No row ⇒ the block is omitted entirely.
-    //
-    // Edit mode is only entered from the detail screen, whose `GET
-    // /devices/{id}` carries `warranties`; the list projection is never passed
-    // here as `existing`.
-    val inlineStandardWarranty = existing?.warranties
-        ?.firstOrNull { it.type == WarrantyType.STANDARD && it.months > 0 }
-
-    var name by remember { mutableStateOf(existing?.name ?: "") }
-    var brand by remember { mutableStateOf(existing?.brand ?: "") }
-    var model by remember { mutableStateOf(existing?.model ?: "") }
-    var price by remember {
+    var name by rememberSaveable { mutableStateOf(existing?.name ?: "") }
+    var brand by rememberSaveable { mutableStateOf(existing?.brand ?: "") }
+    var model by rememberSaveable { mutableStateOf(existing?.model ?: "") }
+    var price by rememberSaveable {
         mutableStateOf((existing?.purchasePrice ?: 0).takeIf { it > 0 }?.toString() ?: "")
     }
     // Multi-currency device. `currency` is the ISO code sent back on every save;
     // `fxRateText` is the locked VND-per-unit rate the user typed or fetched.
     // Both are loaded from `existing` so an edit can never relabel a foreign
     // device as dong or drop the rate a previous client stored.
-    var currency by remember { mutableStateOf(normalizeCurrency(existing?.currency)) }
-    var fxRateText by remember { mutableStateOf(existing?.fxRate?.toString().orEmpty()) }
+    var currency by rememberSaveable { mutableStateOf(normalizeCurrency(existing?.currency)) }
+    var fxRateText by rememberSaveable { mutableStateOf(existing?.fxRate?.toString().orEmpty()) }
     var fxLoading by remember { mutableStateOf(false) }
     var fxNotice by remember { mutableStateOf<FxNotice?>(null) }
-    var months by remember {
+    var months by rememberSaveable {
         mutableStateOf(if (isEdit) "" else "12")
     }
-    var notes by remember { mutableStateOf(existing?.notes ?: "") }
-    var category by remember { mutableStateOf(existing?.category ?: "PHONE") }
-    var status by remember { mutableStateOf(existing?.status ?: DeviceStatus.ACTIVE) }
-    var purchaseDate by remember {
+    var notes by rememberSaveable { mutableStateOf(existing?.notes ?: "") }
+    var category by rememberSaveable { mutableStateOf(existing?.category ?: "PHONE") }
+    var status by rememberSaveable { mutableStateOf(existing?.status ?: DeviceStatus.ACTIVE) }
+    var purchaseDate by rememberSaveable {
         mutableStateOf(existing?.purchaseDate?.take(10) ?: today())
     }
-    var serial by remember { mutableStateOf(existing?.serialNumber ?: "") }
-    var purchasePlace by remember { mutableStateOf(existing?.purchasePlace ?: "") }
+    var serial by rememberSaveable { mutableStateOf(existing?.serialNumber ?: "") }
+    var purchasePlace by rememberSaveable { mutableStateOf(existing?.purchasePlace ?: "") }
     // Resale (roadmap #12). `soldAt` is read exactly like `purchaseDate` above:
     // a calendar day (`YYYY-MM-DD`), of which the first 10 chars are the whole
     // value. A blank price stays blank rather than becoming 0 so "chưa bán"
     // (null) and a give-away (0 ₫) are distinguishable.
-    var soldDate by remember { mutableStateOf(soldDateInput(existing?.soldAt)) }
-    var soldPrice by remember { mutableStateOf(existing?.soldPrice?.toString().orEmpty()) }
+    var soldDate by rememberSaveable { mutableStateOf(soldDateInput(existing?.soldAt)) }
+    var soldPrice by rememberSaveable { mutableStateOf(existing?.soldPrice?.toString().orEmpty()) }
     // Exchange/return window (migration 0010) — PRESERVED, never edited here.
     //
     // `PATCH /api/v1/devices/{id}` replaces every field, so a save that omits
@@ -182,8 +166,8 @@ fun AddDeviceSheet(
     // client. These two hold whatever was loaded, purely so the request can send
     // it straight back; there is intentionally no input bound to them (see
     // DeviceReturnWindow.kt). Blank means "chưa biết" and stays `null`.
-    var returnWindowDays by remember { mutableStateOf(returnWindowDaysInput(existing?.returnWindowDays)) }
-    var receivedAt by remember { mutableStateOf(receivedAtInput(existing?.receivedAt)) }
+    var returnWindowDays by rememberSaveable { mutableStateOf(returnWindowDaysInput(existing?.returnWindowDays)) }
+    var receivedAt by rememberSaveable { mutableStateOf(receivedAtInput(existing?.receivedAt)) }
     // Reminder schedule (`leadDays`) — editable here, unlike the read-only return
     // window above. The API accepts 1..5 days, each 0..365; the picker normalises
     // every change, so this state is always sorted descending and de-duped. A
@@ -196,11 +180,11 @@ fun AddDeviceSheet(
     // `activationRequired` is a plain boolean; the two dates are calendar days
     // (`YYYY-MM-DD`) like `purchaseDate`. Nothing compares the activation date
     // with the purchase date: a shop may pre-activate before the invoice.
-    var activationRequired by remember {
+    var activationRequired by rememberSaveable {
         mutableStateOf(existing?.activationRequired ?: false)
     }
-    var activatedAt by remember { mutableStateOf(activatedAtInput(existing?.activatedAt)) }
-    var extendedCoverBuyBy by remember {
+    var activatedAt by rememberSaveable { mutableStateOf(activatedAtInput(existing?.activatedAt)) }
+    var extendedCoverBuyBy by rememberSaveable {
         mutableStateOf(extendedCoverBuyByInput(existing?.extendedCoverBuyBy))
     }
     // Brand warranty lookup. The five fields are loaded so an edit can never
@@ -923,21 +907,24 @@ fun AddDeviceSheet(
                             brandWarrantyEnd = brandWarrantyDraft.endDate,
                             brandCheckedAt = brandWarrantyDraft.checkedAt,
                             brandLookupUrl = brandWarrantyDraft.lookupUrl,
-                            // The inline STANDARD package: carry the stored row
-                            // on edit so the PATCH replaces it with itself
-                            // instead of deleting it. On create the months field
-                            // is the whole input; a blank/zero term means "no
-                            // package" and is omitted (null), never sent as the
-                            // delete sentinel `0`.
+                            // The inline STANDARD package is CREATE-ONLY. On
+                            // edit the key must stay absent: the server does not
+                            // replace the row with itself — it recomputes
+                            // StartDate = purchaseDate and EndDate =
+                            // addMonths(purchaseDate, months), so carrying the
+                            // stored term back would move a warranty created
+                            // "today" (device-detail FAB) to the purchase date
+                            // and could flip a covered device to expired. An
+                            // absent key means "keep the stored row" (iOS
+                            // DeviceFormView documents the same rule). On create
+                            // a blank/zero term means "no package" and is
+                            // omitted (null), never sent as the delete sentinel
+                            // `0`.
                             warrantyMonths = if (isEdit) {
-                                inlineStandardWarranty?.months
+                                null
                             } else {
                                 months.toIntOrNull()?.takeIf { it > 0 }
                             },
-                            warrantyProvider = inlineStandardWarranty?.provider,
-                            warrantyAddress = inlineStandardWarranty?.address,
-                            warrantyPhone = inlineStandardWarranty?.phone,
-                            warrantyNotes = inlineStandardWarranty?.notes,
                         )
                         try {
                             val res = if (existing != null) {

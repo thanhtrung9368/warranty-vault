@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,13 +66,13 @@ fun ChangePasswordSheet(
     // `scope.launch { }`, which is a coroutine, not a composable lambda).
     val context = LocalContext.current
 
-    var currentPassword by remember { mutableStateOf("") }
-    var newPassword by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
+    var currentPassword by rememberSaveable { mutableStateOf("") }
+    var newPassword by rememberSaveable { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
 
-    var showCurrent by remember { mutableStateOf(false) }
-    var showNew by remember { mutableStateOf(false) }
-    var showConfirm by remember { mutableStateOf(false) }
+    var showCurrent by rememberSaveable { mutableStateOf(false) }
+    var showNew by rememberSaveable { mutableStateOf(false) }
+    var showConfirm by rememberSaveable { mutableStateOf(false) }
 
     var submitting by remember { mutableStateOf(false) }
     var generalError by remember { mutableStateOf<String?>(null) }

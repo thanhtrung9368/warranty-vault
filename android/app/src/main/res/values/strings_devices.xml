@@ -190,6 +190,8 @@
     <string name="att_description">Description</string>
     <string name="att_leave_it_empty_to_clear_the">Leave it empty to clear the description.</string>
     <string name="att_open">Open</string>
+    <string name="att_delete_confirm_title">Delete this attachment?</string>
+    <string name="att_delete_confirm_body">“%1$s” will be deleted permanently. This cannot be undone.</string>
     <string name="warr_add_a_warranty_plan">Add a warranty plan</string>
     <string name="warr_edit_warranty_plan">Edit warranty plan</string>
     <string name="warr_start_date_yyyy_mm_dd">Start date (YYYY-MM-DD) *</string>

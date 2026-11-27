@@ -17,6 +17,7 @@ import com.warrly.network.UpdateProfileInput
 import com.warrly.network.UpdateProfileResponse
 import com.warrly.network.UpdateReminderEmailFallbackInput
 import com.warrly.network.User
+import com.warrly.network.isUnauthorized
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,13 +46,31 @@ class AuthStore(
     sealed interface Status {
         data object Idle : Status
         data object Unauthenticated : Status
+        /**
+         * [bootstrap] could not prove the stored session — a dead socket, a
+         * timeout, a `5xx`, a decode failure — but the server never said the
+         * token was invalid. The token is kept and `RootScreen` shows a retry
+         * screen; only a `401` is a sign-out. Mirrors iOS's `.unreachable`.
+         */
+        data object Unreachable : Status
         data class Authenticated(val user: User) : Status
     }
 
     private val _status = MutableStateFlow<Status>(Status.Idle)
     val status: StateFlow<Status> = _status.asStateFlow()
 
-    /** Restore session on launch — verify any cached token via /me. */
+    /**
+     * Restore session on launch — verify any cached token via /me.
+     *
+     * Only a `401` ends the session: the server has answered that the stored
+     * bearer is dead (revoked from another device, expired, password changed
+     * elsewhere), so the token is cleared and the app goes to Login. Anything
+     * else — network, timeout, `5xx`, decoding — means "could not check", not
+     * "signed out": the token stays in the keystore and the status becomes
+     * [Status.Unreachable], which `RootScreen` renders as a retry screen. This
+     * used to clear the token on every throw, so one dropped packet at launch
+     * signed the user out.
+     */
     fun bootstrap() {
         scope.launch {
             val tok = tokenStore.read()
@@ -62,9 +81,13 @@ class AuthStore(
             try {
                 val me = api.me().user
                 applyUser(me)
-            } catch (_: Exception) {
-                tokenStore.clear()
-                _status.value = Status.Unauthenticated
+            } catch (e: Exception) {
+                if (e.isUnauthorized) {
+                    tokenStore.clear()
+                    _status.value = Status.Unauthenticated
+                } else {
+                    _status.value = Status.Unreachable
+                }
             }
         }
     }
@@ -224,6 +247,35 @@ class AuthStore(
     fun endLocalSession() {
         tokenStore.clear()
         _status.value = Status.Unauthenticated
+    }
+
+    /**
+     * The one-shot "the server no longer accepts this session" transition,
+     * called by the OkHttp 401 observer installed in `ApiClient.build` (see
+     * `AuthInterceptor`). A request that carried the bearer came back `401`
+     * while the app was open — a revoked or expired session — so this ends it
+     * exactly once and returns to Login.
+     *
+     * It is deliberately narrow, the same rules as iOS
+     * `AuthStore.handleUnauthorizedSession`:
+     *
+     *  * only meaningful while [Status.Authenticated]. During [bootstrap] the
+     *    status is `Idle`/`Unreachable`, so a `/me` 401 is owned by
+     *    [bootstrap]'s own catch, which is the call that knows whether a token
+     *    existed. A login/register 401 never carries a bearer, and the
+     *    interceptor skips those paths anyway.
+     *  * one-shot: a pull-to-refresh that fires five lists at once signs out on
+     *    the first 401 and every other one is a no-op (compare-and-set), rather
+     *    than a second transition or a loop.
+     *
+     * Synchronous and thread-safe so the OkHttp worker can call it directly;
+     * `MutableStateFlow` is safe to publish from any thread.
+     */
+    fun handleUnauthorizedSession() {
+        val current = _status.value
+        if (current !is Status.Authenticated) return
+        tokenStore.clear()
+        _status.compareAndSet(current, Status.Unauthenticated)
     }
 
     /**

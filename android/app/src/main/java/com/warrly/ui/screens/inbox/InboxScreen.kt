@@ -335,6 +335,9 @@ fun InboxScreen(
     var uploading by remember { mutableStateOf(false) }
     // The item a device picker is currently open for; null = no sheet.
     var pickerFor by remember { mutableStateOf<Attachment?>(null) }
+    // The row whose red trash icon was tapped. Deleting a receipt is permanent
+    // (the server has no undo), so the icon only opens this confirmation.
+    var pendingDelete by remember { mutableStateOf<Attachment?>(null) }
     var devices by remember { mutableStateOf<List<Device>>(emptyList()) }
     var devicesLoading by remember { mutableStateOf(false) }
     var devicesError by remember { mutableStateOf<String?>(null) }
@@ -466,10 +469,34 @@ fun InboxScreen(
                     },
                     onAddPdf = { pdfPicker.launch(arrayOf("application/pdf")) },
                     onAssign = { openPicker(it) },
-                    onDelete = { vm.delete(it) },
+                    onDelete = { pendingDelete = it },
                 )
             }
         }
+    }
+
+    pendingDelete?.let { attachment ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text(stringResource(R.string.inbox_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.inbox_delete_confirm_body, attachment.fileName)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingDelete = null
+                    vm.delete(attachment)
+                }) {
+                    Text(
+                        stringResource(R.string.action_delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
     }
 
     pickerFor?.let { attachment ->
