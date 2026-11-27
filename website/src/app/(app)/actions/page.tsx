@@ -119,7 +119,7 @@ function ActionRow({
           {href ? (
             <Link
               href={href}
-              className="font-display text-sm font-bold text-ink hover:text-primary hover:underline"
+              className="font-display text-sm font-bold text-ink hover:text-primary-text hover:underline"
             >
               {item.title}
             </Link>
@@ -153,7 +153,7 @@ function ActionRow({
           {href && entity && (
             <Link
               href={href}
-              className="inline-flex items-center gap-0.5 font-semibold text-primary hover:underline"
+              className="inline-flex items-center gap-0.5 font-semibold text-primary-text hover:underline"
             >
               {t(OPEN_ENTITY[entity] ?? 'Xem {entity}', { entity: t(entity) })}
               <ArrowRight className="h-3 w-3" />
@@ -190,7 +190,7 @@ export default async function ActionsPage() {
     return (
       <PageShell>
         <PageHeader eyebrow={t('Hàng đợi')} title={t('Việc cần xử lý')} />
-        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive-ink">
           {t('Lỗi tải hàng đợi: {message}', { message: res.message ?? res.error })}
         </div>
       </PageShell>

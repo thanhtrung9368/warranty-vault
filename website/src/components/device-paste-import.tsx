@@ -410,7 +410,7 @@ export function DevicePasteImport({ categories }: { categories: CategoryOption[]
                 {r.status === 'created' && r.deviceId ? (
                   <Link
                     href={`/devices/${r.deviceId}`}
-                    className="text-xs font-semibold text-primary hover:underline"
+                    className="text-xs font-semibold text-primary-text hover:underline"
                   >
                     {t('Đã tạo · xem')}
                   </Link>

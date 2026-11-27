@@ -72,7 +72,7 @@ export function LandingFooter({ year }: { year: number }) {
           <a href="mailto:support@warrly.com" className="text-muted hover:text-ink">
             {t('Hỗ trợ')}: support@warrly.com
           </a>
-          <Link href="/login" className="font-semibold text-primary hover:underline">
+          <Link href="/login" className="font-semibold text-primary-text hover:underline">
             {t('Đăng nhập')}
           </Link>
         </div>

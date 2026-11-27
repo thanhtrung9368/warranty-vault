@@ -101,7 +101,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
           {state?.message && !state.ok && (
             <p
               role="alert"
-              className="rounded-md border-[1.5px] border-destructive/30 bg-destructive-soft/60 px-3 py-2 text-sm font-medium text-destructive"
+              className="rounded-md border-[1.5px] border-destructive/30 bg-destructive-soft/60 px-3 py-2 text-sm font-medium text-destructive-ink"
             >
               {state.message}
             </p>
@@ -110,7 +110,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
           <p className="text-center text-sm text-muted">
             <Link
               href="/login"
-              className="inline-flex items-center font-semibold text-primary hover:underline"
+              className="inline-flex items-center font-semibold text-primary-text hover:underline"
             >
               <ArrowLeft className="mr-1 h-3.5 w-3.5" />
               {t('Quay lại đăng nhập')}

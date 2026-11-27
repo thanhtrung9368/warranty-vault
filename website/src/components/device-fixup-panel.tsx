@@ -96,7 +96,7 @@ export async function DeviceFixupPanel({ summary }: { summary: DeviceFixupSummar
                       {showReceiptLink && (
                         <Link
                           href={receiptHref}
-                          className="text-xs font-semibold text-primary underline underline-offset-2 hover:text-primary-ink"
+                          className="text-xs font-semibold text-primary-text underline underline-offset-2 hover:text-primary-ink"
                         >
                           {t('Thêm hoá đơn')}
                         </Link>
@@ -123,7 +123,7 @@ export async function DeviceFixupPanel({ summary }: { summary: DeviceFixupSummar
             )}
             <Link
               href="/devices"
-              className="text-primary underline underline-offset-2 hover:text-primary-ink"
+              className="text-primary-text underline underline-offset-2 hover:text-primary-ink"
             >
               {t('Xem danh sách thiết bị')}
             </Link>

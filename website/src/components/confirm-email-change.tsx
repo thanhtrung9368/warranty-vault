@@ -80,7 +80,7 @@ export function ConfirmEmailChange({ token }: { token: string }) {
           <input type="hidden" name="token" value={token} />
 
           {state?.title && (
-            <div className="flex items-start gap-2.5 rounded-md border-[1.5px] border-destructive/30 bg-destructive-soft/60 p-3 text-sm font-medium text-destructive">
+            <div className="flex items-start gap-2.5 rounded-md border-[1.5px] border-destructive/30 bg-destructive-soft/60 p-3 text-sm font-medium text-destructive-ink">
               <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
               <div className="space-y-1">
                 <p>{state.title}</p>
@@ -95,7 +95,7 @@ export function ConfirmEmailChange({ token }: { token: string }) {
           <p className="text-center text-sm text-muted">
             <Link
               href="/login"
-              className="inline-flex items-center font-semibold text-primary hover:underline"
+              className="inline-flex items-center font-semibold text-primary-text hover:underline"
             >
               <ArrowLeft className="mr-1 h-3.5 w-3.5" />
               {t('Quay lại đăng nhập')}

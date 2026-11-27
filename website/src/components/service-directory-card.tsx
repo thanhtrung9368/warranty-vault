@@ -100,7 +100,7 @@ export function ServiceDirectoryCard({
                   href={brand.serviceLocatorUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline"
+                  className="inline-flex items-center gap-1.5 font-semibold text-primary-text hover:underline"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                   {t(DIRECTORY_LINK_SERVICE_LOCATOR_LABEL)}
@@ -113,7 +113,7 @@ export function ServiceDirectoryCard({
                   href={brand.supportUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline"
+                  className="inline-flex items-center gap-1.5 font-semibold text-primary-text hover:underline"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                   {t(DIRECTORY_LINK_SUPPORT_LABEL)}

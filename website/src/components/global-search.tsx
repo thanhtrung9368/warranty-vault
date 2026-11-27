@@ -66,7 +66,7 @@ function GroupSection({
               <Link
                 href={searchResultHref(groupKey, row.id)}
                 onClick={onNavigate}
-                className="block px-3 py-2 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none"
+                className="block px-3 py-2 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink"
               >
                 <span className="block truncate text-sm font-semibold text-ink">{row.name}</span>
                 {subtitle && (
@@ -113,7 +113,7 @@ function AttachmentGroupSection({
               <Link
                 href={attachmentSearchHref(hit.deviceId)}
                 onClick={onNavigate}
-                className="block px-3 py-2 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none"
+                className="block px-3 py-2 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink"
               >
                 <span className="flex items-baseline gap-2">
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
@@ -258,6 +258,10 @@ export function GlobalSearch() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
   const mobileInputRef = React.useRef<HTMLInputElement>(null);
+  // Focus goes back to the button that opened the overlay: when the panel
+  // unmounts the focused input goes with it and focus falls to <body>, which
+  // leaves a keyboard user with no position on the page.
+  const mobileTriggerRef = React.useRef<HTMLButtonElement>(null);
 
   React.useEffect(() => {
     const q = query.trim();
@@ -284,6 +288,17 @@ export function GlobalSearch() {
   }, [query]);
 
   const closeAll = React.useCallback(() => {
+    setOpen(false);
+    setMobileOpen(false);
+    // Escape, the backdrop and the ✕ all land here. On md+ the trigger is
+    // `display:none`, so `.focus()` is a no-op and the desktop dropdown is
+    // unaffected.
+    mobileTriggerRef.current?.focus();
+  }, []);
+
+  // Following a result is a navigation, not a dismissal: do not pull focus back
+  // to the search button on the way to the result page.
+  const onNavigate = React.useCallback(() => {
     setOpen(false);
     setMobileOpen(false);
   }, []);
@@ -350,7 +365,7 @@ export function GlobalSearch() {
         {open && (
           <SearchResults
             state={state}
-            onNavigate={closeAll}
+            onNavigate={onNavigate}
             className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[70vh]"
           />
         )}
@@ -360,6 +375,7 @@ export function GlobalSearch() {
           the header's 4rem bottom edge; the topbar's backdrop-blur makes the
           header the containing block, which is why no `bottom-*` is used. */}
       <button
+        ref={mobileTriggerRef}
         type="button"
         onClick={() => setMobileOpen(true)}
         aria-label={t('Tìm kiếm')}
@@ -399,7 +415,7 @@ export function GlobalSearch() {
             </div>
             <SearchResults
               state={state}
-              onNavigate={closeAll}
+              onNavigate={onNavigate}
               className="mt-3 max-h-[60vh]"
             />
           </div>

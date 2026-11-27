@@ -106,7 +106,7 @@ export async function RenewalWindowCard({
               <p className="mt-1">{rule.refundCopy}</p>
               <p className="mt-1 flex flex-wrap gap-x-3 text-xs">
                 <a
-                  className="text-primary underline underline-offset-2"
+                  className="text-primary-text underline underline-offset-2"
                   href={rule.sourceUrl}
                   target="_blank"
                   rel="noreferrer"
@@ -114,7 +114,7 @@ export async function RenewalWindowCard({
                   {t('Nguồn')}
                 </a>
                 <a
-                  className="text-primary underline underline-offset-2"
+                  className="text-primary-text underline underline-offset-2"
                   href={rule.refundSourceUrl}
                   target="_blank"
                   rel="noreferrer"

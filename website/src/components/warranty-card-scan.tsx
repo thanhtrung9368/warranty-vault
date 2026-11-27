@@ -224,7 +224,7 @@ export function WarrantyCardScan({
             {warrantyCardInboxNotice(draft.extractedTextStored, locale)}{' '}
             <Link
               href={SCAN_INBOX_HREF}
-              className="font-semibold text-primary underline underline-offset-2"
+              className="font-semibold text-primary-text underline underline-offset-2"
             >
               {t('Mở hộp thư')} →
             </Link>

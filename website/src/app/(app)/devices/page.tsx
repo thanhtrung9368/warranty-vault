@@ -148,7 +148,7 @@ export default async function DevicesPage({
               {t('Đã có sẵn danh sách trong Excel/Google Sheets?')}{' '}
               <Link
                 href="/devices/import"
-                className="font-semibold text-primary hover:underline"
+                className="font-semibold text-primary-text hover:underline"
               >
                 {t('Dán bảng để nhập nhiều thiết bị một lúc')}
               </Link>

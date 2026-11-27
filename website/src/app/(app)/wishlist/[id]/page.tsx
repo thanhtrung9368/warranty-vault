@@ -21,7 +21,7 @@ import {
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CategoryIconBadge } from '@/components/category-icon';
-import { PriceHistoryChart } from '@/components/charts/price-history';
+import { PriceHistoryChart } from '@/components/charts/lazy';
 import {
   UpdatePriceDialog,
   WishlistStatusButtons,

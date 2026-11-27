@@ -128,7 +128,7 @@ export function AuthForm({
             {mode === 'login' && (
               <Link
                 href="/forgot"
-                className="text-xs font-semibold text-primary hover:underline"
+                className="text-xs font-semibold text-primary-text hover:underline"
               >
                 {t('Quên mật khẩu?')}
               </Link>
@@ -162,7 +162,7 @@ export function AuthForm({
             className={
               state.ok
                 ? 'rounded-md border-[1.5px] border-emerald-soft bg-emerald-soft/60 px-3 py-2 text-sm font-medium text-emerald-ink'
-                : 'rounded-md border-[1.5px] border-destructive/30 bg-destructive-soft/60 px-3 py-2 text-sm font-medium text-destructive'
+                : 'rounded-md border-[1.5px] border-destructive/30 bg-destructive-soft/60 px-3 py-2 text-sm font-medium text-destructive-ink'
             }
           >
             {state.message}
@@ -180,11 +180,11 @@ export function AuthForm({
         {mode === 'register' && (
           <p className="text-center text-xs leading-relaxed text-muted">
             {t('Tạo tài khoản là bạn đồng ý với')}{' '}
-            <Link href="/terms" className="font-semibold text-primary hover:underline">
+            <Link href="/terms" className="font-semibold text-primary-text hover:underline">
               {t('Điều khoản sử dụng')}
             </Link>{' '}
             {t('và')}{' '}
-            <Link href="/privacy" className="font-semibold text-primary hover:underline">
+            <Link href="/privacy" className="font-semibold text-primary-text hover:underline">
               {t('Chính sách bảo mật')}
             </Link>
             .
@@ -195,14 +195,14 @@ export function AuthForm({
           {mode === 'login' ? (
             <>
               {t('Chưa có tài khoản?')}{' '}
-              <Link href={switchHref} className="font-semibold text-primary hover:underline">
+              <Link href={switchHref} className="font-semibold text-primary-text hover:underline">
                 {t('Đăng ký')}
               </Link>
             </>
           ) : (
             <>
               {t('Đã có tài khoản?')}{' '}
-              <Link href={switchHref} className="font-semibold text-primary hover:underline">
+              <Link href={switchHref} className="font-semibold text-primary-text hover:underline">
                 {t('Đăng nhập')}
               </Link>
             </>

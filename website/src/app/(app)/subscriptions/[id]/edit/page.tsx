@@ -34,7 +34,7 @@ export default async function EditSubscriptionPage({
           eyebrow={t('Chỉnh sửa')}
           title={t('Sửa gói')}
         />
-        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive-ink">
           {t('Lỗi tải gói: {message}', { message: res.message ?? res.error })}
         </div>
       </PageShell>

@@ -89,7 +89,7 @@ export function HandoffClaim({ code }: { code: string }) {
   if (failure) {
     const signInHref = withNext('/login', `/handoff/${code}`);
     return (
-      <div className="space-y-3 rounded-2xl border-[1.5px] border-destructive/40 bg-destructive-soft p-5 text-destructive">
+      <div className="space-y-3 rounded-2xl border-[1.5px] border-destructive/40 bg-destructive-soft p-5 text-destructive-ink">
         <p className="flex items-center gap-2 font-display text-lg font-bold">
           <AlertTriangle className="h-5 w-5" />
           {handoffFailureTitle(failure.reason, locale)}

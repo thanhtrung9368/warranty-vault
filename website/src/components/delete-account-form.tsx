@@ -71,7 +71,7 @@ export function DeleteAccountForm() {
         void clearOfflinePageCache();
       }}
     >
-      <div className="flex items-start gap-3 rounded-md bg-destructive-soft p-3.5 text-sm text-destructive">
+      <div className="flex items-start gap-3 rounded-md bg-destructive-soft p-3.5 text-sm text-destructive-ink">
         <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <p>
           {t('Sau khi bấm xoá, toàn bộ dữ liệu của bạn bị xoá vĩnh viễn. Bạn nên xuất backup JSON trước.')}
@@ -95,7 +95,7 @@ export function DeleteAccountForm() {
       <div className="space-y-2">
         <Label htmlFor="delete-confirm" className="font-semibold">
           {t('Gõ')}{' '}
-          <code className="rounded-sm bg-destructive-soft px-1.5 py-0.5 font-mono text-destructive">
+          <code className="rounded-sm bg-destructive-soft px-1.5 py-0.5 font-mono text-destructive-ink">
             {CONFIRM_PHRASE}
           </code>{' '}
           {t('để xác nhận')}
@@ -113,7 +113,7 @@ export function DeleteAccountForm() {
         <FieldError id="delete-confirm-error" errors={errors.confirm} />
       </div>
       {state?.message && !state.ok && (
-        <p className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive">
+        <p className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive-ink">
           {state.message}
         </p>
       )}

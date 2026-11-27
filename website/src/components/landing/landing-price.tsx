@@ -70,7 +70,7 @@ export function LandingPrice() {
               <Link
                 href={localePath('/terms#usage-limits', locale)}
                 prefetch={false}
-                className="mt-auto pt-6 text-[13px] font-semibold text-primary hover:underline"
+                className="mt-auto pt-6 text-[13px] font-semibold text-primary-text hover:underline"
               >
                 {t('Điều khoản, mục 4')} →
               </Link>
@@ -93,7 +93,7 @@ export function LandingPrice() {
               <Link
                 href={localePath('/privacy', locale)}
                 prefetch={false}
-                className="mt-auto pt-6 text-[13px] font-semibold text-primary hover:underline"
+                className="mt-auto pt-6 text-[13px] font-semibold text-primary-text hover:underline"
               >
                 {t('Chính sách bảo mật, mục 3 và 5')} →
               </Link>
@@ -113,7 +113,7 @@ export function LandingPrice() {
               <Link
                 href={localePath('/privacy#rights', locale)}
                 prefetch={false}
-                className="mt-auto pt-6 text-[13px] font-semibold text-primary hover:underline"
+                className="mt-auto pt-6 text-[13px] font-semibold text-primary-text hover:underline"
               >
                 {t('Chính sách bảo mật, mục 6')} →
               </Link>

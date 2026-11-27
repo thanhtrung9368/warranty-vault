@@ -106,10 +106,11 @@ export default async function RemindersPage() {
   // 90-day horizon matches the previous UI's bucket coverage.
   // The “Đã ẩn” list comes from that same light feed, widened with
   // `includeDismissed=true`, instead of the whole-database export document it
-  // used to parse — see `lib/dismissed-reminders.ts`. The plain call is left
-  // exactly as it was so the active sections keep their previous behaviour.
-  const [res, dismissedRes, devicesRes] = await Promise.all([
-    api.reminders.list(90),
+  // used to parse — see `lib/dismissed-reminders.ts`. The widened feed already
+  // contains every active row (only dismissed rows opt out of the 90-day and
+  // ACTIVE-device filters), so it also feeds the active sections: the second
+  // `list(90)` was a duplicate round trip on top of the app shell's own read.
+  const [dismissedRes, devicesRes] = await Promise.all([
     api.reminders.list(90, { includeDismissed: true }),
     // Only to tell the two empty states apart: "nothing is due" is a claim
     // about data the account actually has, and an account with no devices has
@@ -117,7 +118,9 @@ export default async function RemindersPage() {
     api.devices.list(),
   ]);
   const now = new Date();
-  const active: ReminderItem[] = res.ok ? res.data.map((r) => toItem(r, now)) : [];
+  const active: ReminderItem[] = dismissedRes.ok
+    ? dismissedRes.data.filter((r) => !r.isDismissed).map((r) => toItem(r, now))
+    : [];
   // A failed read falls to `no-data`: the safer lie is "add a device" (which is
   // always actionable) rather than congratulating an account we could not read.
   const hasDevices = devicesRes.ok && devicesRes.data.length > 0;
@@ -150,7 +153,7 @@ export default async function RemindersPage() {
       {/* The failed read keeps its own banner, never the green empty state:
           "Không có nhắc nhở nào, ngon!" is a claim about warranties we did not
           read. The "Đã ẩn" section below keeps whatever it did load. */}
-      {!res.ok ? (
+      {!dismissedRes.ok ? (
         <ListLoadError
           message={t('Không tải được danh sách nhắc nhở — thử tải lại trang nhé.')}
         />

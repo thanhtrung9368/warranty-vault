@@ -1019,7 +1019,7 @@ export default async function DeviceDetailPage({
 
                   <Link
                     href="/stats#chi-phi-moi-ngay"
-                    className="inline-block text-xs font-semibold text-primary hover:underline"
+                    className="inline-block text-xs font-semibold text-primary-text hover:underline"
                   >
                     {t('So sánh với các thiết bị khác →')}
                   </Link>

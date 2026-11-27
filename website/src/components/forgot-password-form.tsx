@@ -85,14 +85,14 @@ export function ForgotPasswordForm() {
           {state?.message && !state.ok && (
             <p
               role="alert"
-              className="rounded-md border-[1.5px] border-destructive/30 bg-destructive-soft/60 px-3 py-2 text-sm font-medium text-destructive"
+              className="rounded-md border-[1.5px] border-destructive/30 bg-destructive-soft/60 px-3 py-2 text-sm font-medium text-destructive-ink"
             >
               {state.message}
             </p>
           )}
           <SubmitButton />
           <p className="text-center text-sm text-muted">
-            <Link href="/login" className="font-semibold text-primary hover:underline">
+            <Link href="/login" className="font-semibold text-primary-text hover:underline">
               ← {t('Quay lại đăng nhập')}
             </Link>
           </p>

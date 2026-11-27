@@ -88,7 +88,7 @@ export function LandingHero({
                 </Button>
                 <Link
                   href="/login"
-                  className="text-sm font-semibold text-primary hover:underline"
+                  className="text-sm font-semibold text-primary-text hover:underline"
                 >
                   {t('Đã có tài khoản → Đăng nhập')}
                 </Link>

@@ -104,8 +104,13 @@ const config: Config = {
         'primary-soft': 'hsl(var(--primary-soft))',
         'primary-soft-2': 'hsl(var(--primary-soft-2))',
         'primary-ink': 'hsl(var(--primary-ink))',
+        // Readable link text: same accent, darkened until it clears WCAG AA
+        // on the cream surfaces. `primary` stays the fill/graphic colour.
+        'primary-text': 'hsl(var(--primary-text))',
 
         'destructive-soft': 'hsl(var(--destructive-soft))',
+        // Darker red for error-banner text; `destructive` keeps the fill.
+        'destructive-ink': 'hsl(var(--destructive-ink))',
 
         'emerald-soft': 'hsl(var(--emerald-soft))',
         'emerald-ink': 'hsl(var(--emerald-ink))',

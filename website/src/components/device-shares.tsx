@@ -279,7 +279,7 @@ export function DeviceShares({
                 {/* Warning #1 — before the token exists. */}
                 <div
                   role="alert"
-                  className="rounded-xl border-[1.5px] border-destructive/40 bg-destructive-soft p-3 text-destructive"
+                  className="rounded-xl border-[1.5px] border-destructive/40 bg-destructive-soft p-3 text-destructive-ink"
                 >
                   <p className="flex items-center gap-2 font-display text-sm font-bold">
                     <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -491,7 +491,7 @@ export function CreatedSharePanel({
       {/* Warning #2 — while the token is on screen. Louder than the form one. */}
       <div
         role="alert"
-        className="rounded-xl border-[2px] border-destructive bg-destructive-soft p-3 text-destructive"
+        className="rounded-xl border-[2px] border-destructive bg-destructive-soft p-3 text-destructive-ink"
       >
         <p className="flex items-center gap-2 font-display text-sm font-bold">
           <AlertTriangle className="h-4 w-4 shrink-0" />
