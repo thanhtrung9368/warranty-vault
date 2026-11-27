@@ -59,6 +59,16 @@ final class WarrlySmokeTests: XCTestCase {
             "The login form never appeared. The app likely crashed at launch (check the base URL) or stayed on the bootstrap spinner."
         )
         email.tap()
+        // A tap alone is not enough: the field is focused by the same run loop
+        // that raises the keyboard, and typing before it is up fails with
+        // "Neither element nor any descendant has keyboard focus" (seen once in
+        // a 14-test run). Wait for the keyboard, and tap again once if it never
+        // arrives, so this flake is about keystroke timing and not the app.
+        if !app.keyboards.firstMatch.waitForExistence(timeout: 5) {
+            email.tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5),
+                          "The keyboard never opened for the email field")
+        }
         email.typeText(UITestFixtures.userEmail)
 
         let identifiedPassword = app.secureTextFields["login.password"]
@@ -68,6 +78,8 @@ final class WarrlySmokeTests: XCTestCase {
         XCTAssertTrue(password.exists,
                       "The password field is missing from the login form.")
         password.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5),
+                      "The keyboard is not up for the password field")
         // The field's submit label is `.go` and its `onSubmit` calls the same
         // login path as the button; the newline submits without needing the CTA
         // to be visible above the keyboard on a small phone.
