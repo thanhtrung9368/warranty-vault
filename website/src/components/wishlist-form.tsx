@@ -21,7 +21,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
-import { formatNumber, parseVNDInput } from '@/lib/format';
+import { formatDate, formatNumber, parseVNDInput } from '@/lib/format';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { wishlistPriorityLabel, wishlistStatusLabel } from '@/lib/i18n/labels';
 import {
@@ -133,7 +133,14 @@ function MoneyInput({
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
         ₫
       </span>
-      <input type="hidden" name={name} value={parseVNDInput(value)} />
+      {/* Blank (not 0) when nothing was entered, so the action's `n()` returns
+          null and the server records "no price" instead of a 0-đồng history
+          row. */}
+      <input
+        type="hidden"
+        name={name}
+        value={value.trim() === '' ? '' : parseVNDInput(value)}
+      />
     </div>
   );
 }
@@ -507,7 +514,9 @@ export function WishlistForm({
               {wishlistPriorityLabel(priority as WishlistPriority, locale)} ·{' '}
               {wishlistStatusLabel(status as WishlistStatus, locale)}
               {currentPrice ? t(' · Hiện tại {price} ₫', { price: currentPrice }) : ''}
-              {targetDate ? t(' · Target {date}', { date: targetDate }) : ''}
+              {targetDate
+                ? t(' · Target {date}', { date: formatDate(targetDate, locale) })
+                : ''}
             </p>
           </div>
         </div>

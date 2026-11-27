@@ -107,9 +107,11 @@ export async function setWishlistStatus(id: string, status: string) {
   return { ok: true };
 }
 
-export async function deleteWishlistItem(id: string) {
+export async function deleteWishlistItem(id: string): Promise<WishlistFormState> {
   const res = await api.wishlist.remove(id);
-  if (!res.ok) redirect('/wishlist');
-  redirect('/wishlist');
+  if (!res.ok) return toFormState(res);
+  // No redirect: the caller navigates only after `ok`, so a failed delete
+  // leaves the item and its price history on screen.
+  return { ok: true };
 }
 

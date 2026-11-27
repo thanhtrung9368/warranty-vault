@@ -78,7 +78,7 @@ export default async function WishlistDetailPage({
           eyebrow={t('Mua sắm')}
           title={t('Wishlist')}
         />
-        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-rose-ink/20 bg-rose-soft p-4 text-sm font-semibold text-rose-ink">
           {t('Lỗi tải món: {message}', { message: res.message ?? res.error })}
         </div>
       </PageShell>

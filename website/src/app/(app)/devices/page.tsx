@@ -192,12 +192,12 @@ export default async function DevicesPage({
                 return (
                   <TableRow
                     key={d.id}
-                    className="cursor-pointer transition-colors hover:bg-surface-2"
+                    className="relative cursor-pointer transition-colors hover:bg-surface-2"
                   >
                     <TableCell>
                       <Link
                         href={`/devices/${d.id}`}
-                        className="flex items-center gap-3"
+                        className="flex items-center gap-3 after:absolute after:inset-0"
                       >
                         <CategoryIconBadge category={d.category} size="sm" />
                         <div className="min-w-0">

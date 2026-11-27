@@ -8,6 +8,7 @@ import { CategoryIconBadge } from '@/components/category-icon';
 import { EmptyState } from '@/components/empty-state';
 import { SubscriptionFilterBar } from '@/components/subscription-filter-bar';
 import { SubscriptionAuditPanel } from '@/components/subscription-audit-panel';
+import { ListLoadError } from '@/components/list-load-error';
 import { api } from '@/lib/api';
 import type { Subscription } from '@/lib/api/subscriptions';
 import { getCategories } from '@/app/actions/catalog';
@@ -38,7 +39,7 @@ function renewalLabel(
   cycle: string,
   locale: Locale,
 ): { text: string; tone: RenewalTone } {
-  if (cycle === 'LIFETIME') return { text: 'Lifetime', tone: 'neutral' };
+  if (cycle === 'LIFETIME') return { text: billingCycleLabel('LIFETIME', locale), tone: 'neutral' };
   const days = renewalDaysLeft(date);
   if (days < 0) {
     const overdue = Math.abs(days);
@@ -192,12 +193,23 @@ export default async function SubscriptionsPage({
   if (!listRes.ok) {
     return (
       <PageShell>
-        <PageHeader eyebrow={t('Gói định kỳ')} title={t('Gói đăng ký')} />
-        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
-          {t('Lỗi tải danh sách: {message}', {
+        <PageHeader
+          eyebrow={t('Gói định kỳ')}
+          title={t('Gói đăng ký')}
+          actions={
+            <Button asChild size="lg" className="rounded-pill">
+              <Link href="/subscriptions/new">
+                <Plus className="mr-1 h-4 w-4" />
+                {t('Thêm gói')}
+              </Link>
+            </Button>
+          }
+        />
+        <ListLoadError
+          message={t('Lỗi tải danh sách: {message}', {
             message: listRes.message ?? listRes.error,
           })}
-        </div>
+        />
       </PageShell>
     );
   }

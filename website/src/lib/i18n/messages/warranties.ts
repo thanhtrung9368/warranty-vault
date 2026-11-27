@@ -149,7 +149,8 @@ export const warranties = defineMessages({
   '{name} vượt quá 5MB': '{name} is larger than 5 MB',
   '{name}: chỉ chấp nhận ảnh hoặc PDF': '{name}: only images or PDF are accepted',
   'Upload thất bại': 'Upload failed',
-  'Đã tải lên {count} file': { en: 'Uploaded {count} files', enOne: 'Uploaded {count} file' },
+  'Đã tải lên {succeeded}/{attempted} file':
+    'Uploaded {succeeded}/{attempted} files',
   'Không tải được file': 'Could not upload the file',
   'Kéo thả hoặc bấm để chọn file': 'Drag and drop, or click to choose files',
   'Ảnh hoặc PDF, tối đa 5MB. Còn lại: {remaining} file.': {

@@ -162,7 +162,7 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
               )}
               <div className="border-t border-border bg-card/80 px-2.5 py-1.5 backdrop-blur">
                 {isEditing ? (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
                     <Input
                       autoFocus
                       value={draft}
@@ -185,7 +185,7 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                       type="button"
                       onClick={() => void saveEdit(a)}
                       disabled={isSaving}
-                      className="shrink-0 text-muted-foreground hover:text-primary disabled:opacity-50"
+                      className="shrink-0 p-2 text-muted-foreground hover:text-primary disabled:opacity-50"
                       aria-label={t('Lưu mô tả')}
                       title={t('Lưu (Enter)')}
                     >
@@ -199,7 +199,7 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                       type="button"
                       onClick={cancelEdit}
                       disabled={isSaving}
-                      className="shrink-0 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                      className="shrink-0 p-2 text-muted-foreground hover:text-destructive disabled:opacity-50"
                       aria-label={t('Huỷ sửa mô tả')}
                       title={t('Huỷ (Esc)')}
                     >
@@ -207,15 +207,15 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between gap-1">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-xs font-medium text-ink-2">
                       {caption ?? a.fileName}
                     </span>
-                    <div className="flex shrink-0 items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-2">
                       <button
                         type="button"
                         onClick={() => startEdit(a)}
-                        className="text-muted-foreground hover:text-primary"
+                        className="p-2 text-muted-foreground hover:text-primary"
                         aria-label={t('Sửa mô tả')}
                         title={t('Sửa mô tả')}
                       >
@@ -244,7 +244,7 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                             setPendingId(null);
                           }
                         }}
-                        className="text-muted-foreground hover:text-destructive"
+                        className="p-2 text-muted-foreground hover:text-destructive"
                         aria-label={t('Xóa')}
                       >
                         {pendingId === a.id ? (

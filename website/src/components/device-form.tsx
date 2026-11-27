@@ -913,11 +913,19 @@ export function DeviceForm({
     (providerName: string, force: boolean) => {
       const tpl = catalog.warrantyProviders.find((p) => p.name === providerName);
       if (!tpl) return;
-      if (force || !warrantyPhone) setWarrantyPhone(tpl.phone ?? '');
-      if (force || !warrantyAddress) setWarrantyAddress(tpl.address ?? '');
-      if (force || !warrantyNotes) setWarrantyNotes(tpl.notes ?? '');
+      // Read the CURRENT field value inside the updater. Closing over the
+      // first render's `warrantyPhone`/`Address`/`Notes` meant a later provider
+      // pick overwrote (or cleared) whatever the user had typed since.
+      setWarrantyPhone((current) =>
+        force || !current ? tpl.phone ?? '' : current,
+      );
+      setWarrantyAddress((current) =>
+        force || !current ? tpl.address ?? '' : current,
+      );
+      setWarrantyNotes((current) =>
+        force || !current ? tpl.notes ?? '' : current,
+      );
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [catalog.warrantyProviders],
   );
 
@@ -998,6 +1006,7 @@ export function DeviceForm({
   const goPrev = () => setStep((s) => Math.max(s - 1, 0));
 
   const resetAll = () => {
+    if (!confirm(t('Đặt lại toàn bộ biểu mẫu? Mọi thứ đã nhập sẽ mất.'))) return;
     setName('');
     setCategory('');
     setTouched({ category: false, price: false, warranty: false });

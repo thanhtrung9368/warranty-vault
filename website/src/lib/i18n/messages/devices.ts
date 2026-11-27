@@ -94,6 +94,8 @@ export const devices = defineMessages({
   'Vui lòng nhập: {field}': 'Please fill in: {field}',
   'Vui lòng kiểm tra: {fields}': 'Please check: {fields}',
   'Đặt lại': 'Reset',
+  'Đặt lại toàn bộ biểu mẫu? Mọi thứ đã nhập sẽ mất.':
+    'Reset the whole form? Everything you entered will be lost.',
   'Lưu thiết bị': 'Save device',
   'Hãng': 'Brand',
   'Nơi mua': 'Purchased at',
@@ -323,6 +325,7 @@ export const devices = defineMessages({
   // ── Detail page (`devices/[id]/page.tsx`) ───────────────────────────────
   'Không tải được thiết bị': 'Could not load the device',
   'Tổng quan bảo hành': 'Warranty overview',
+  'Bảo hành đến {date}': 'Warranty ends {date}',
   'Có {count} gói bảo hành. Gói xa nhất hết {date}.':
     {
       en: '{count} warranty plans, the furthest ending on {date}.',
@@ -715,6 +718,8 @@ export const devices = defineMessages({
     'Leaving a fee blank means “not known”, not 0. Without the fees the total is only a lower bound.',
   'Lưu kế hoạch': 'Save plan',
   'Xoá kế hoạch': 'Delete plan',
+  'Xoá kế hoạch trả góp? Không thể khôi phục.':
+    'Delete the installment plan? This cannot be undone.',
   'Đã lưu kế hoạch trả góp.': 'Installment plan saved.',
   'Đã xoá kế hoạch trả góp.': 'Installment plan deleted.',
   'Lãi/lỗ so với tổng chi phí sở hữu': 'Profit/loss vs. total cost of ownership',

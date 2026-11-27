@@ -104,7 +104,7 @@ export async function register(
       ok: false,
       status: 0,
       error: 'network_error',
-      message: 'Mất kết nối tới máy chủ, thử lại sau nhé.',
+      message: translate(locale, 'Mất kết nối tới máy chủ, thử lại sau nhé.'),
     };
   }
 

@@ -201,7 +201,7 @@ export function MarkPurchasedButton({ itemId }: { itemId: string }) {
     <Button asChild size="sm" className="rounded-pill">
       <a href={`/devices/new?fromWishlist=${itemId}`}>
         <ShoppingBag className="mr-2 h-4 w-4" />
-        {t('Đã mua → tạo Device')}
+        {t('Đã mua → tạo thiết bị')}
       </a>
     </Button>
   );
@@ -221,6 +221,7 @@ export function MarkSubscribedButton({ itemId }: { itemId: string }) {
 
 export function DeleteWishlistButton({ itemId }: { itemId: string }) {
   const t = useT();
+  const router = useRouter();
   const [pending, setPending] = React.useState(false);
   return (
     <Button
@@ -232,7 +233,13 @@ export function DeleteWishlistButton({ itemId }: { itemId: string }) {
         if (!confirm(t('Xoá món này khỏi wishlist? Lịch sử giá cũng sẽ mất.'))) return;
         setPending(true);
         try {
-          await deleteWishlistItem(itemId);
+          const res = await deleteWishlistItem(itemId);
+          if (!res.ok) {
+            toast.error(res.message ?? t('Không xoá được'));
+            setPending(false);
+            return;
+          }
+          router.push('/wishlist');
         } catch {
           toast.error(t('Không xoá được'));
           setPending(false);

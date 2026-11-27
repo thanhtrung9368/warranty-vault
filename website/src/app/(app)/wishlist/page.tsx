@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { EmptyState } from '@/components/empty-state';
 import { WishlistFilterBar } from '@/components/wishlist-filter-bar';
+import { ListLoadError } from '@/components/list-load-error';
 import { api } from '@/lib/api';
 import type { WishlistItem } from '@/lib/api/wishlist';
 import { getCategories } from '@/app/actions/catalog';
@@ -160,12 +161,23 @@ export default async function WishlistPage({
   if (!listRes.ok) {
     return (
       <PageShell>
-        <PageHeader eyebrow={t('Mua sắm')} title={t('Wishlist')} />
-        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
-          {t('Lỗi tải wishlist: {message}', {
+        <PageHeader
+          eyebrow={t('Mua sắm')}
+          title={t('Wishlist')}
+          actions={
+            <Button asChild size="lg" className="rounded-pill">
+              <Link href="/wishlist/new">
+                <Plus className="mr-1 h-4 w-4" />
+                {t('Thêm món')}
+              </Link>
+            </Button>
+          }
+        />
+        <ListLoadError
+          message={t('Lỗi tải wishlist: {message}', {
             message: listRes.message ?? listRes.error,
           })}
-        </div>
+        />
       </PageShell>
     );
   }

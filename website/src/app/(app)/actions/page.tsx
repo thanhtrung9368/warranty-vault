@@ -60,6 +60,15 @@ const KIND_ICONS: Record<string, LucideIcon> = {
   WISHLIST_TARGET_PASSED: Heart,
 };
 
+// The link names ONE record, so it gets its own sentence per entity instead of
+// reusing the plural nav nouns ("Thiết bị" → "Devices") for a single device.
+// Keyed by the noun `entityLabel()` returns.
+const OPEN_ENTITY: Record<string, string> = {
+  'Thiết bị': 'Mở thiết bị',
+  'Gói đăng ký': 'Mở gói đăng ký',
+  'Món đang thèm': 'Mở món đang thèm',
+};
+
 const TONE_BADGE: Record<SeverityTone, string> = {
   rose: 'tint-rose',
   amber: 'tint-amber',
@@ -146,9 +155,7 @@ function ActionRow({
               href={href}
               className="inline-flex items-center gap-0.5 font-semibold text-primary hover:underline"
             >
-              {/* The entity noun is itself a dictionary key, so the sentence
-                  around it is what gets translated — never the noun alone. */}
-              {t('Xem {entity}', { entity: t(entity).toLowerCase() })}
+              {t(OPEN_ENTITY[entity] ?? 'Xem {entity}', { entity: t(entity) })}
               <ArrowRight className="h-3 w-3" />
             </Link>
           )}

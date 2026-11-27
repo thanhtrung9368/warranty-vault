@@ -54,8 +54,11 @@ export function AttachmentUploader({
 
   const submit = async () => {
     if (files.length === 0) return;
+    const attempted = files.length;
     setPending(true);
     try {
+      let succeeded = 0;
+      const failed: File[] = [];
       for (const f of files) {
         const fd = new FormData();
         fd.append('deviceId', deviceId);
@@ -63,12 +66,22 @@ export function AttachmentUploader({
         if (description) fd.append('description', description);
         const res = await uploadAttachment(fd);
         if (!res.ok) {
+          failed.push(f);
           toast.error(res.message ?? t('Upload thất bại'));
+          continue;
         }
+        succeeded += 1;
       }
-      toast.success(t('Đã tải lên {count} file', { count: files.length }));
-      setFiles([]);
-      setDescription('');
+      // The queue keeps only the files that did NOT land, so a retry cannot
+      // re-upload the successes. The description is only cleared when every
+      // file landed; otherwise it still describes the retry.
+      if (succeeded > 0) {
+        toast.success(
+          t('Đã tải lên {succeeded}/{attempted} file', { succeeded, attempted }),
+        );
+      }
+      setFiles(failed);
+      if (failed.length === 0) setDescription('');
     } catch {
       toast.error(t('Không tải được file'));
     } finally {

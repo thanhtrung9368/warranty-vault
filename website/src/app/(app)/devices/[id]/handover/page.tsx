@@ -9,7 +9,7 @@ import { api } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
 import { categoryLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
-import { tryParseDay } from '@/lib/api-day';
+import { effectiveWarrantyEnd } from '@/lib/warranty';
 
 // Reads the device through the same thin proxy as the detail page; the
 // checklist is generated locally from fields the API already returns, so no new
@@ -31,17 +31,11 @@ export default async function DeviceHandoverPage({
     throw new Error(res.message ?? t('Không tải được thiết bị'));
   }
   const device = res.data;
-  // `Warranty.endDate` is a calendar day (`YYYY-MM-DD`); lexicographic max is
-  // the latest end date, and an unreadable row is dropped rather than allowed
-  // to become the "latest" date. The checklist is a day-resolution document, so
-  // the value is passed as the string — no `new Date()` / `toISOString()`
-  // round-trip that could move it a day.
-  const warrantyEnd =
-    device.warranties
-      .map((warranty) => warranty.endDate)
-      .filter((end) => tryParseDay(end) !== null)
-      .sort()
-      .at(-1) ?? null;
+  // The authoritative value: the server's `effectiveWarrantyEnd` (max end date
+  // over whole-unit rows only), falling back to the same helper on the local
+  // payload. Taking `max(endDate)` over every row would let a component-only
+  // warranty ("pin 2 năm") become the device's warranty end on the checklist.
+  const warrantyEnd = device.effectiveWarrantyEnd ?? effectiveWarrantyEnd(device.warranties);
 
   return (
     <PageShell className="mx-auto max-w-3xl">

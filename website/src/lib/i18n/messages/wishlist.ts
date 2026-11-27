@@ -182,7 +182,7 @@ export const wishlist = defineMessages({
   'Không đổi được trạng thái': 'Could not change the status',
   'Khôi phục về theo dõi': 'Put it back to watching',
   'Đổi trạng thái': 'Change status',
-  'Đã mua → tạo Device': 'Bought → create a device',
+  'Đã mua → tạo thiết bị': 'Bought → create a device',
   'Đã đăng ký → tạo Subscription': 'Subscribed → create a subscription',
   'Xoá món này khỏi wishlist? Lịch sử giá cũng sẽ mất.':
     'Remove this item from the wishlist? Its price history goes too.',

@@ -163,7 +163,7 @@ export function InboxUploader() {
           <button
             type="button"
             onClick={clearFile}
-            className="shrink-0 text-muted-foreground hover:text-destructive"
+            className="shrink-0 p-2 text-muted-foreground hover:text-destructive"
             aria-label={t('Bỏ chọn')}
           >
             <X className="h-4 w-4" />

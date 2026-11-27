@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import { useT } from '@/lib/i18n/client';
 
 export function DeleteDeviceButton({ id, name }: { id: string; name: string }) {
   const t = useT();
+  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
 
@@ -59,8 +61,13 @@ export function DeleteDeviceButton({ id, name }: { id: string; name: string }) {
             onClick={() =>
               startTransition(async () => {
                 try {
-                  await deleteDevice(id);
+                  const res = await deleteDevice(id);
+                  if (!res.ok) {
+                    toast.error(res.message ?? t('Không xoá được, thử lại sau'));
+                    return;
+                  }
                   toast.success(t('Đã xoá thiết bị'));
+                  router.push('/devices');
                 } catch {
                   toast.error(t('Không xoá được, thử lại sau'));
                 }

@@ -197,6 +197,7 @@ export const subscriptions = defineMessages({
   'Đã log payment': 'Payment logged',
   'Không gia hạn được': 'Could not renew',
   'Đã gia hạn': 'Renewed',
+  'Gia hạn 1 chu kỳ': 'Renew for 1 cycle',
   'Đánh dấu đã gia hạn 1 chu kỳ? Sẽ log payment + bump ngày tới.':
     'Mark it renewed for one cycle? This logs a payment and moves the next date forward.',
   'Xoá gói này? Lịch sử thanh toán cũng sẽ mất.':
