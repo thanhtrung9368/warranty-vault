@@ -15,6 +15,15 @@ final class StapleStore: ObservableObject {
 
     private let client: APIClient
 
+    /// The id of a staple this store already created whose first purchase did
+    /// not save. The form stays open after that failure; keeping the id here is
+    /// what makes the retry send only the missing purchase instead of creating a
+    /// duplicate staple.
+    private var pendingFirstPurchaseItemId: String?
+    /// The draft name that owns the pending id. A later create for a different
+    /// name must not attach its purchase to the abandoned row.
+    private var pendingFirstPurchaseName: String?
+
     init(client: APIClient) { self.client = client }
 
     func load() async {
@@ -34,11 +43,42 @@ final class StapleStore: ObservableObject {
         _ input: StapleInput,
         firstPurchase: StaplePurchaseInput? = nil
     ) async throws {
-        let item = try await client.createStaple(input)
-        if let firstPurchase {
-            _ = try await client.createStaplePurchase(id: item.id, firstPurchase)
+        // A previous attempt may already have inserted the staple and only lost
+        // the purchase. Reusing that id is the difference between a retry that
+        // completes the write and a retry that adds a second identical staple.
+        let itemId: String
+        if let pending = pendingFirstPurchaseItemId,
+           pendingFirstPurchaseName == input.name {
+            itemId = pending
+        } else {
+            pendingFirstPurchaseItemId = nil
+            pendingFirstPurchaseName = nil
+            itemId = try await client.createStaple(input).id
         }
-        await load()
+
+        guard let firstPurchase else {
+            // There is no purchase left to write (the user cleared the price
+            // before retrying): the staple itself is already saved.
+            pendingFirstPurchaseItemId = nil
+            pendingFirstPurchaseName = nil
+            await load()
+            return
+        }
+
+        do {
+            _ = try await client.createStaplePurchase(id: itemId, firstPurchase)
+            pendingFirstPurchaseItemId = nil
+            pendingFirstPurchaseName = nil
+            await load()
+        } catch {
+            // Two writes, two outcomes: the staple exists, the purchase does
+            // not. Keep the id for the retry and say exactly that instead of
+            // claiming nothing was saved.
+            pendingFirstPurchaseItemId = itemId
+            pendingFirstPurchaseName = input.name
+            await load()
+            throw StapleCreatePartialError(itemName: input.name)
+        }
     }
 
     func update(id: String, _ input: StapleInput) async throws {
@@ -97,4 +137,20 @@ final class StapleStore: ObservableObject {
         f.dateFormat = "yyyy-MM-dd"
         return f
     }()
+}
+
+/// The first purchase failed after the staple itself was inserted.
+///
+/// A plain `throw` from `StapleStore.create` used to reach the form as the
+/// server's purchase error, and the generic "Không lưu được." made it look as
+/// if the staple had not been saved either. This error carries the split
+/// outcome; the form leaves the user on the same screen, and a retry with the
+/// same name completes only the missing purchase.
+struct StapleCreatePartialError: LocalizedError {
+    let itemName: String
+
+    var errorDescription: String? {
+        L.t("Đã lưu \"%@\" nhưng chưa lưu được lần mua đầu tiên. Thử lại để chỉ lưu lần mua này.",
+            itemName)
+    }
 }

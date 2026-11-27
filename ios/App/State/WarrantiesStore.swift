@@ -51,19 +51,6 @@ public final class WarrantiesStore: ObservableObject {
     /// owns the open-vs-closed decision.
     public var openClaim: Claim? { ClaimRules.openClaim(in: claims) }
 
-    /// The device's `STANDARD` warranty row, which the legacy inline-warranty
-    /// fields on `DeviceInput` stand for.
-    ///
-    /// Needed by the status write this store triggers: `PATCH /devices/{id}`
-    /// deletes the standard warranty when `warrantyMonths` is not positive
-    /// (`services/devices.go`), so the caller must carry the stored row back or
-    /// the claim's status change removes the warranty. `nil` (no standard row)
-    /// is the safe answer — `hasExisting` is false server-side and nothing is
-    /// touched.
-    public var standardWarranty: Warranty? {
-        warranties.first { $0.type == .STANDARD }
-    }
-
     public func load() async {
         state = .loading
         do {

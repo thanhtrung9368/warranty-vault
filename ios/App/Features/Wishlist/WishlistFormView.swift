@@ -7,11 +7,6 @@ struct WishlistFormView: View {
     let client: APIClient
     @ObservedObject var store: WishlistStore
     var item: WishlistItem?      // nil → create
-    /// `true` when this form is the root of a sheet's own `NavigationStack`:
-    /// the sheet shows Huỷ / Thêm and no back chevron; a pushed form keeps the
-    /// system back button as its only leading control. See `DeviceFormView`.
-    private let presentedAsSheet: Bool
-
     @EnvironmentObject private var catalog: CatalogStore
     @EnvironmentObject private var toast:   WVToastCenter
     @Environment(\.dismiss) private var dismiss
@@ -43,12 +38,10 @@ struct WishlistFormView: View {
 
     // MARK: - Init
 
-    init(client: APIClient, store: WishlistStore, item: WishlistItem? = nil,
-         presentedAsSheet: Bool = false) {
+    init(client: APIClient, store: WishlistStore, item: WishlistItem? = nil) {
         self.client = client
         self.store  = store
         self.item   = item
-        self.presentedAsSheet = presentedAsSheet
 
         _name           = State(initialValue: item?.name ?? "")
         _brand          = State(initialValue: item?.brand ?? "")
@@ -213,17 +206,16 @@ struct WishlistFormView: View {
         .wvScreen()
         .navigationTitle(isEditing ? L.t("Sửa món") : L.t("Thêm món"))
         .navigationBarTitleDisplayMode(.inline)
-        // As a sheet root there is nothing to go back to: Huỷ is the leading
-        // control and any inherited back chevron is hidden. Pushed from a tab,
-        // the system back button is the only leading control.
-        .navigationBarBackButtonHidden(presentedAsSheet)
+        // Huỷ is the one way out, and it asks before dropping the draft. The
+        // system back button is hidden on both presentations (a sheet root has
+        // none, a pushed screen loses its one), which also turns off the
+        // interactive pop so a swipe cannot bypass the alert.
+        .navigationBarBackButtonHidden(true)
         .task { await catalog.loadIfNeeded() }
         .toolbar {
-            if presentedAsSheet {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(L.t("Huỷ")) { showDiscard = true }
-                        .foregroundStyle(WVColor.tint)
-                }
+            ToolbarItem(placement: .topBarLeading) {
+                Button(L.t("Huỷ")) { showDiscard = true }
+                    .foregroundStyle(WVColor.tint)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(isEditing ? L.t("Lưu") : L.t("Thêm")) { Task { await submit() } }
@@ -271,6 +263,9 @@ struct WishlistFormView: View {
         input.initialPrice     = initialPrice
         input.currentPrice     = currentPrice
         input.buyUrl           = buyUrl.isEmpty ? nil : buyUrl
+        // The form does not edit this field, but PATCH is a full replacement:
+        // carry the stored image link or editing the item clears it.
+        input.imageUrl         = item?.imageUrl
         // The picker's day, written in the zone the picker drew it in — a pinned
         // format stores the day before the one on screen east of the pin.
         input.targetDate       = hasTargetDate

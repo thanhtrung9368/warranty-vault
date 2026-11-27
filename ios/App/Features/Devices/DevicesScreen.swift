@@ -29,6 +29,10 @@ struct DevicesScreen: View {
     /// Owned by `MainTabView`; capturing a receipt refreshes this so the
     /// "Thêm" badge is already correct when the user goes looking for it.
     @EnvironmentObject private var inbox: InboxStore
+    /// The claim sheet below is a UIKit presentation, i.e. one that would sit
+    /// above the root's App Lock cover. A `warrly://handoff/<code>` link has to
+    /// wait until the cover is down.
+    @EnvironmentObject private var appLock: AppLockStore
 
     // Search + filter state
     @State private var searchQuery = ""
@@ -438,12 +442,32 @@ struct DevicesScreen: View {
             guard code != nil else { return }
             presentPendingHandoffIfNeeded()
         }
+        // A code that arrived while the app was locked stayed queued in the
+        // router (the guard below does not consume it). RootView posts this only
+        // after the cover has finished dismissing, so the claim sheet is not
+        // asked to present on top of an animating full-screen cover.
+        .onReceive(NotificationCenter.default.publisher(for: .warrlyAppLockDidDismiss)) { _ in
+            presentPendingHandoffIfNeeded()
+        }
+        .onChange(of: appLock.isLocked) { _, locked in
+            if locked {
+                // RootView dismisses the UIKit presentation at the lock; clear
+                // the item too so the claim form cannot come back above the
+                // cover or block the next sheet after unlock.
+                activeSheet = nil
+            }
+        }
     }
 
     /// Opens the claim sheet for a code queued by the router. On a cold launch
     /// (or right after login) the code waited in `AppRouter` until this screen
     /// existed; consuming it here is what makes that wait useful.
     private func presentPendingHandoffIfNeeded() {
+        // The lock cover is presented by RootView; a sheet presented here would
+        // be a sibling UIKit presentation above the tab shell. Leave the code
+        // queued (the `warrlyAppLockDidDismiss` observer retries after unlock)
+        // rather than consuming it behind the cover.
+        guard !appLock.isLocked else { return }
         guard activeSheet == nil, let code = router.consumeHandoff() else { return }
         activeSheet = .claim(code: code)
     }

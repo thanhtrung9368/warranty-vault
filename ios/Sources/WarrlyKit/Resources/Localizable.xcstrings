@@ -21216,6 +21216,23 @@
         }
       }
     },
+    "Đã lưu \"%@\" nhưng chưa lưu được lần mua đầu tiên. Thử lại để chỉ lưu lần mua này.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved \"%@\", but the first purchase could not be saved. Retry to save just that purchase."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã lưu \"%@\" nhưng chưa lưu được lần mua đầu tiên. Thử lại để chỉ lưu lần mua này."
+          }
+        }
+      }
+    },
     "Đã lưu": {
       "extractionState": "manual",
       "localizations": {

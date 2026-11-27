@@ -162,22 +162,18 @@ struct DashboardView: View {
         // itself in a NavigationStack — pushed from a screen it inherits the
         // screen's stack, and presented as a sheet it inherits nothing, so the
         // toolbar had no bar to render into and the sheet could not be dismissed
-        // from any control. Every sheet needs its own stack, and the form needs
-        // to know it is that stack's root: at a root there is no back chevron,
-        // only Huỷ / Thêm, while a pushed form keeps the system back button and
-        // must not add a second leading control beside it.
+        // from any control. Every sheet needs its own stack. The form always
+        // hides the system back button and leads with Huỷ, so the same controls
+        // appear whether it is a stack root or pushed.
         .sheet(item: $quickAddTarget) { target in
             NavigationStack {
                 switch target {
                 case .device:
-                    DeviceFormView(client: client, store: devicesStore, device: nil,
-                                   presentedAsSheet: true)
+                    DeviceFormView(client: client, store: devicesStore, device: nil)
                 case .subscription:
-                    SubscriptionFormView(client: client, store: subsStore, subscription: nil,
-                                         presentedAsSheet: true)
+                    SubscriptionFormView(client: client, store: subsStore, subscription: nil)
                 case .wishlist:
-                    WishlistFormView(client: client, store: wishStore, item: nil,
-                                     presentedAsSheet: true)
+                    WishlistFormView(client: client, store: wishStore, item: nil)
                 }
             }
         }

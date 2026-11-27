@@ -1,6 +1,9 @@
 import CoreSpotlight
 import SwiftUI
 import WarrlyKit
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Auth gate. Mirrors the prototype: an authenticated user lands on the
 /// 5-tab shell; otherwise the login flow.
@@ -30,13 +33,44 @@ struct RootView: View {
         return false
     }
 
+    /// The one source of truth for the cover: a signed-in session with the lock
+    /// engaged. The login/retry screens have nothing to protect.
+    private var isLockCoverPresented: Bool { isAuthenticated && appLock.isLocked }
+
+    /// Presentation binding for the cover.
+    ///
+    /// SwiftUI presents a `.fullScreenCover` from the topmost view controller,
+    /// which is what puts it above a sheet the user left open (a sheet is a
+    /// UIKit presentation, not a child of this view tree). The setter is
+    /// deliberately inert: only `AppLockStore` may lower the cover, so an
+    /// interactive dismissal can never expose the dashboard.
+    private var lockCoverBinding: Binding<Bool> {
+        Binding(
+            get: { isLockCoverPresented },
+            set: { _ in }
+        )
+    }
+
     var body: some View {
         ZStack {
             content
-            if isAuthenticated && appLock.isLocked {
-                AppLockScreen()
-                    .transition(.opacity)
-                    .zIndex(1)
+                // The content stays mounted while locked (so unlocking does not
+                // rebuild the tab shell), but it must not be reachable by
+                // VoiceOver behind the cover. `.isModal` on the cover hides its
+                // siblings too — this is the explicit half of the same
+                // guarantee.
+                .accessibilityHidden(isLockCoverPresented)
+
+            if isLockCoverPresented {
+                // Snapshot shield only: the real lock UI is the full-screen
+                // cover below. A modal presentation is handed to UIKit on the
+                // next transaction and can land a frame late while the scene is
+                // backgrounding, so this opaque layer keeps a dashboard row out
+                // of the app-switcher card in that gap. It is hidden from
+                // VoiceOver and has no controls of its own.
+                WVColor.bg
+                    .ignoresSafeArea()
+                    .accessibilityHidden(true)
             }
         }
         // The one place the window width is measured. Every screen and every
@@ -46,6 +80,24 @@ struct RootView: View {
         // screen is what keeps the tiers consistent: a fold changes the window,
         // not the screen.
         .wvWindowTierReader()
+        // The App Lock cover is a full-screen cover, not a sibling in a ZStack.
+        // A `.sheet` lives in a UIKit presentation above a ZStack, so the old
+        // overlay could be fully covered by any open form; a full-screen cover
+        // is itself the topmost presentation. `.accessibilityAddTraits(.isModal)`
+        // is what makes VoiceOver stop at the lock instead of reading the
+        // dashboard / device rows behind it.
+        .fullScreenCover(isPresented: lockCoverBinding, onDismiss: {
+            // The cover is fully down. A capture queued by the Control Center
+            // control (or a claim code queued in the router) has been waiting
+            // for this; presenting it from here, rather than in the unlock
+            // state change, avoids racing the cover's dismissal animation.
+            presentPendingCaptureIfPossible()
+            NotificationCenter.default.post(name: .warrlyAppLockDidDismiss, object: nil)
+        }) {
+            AppLockScreen()
+                .interactiveDismissDisabled()
+                .accessibilityAddTraits(.isModal)
+        }
         .sheet(isPresented: $showsCaptureSheet) {
             // `startWithCamera: true` is the whole point of the control: land
             // on the camera, not on a list of ways to pick a file. The sheet
@@ -68,6 +120,18 @@ struct RootView: View {
                 // Lock on the way out. `.background` only — `.inactive` also
                 // fires for the app switcher, Control Center and system alerts,
                 // and locking there would prompt Face ID mid-gesture.
+                //
+                // Take any open sheet down first. The lock cover is a
+                // full-screen presentation on the topmost controller, and a
+                // sheet left presented is both a presentation race and the one
+                // surface that would otherwise survive into the app-switcher
+                // snapshot. Only when the lock will actually engage: a user who
+                // has not opted in keeps their sheet across backgrounding.
+                if isAuthenticated, appLock.isEnabled, !appLock.isLocked,
+                   !appLock.availability.passcodeNotSet {
+                    dismissPresentedSheets()
+                    showsCaptureSheet = false
+                }
                 appLock.handleEnterBackground()
             case .active:
                 // An App Intent can queue a device (or the Control Center
@@ -121,13 +185,15 @@ struct RootView: View {
         }
         .onChange(of: appLock.isLocked) { _, locked in
             if locked {
-                // SwiftUI sheets sit above the lock cover, so a capture sheet
-                // left open when the app backgrounds would be readable over the
-                // lock screen. Close it as the cover comes up.
+                // A sheet is a UIKit presentation, not a child of this view
+                // tree, so it would sit above the SwiftUI content. The world
+                // outside `showsCaptureSheet` is dismissed synchronously before
+                // `handleEnterBackground`; this closes the one sheet this view
+                // owns, and the full-screen cover above handles the rest.
                 showsCaptureSheet = false
-            } else {
-                presentPendingCaptureIfPossible()
             }
+            // Unlock is handled by the cover's `onDismiss` above: the sheet /
+            // deep-link presentation waits until the cover is off screen.
         }
         .onChange(of: auth.status) { _, status in
             if case .authenticated = status {
@@ -148,6 +214,32 @@ struct RootView: View {
             // Neither may keep the previous account's device names.
             Task { await DeadlineSurface.shared.clear() }
         }
+    }
+
+    /// Takes down any UIKit presentation currently above the app (every
+    /// SwiftUI `.sheet`, alert or picker) without animation. Called just before
+    /// the lock cover is presented; a sheet left in the hierarchy would sit
+    /// above the SwiftUI content and, in the worst case, above the cover.
+    ///
+    /// The child views own their `isPresented` state, so this cannot reset it;
+    /// the cover above is the guarantee, and this is the defence-in-depth that
+    /// keeps the app-switcher snapshot from containing the open form.
+    private func dismissPresentedSheets() {
+        #if canImport(UIKit)
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            for window in windowScene.windows {
+                guard let root = window.rootViewController else { continue }
+                var top = root
+                while let presented = top.presentedViewController {
+                    top = presented
+                }
+                if top !== root {
+                    root.dismiss(animated: false)
+                }
+            }
+        }
+        #endif
     }
 
     /// Opens the capture sheet for a pending Control Center request **only**
@@ -211,6 +303,13 @@ struct RootView: View {
     }
 }
 
+/// Posted when the App Lock cover has finished dismissing. Screens that hold a
+/// deep-link presentation (the handoff claim sheet) wait for this instead of the
+/// `isLocked` state change, which fires while the cover is still animating.
+extension Notification.Name {
+    static let warrlyAppLockDidDismiss = Notification.Name("warrlyAppLockDidDismiss")
+}
+
 // MARK: - App lock screen
 
 /// Full-screen cover shown while the app lock is engaged.
@@ -235,6 +334,10 @@ struct AppLockScreen: View {
     /// when the app is suspended.
     @State private var password = ""
     @FocusState private var passwordFocused: Bool
+    /// VoiceOver focus target. The cover is modal, so the user's next swipe
+    /// must start at the lock title rather than continue through whatever row
+    /// had focus when the app was backgrounded.
+    @AccessibilityFocusState private var titleFocused: Bool
 
     var body: some View {
         ZStack {
@@ -251,6 +354,8 @@ struct AppLockScreen: View {
                         Text(L.t("Warrly đang khoá"))
                             .wvFont(.title2Emphasis)
                             .foregroundStyle(WVColor.label)
+                            .accessibilityFocused($titleFocused)
+                            .accessibilityAddTraits(.isHeader)
 
                         Text(L.t("Mở khoá bằng %@, mã mở khoá thiết bị, hoặc mật khẩu tài khoản để xem dữ liệu bảo hành.",
                                  appLock.availability.biometry.label))
@@ -272,6 +377,20 @@ struct AppLockScreen: View {
             }
         }
         .task { await promptOnAppear() }
+        .onAppear {
+            // Moving the accessibility cursor has to happen after the cover is
+            // in the hierarchy; a synchronous set is dropped when the
+            // presentation is still animating. The announcement makes the
+            // modal's arrival explicit even if focus has not landed yet.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                guard appLock.isLocked else { return }
+                titleFocused = true
+                #if canImport(UIKit)
+                UIAccessibility.post(notification: .screenChanged,
+                                     argument: L.t("Warrly đang khoá"))
+                #endif
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background {
                 // A typed secret must not sit in memory while the app is
