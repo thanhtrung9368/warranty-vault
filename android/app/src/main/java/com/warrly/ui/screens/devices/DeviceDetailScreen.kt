@@ -78,10 +78,12 @@ import com.warrly.network.DeviceWarning
 import com.warrly.network.Warranty
 import com.warrly.network.toUserMessage
 import com.warrly.ui.components.leadDaysValue
+import com.warrly.ui.screens.vietnamDate
 import com.warrly.ui.theme.WVAccent
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -100,8 +102,8 @@ class DeviceDetailViewModel(
     private val _state = MutableStateFlow<State>(State.Loading)
     val state: StateFlow<State> = _state.asStateFlow()
 
-    fun load() {
-        viewModelScope.launch {
+    fun load(): Job {
+        return viewModelScope.launch {
             _state.value = State.Loading
             try {
                 val res = api.getDevice(deviceId)
@@ -276,8 +278,11 @@ fun DeviceDetailScreen(
             onRefresh = {
                 scope.launch {
                     refreshing = true
-                    vm.load()
-                    refreshing = false
+                    try {
+                        vm.load().join()
+                    } finally {
+                        refreshing = false
+                    }
                 }
             },
             modifier = Modifier.padding(padding).fillMaxSize(),
@@ -740,7 +745,7 @@ private fun DeviceSummaryCard(device: Device) {
             }
             Spacer(Modifier.height(8.dp))
             DetailRow(stringResource(R.string.devadd_status), stringResource(device.status.labelRes))
-            DetailRow(stringResource(R.string.devdetail_bought_on), device.purchaseDate.take(10))
+            DetailRow(stringResource(R.string.devdetail_bought_on), vietnamDate(device.purchaseDate) ?: device.purchaseDate.take(10))
             // Warranty repair clock (FEATURE_RESEARCH_2026-11 §6.1): the PAPER
             // date the retailer recorded and the date the user is entitled to
             // after closed repairs (Luật 19/2023, Điều 30.2.c). Both are server
@@ -755,10 +760,10 @@ private fun DeviceSummaryCard(device: Device) {
                 entitledWarrantyEnd != paperWarrantyEnd &&
                 repairDays > 0
             ) {
-                DetailRow(stringResource(R.string.devdetail_warranty_end_paper), paperWarrantyEnd)
+                DetailRow(stringResource(R.string.devdetail_warranty_end_paper), vietnamDate(paperWarrantyEnd) ?: paperWarrantyEnd)
                 DetailRow(
                     stringResource(R.string.devdetail_warranty_end_entitled),
-                    entitledWarrantyEnd,
+                    vietnamDate(entitledWarrantyEnd) ?: entitledWarrantyEnd,
                     valueColor = WVAccent.current.success,
                 )
                 Text(
@@ -901,10 +906,10 @@ private fun DeviceSummaryCard(device: Device) {
                 // The next due day is the SERVER's (it owns the month-clamp rule:
                 // 31 Jan + 1 month = 28/29 Feb). Never re-derived here.
                 if (!plan.completed) {
-                    plan.nextDueAt?.take(10)?.let { next ->
+                    plan.nextDueAt?.let { next ->
                         DetailRow(
                             stringResource(R.string.devdetail_installment_next_due),
-                            next,
+                            vietnamDate(next) ?: next.take(10),
                         )
                     }
                 }
@@ -1046,8 +1051,8 @@ private fun WarrantyCard(
                     color = cs.onSurface)
             }
             Spacer(Modifier.height(6.dp))
-            DetailRow(stringResource(R.string.devdetail_starts), warranty.startDate.take(10))
-            DetailRow(stringResource(R.string.devdetail_ends), warranty.endDate.take(10))
+            DetailRow(stringResource(R.string.devdetail_starts), vietnamDate(warranty.startDate) ?: warranty.startDate.take(10))
+            DetailRow(stringResource(R.string.devdetail_ends), vietnamDate(warranty.endDate) ?: warranty.endDate.take(10))
             DetailRow(stringResource(R.string.devdetail_months), pluralStringResource(R.plurals.devdetail_months_2, warranty.months, warranty.months))
             // `Warranty.cost` is in the device's currency; the contract's other
             // warranty money fields (cap/deductible) are not part of this change

@@ -9,8 +9,8 @@
   which `StringResourceParityTest` enforces over the whole values/ pair.
 -->
 <resources>
-    <string name="stats_crunching_your_numbers">Đang tổng kết của mày…</string>
-    <string name="stats_a_quick_look_at_your_digital">Cái nhìn nhanh về tài sản số của mày</string>
+    <string name="stats_crunching_your_numbers">Đang tổng kết số liệu của bạn…</string>
+    <string name="stats_a_quick_look_at_your_digital">Cái nhìn nhanh về tài sản số của bạn</string>
     <string name="stats_total_devices">Tổng số thiết bị</string>
     <string name="stats_of_which_are_in_use">Trong đó %1$s đang dùng</string>
     <string name="stats_no_devices_yet">Chưa có thiết bị nào</string>
@@ -45,9 +45,9 @@
     <string name="stats_last_recorded_price_may_happen_not">Giá ghi nhận gần nhất %1$s — có thể phát sinh, không phải khoản chắc chắn trả</string>
     <string name="stats_no_price_ever_entered_not_a">Chưa từng nhập giá — không phải khoản chắc chắn trả</string>
     <string name="rem_reminder_hidden">Đã ẩn nhắc nhở</string>
-    <string name="rem_we_will_ping_you_when_it">Tao sẽ ping mày khi gần hết hạn</string>
+    <string name="rem_we_will_ping_you_when_it">App sẽ nhắc bạn khi gần hết hạn</string>
     <string name="rem_relax_nothing_is_expiring_yet">Chill, chưa có gì sắp hết</string>
-    <string name="rem_all_of_your_devices_are_safely">Tất cả thiết bị của mày đang trong hạn an toàn.</string>
+    <string name="rem_all_of_your_devices_are_safely">Tất cả thiết bị của bạn đang trong hạn an toàn.</string>
     <plurals name="rem_items_to_look_at">
         <item quantity="other">%1$s món cần để ý</item>
     </plurals>

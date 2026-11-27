@@ -55,30 +55,35 @@ enum class SubscriptionSort(@StringRes val labelRes: Int) {
 }
 
 /**
- * Pure port of `monthlyEquivalent()` in
- * `website/src/lib/subscription-types.ts`: normalises one billing cycle to a
- * monthly figure so `MONTHLY` and `YEARLY` rows can be compared.
+ * Normalises one billing cycle to a monthly figure so `MONTHLY` and `YEARLY`
+ * rows can be compared. A line-for-line port of Go's
+ * `services.MonthlyEquivalent` (`api/internal/services/subscription_billing.go`),
+ * which `website/src/lib/subscription-types.ts` and iOS `SubscriptionBilling`
+ * mirror as well:
  *
- * `null` = not normalisable (LIFETIME costs nothing per month, CUSTOM without a
- * usable `intervalDays`). Callers treat null as 0 when sorting, exactly like
- * the web's `?? 0`.
+ *     MONTHLY    -> price
+ *     QUARTERLY  -> price / 3   (integer division, truncated toward zero)
+ *     YEARLY     -> price / 12  (truncated)
+ *     LIFETIME   -> 0           (there is no monthly cost to divide)
+ *     CUSTOM     -> round(price * 30 / intervalDays)
  *
- * NB: `GET /api/v1/stats` computes `subscriptions.totalMonthlyVnd` in SQL with
- * integer division for QUARTERLY (`price/3`) and YEARLY (`price/12`), which
- * disagrees with this rounding formula — a pre-existing Go↔web discrepancy,
- * reported rather than papered over here.
+ * This is deliberately **not** the retired average-days model
+ * (`price * 30 / 91`, `price * 30 / 365`): that disagreed with Go, the web and
+ * iOS, so "cheapest / most expensive per month" could order the list
+ * differently from every other client.
+ *
+ * `null` = CUSTOM without a usable `intervalDays`; callers treat it as 0 when
+ * sorting, which is the same result Go returns for that case.
  */
-fun monthlyEquivalent(price: Int, cycle: BillingCycle, intervalDays: Int?): Int? {
-    if (cycle == BillingCycle.LIFETIME) return 0
-    val days = when (cycle) {
-        BillingCycle.MONTHLY -> 30
-        BillingCycle.QUARTERLY -> 91
-        BillingCycle.YEARLY -> 365
-        BillingCycle.CUSTOM -> intervalDays?.takeIf { it > 0 } ?: return null
-        BillingCycle.LIFETIME -> return 0
+fun monthlyEquivalent(price: Int, cycle: BillingCycle, intervalDays: Int?): Int? =
+    when (cycle) {
+        BillingCycle.MONTHLY -> price
+        BillingCycle.QUARTERLY -> price / 3
+        BillingCycle.YEARLY -> price / 12
+        BillingCycle.LIFETIME -> 0
+        BillingCycle.CUSTOM -> intervalDays?.takeIf { it > 0 }
+            ?.let { ((price.toDouble() * 30.0) / it).roundToInt() }
     }
-    return ((price.toDouble() * 30.0) / days).roundToInt()
-}
 
 /**
  * Search + status facet + sort over an already-fetched list. `GET

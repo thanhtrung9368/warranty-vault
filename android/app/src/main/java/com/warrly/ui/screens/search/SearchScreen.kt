@@ -84,6 +84,7 @@ import com.warrly.ui.screens.attachments.openAttachment
 import com.warrly.ui.screens.devices.formatDeviceMoney
 import com.warrly.ui.screens.devices.formatVnd
 import com.warrly.ui.screens.subscriptions.formatPriceCycle
+import com.warrly.ui.screens.vietnamDate
 import com.warrly.ui.viewModelFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -131,7 +132,17 @@ class SearchViewModel(private val api: ApiService) : ViewModel() {
     private val _state = MutableStateFlow<State>(State.Blank)
     val state: StateFlow<State> = _state.asStateFlow()
 
+    /**
+     * Sequence of the newest [search] call. A slow response for an older query
+     * must not replace the results of the query on screen — typing "i" then
+     * "ip" used to let "i" land last and win. Bumped on every call, including
+     * the early returns, so clearing the box cannot be overwritten by a request
+     * that was already in flight.
+     */
+    private var requestSeq = 0
+
     fun search(raw: String) {
+        val seq = ++requestSeq
         val query = SearchQuery.normalize(raw)
         if (query.isEmpty()) {
             // Clearing the search box is a normal keystroke: the endpoint would
@@ -147,12 +158,16 @@ class SearchViewModel(private val api: ApiService) : ViewModel() {
             return
         }
         viewModelScope.launch {
-            _state.value = State.Loading
+            if (seq == requestSeq) _state.value = State.Loading
             try {
                 val res = api.search(q = query, limit = SEARCH_LIMIT_PER_GROUP)
-                _state.value = if (res.isEmpty) State.Empty(query) else State.Loaded(res)
+                if (seq == requestSeq) {
+                    _state.value = if (res.isEmpty) State.Empty(query) else State.Loaded(res)
+                }
             } catch (e: Exception) {
-                _state.value = State.Error(e.toUserMessage(ApiClient.json), query)
+                if (seq == requestSeq) {
+                    _state.value = State.Error(e.toUserMessage(ApiClient.json), query)
+                }
             }
         }
     }
@@ -369,7 +384,7 @@ private fun SearchResultsList(
                     // the watched price — or the target date when there is none.
                     meta = listOfNotNull(
                         stringResource(item.priority.labelRes),
-                        item.currentPrice?.let { formatVnd(it) } ?: item.targetDate?.take(10),
+                        item.currentPrice?.let { formatVnd(it) } ?: item.targetDate?.let { vietnamDate(it) ?: it.take(10) },
                     ).joinToString(" • "),
                     trailing = { WishlistStatusPill(item.status) },
                     onClick = { onOpenWishlistItem(item.id) },

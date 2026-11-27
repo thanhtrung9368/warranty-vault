@@ -83,6 +83,7 @@ import com.warrly.ui.components.SectionHeader
 import com.warrly.ui.theme.WVAccent
 import com.warrly.ui.viewModelFactory
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -108,8 +109,8 @@ class StatsViewModel(private val api: ApiService) : ViewModel() {
     private val _state = MutableStateFlow<State>(State.Loading)
     val state: StateFlow<State> = _state.asStateFlow()
 
-    fun load() {
-        viewModelScope.launch {
+    fun load(): Job {
+        return viewModelScope.launch {
             _state.value = State.Loading
             val stats = try {
                 api.getStats()
@@ -172,8 +173,11 @@ fun StatsScreen(api: ApiService) {
             onRefresh = {
                 scope.launch {
                     refreshing = true
-                    vm.load()
-                    refreshing = false
+                    try {
+                        vm.load().join()
+                    } finally {
+                        refreshing = false
+                    }
                 }
             },
             modifier = Modifier.padding(padding).fillMaxSize(),
@@ -324,7 +328,7 @@ private fun StatsBody(stats: UserStats, forecast: Forecast?) {
 
         item {
             Spacer(Modifier.height(4.dp))
-            SectionHeader("Wishlist")
+            SectionHeader(stringResource(R.string.dash_wishlist))
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -827,14 +831,26 @@ private fun toneColors(tone: StatTone): Pair<Color, Color> {
 @Composable
 private fun formatVnd(amount: Long): String = Money.of(amount, appLocale())
 
-/** Compact VND formatter — keeps stat tiles readable on phones. */
+/**
+ * Compact VND formatter — keeps stat tiles readable on phones.
+ *
+ * The shape follows the UI language, like [formatVnd] and `i18n/Money.kt`, not
+ * the JVM default locale: Vietnamese keeps its dot grouping, comma decimal and
+ * trailing symbol with a space (`1,2M ₫`); English keeps the leading symbol and
+ * dot decimal (`₫1.2M`). The previous `"%.1fM₫".format(...)` used the phone's
+ * locale and then patched commas to dots, so an English reader on a Vietnamese
+ * phone (or the reverse) saw a mixed shape.
+ */
 @Composable
 private fun formatVndShort(amount: Long): String {
     if (amount < 1_000_000) return formatVnd(amount)
-    if (amount < 1_000_000_000) {
-        val millions = amount / 1_000_000.0
-        return "%.1fM₫".format(millions).replace(",", ".")
+    val locale = appLocale()
+    val vietnamese = locale.language.equals("vi", ignoreCase = true)
+    val (value, unit) = if (amount < 1_000_000_000) {
+        amount / 1_000_000.0 to "M"
+    } else {
+        amount / 1_000_000_000.0 to "B"
     }
-    val billions = amount / 1_000_000_000.0
-    return "%.1fB₫".format(billions).replace(",", ".")
+    val number = String.format(locale, "%.1f", value)
+    return if (vietnamese) "$number$unit ₫" else "₫$number$unit"
 }

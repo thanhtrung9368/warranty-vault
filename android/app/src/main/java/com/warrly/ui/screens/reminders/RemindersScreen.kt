@@ -61,6 +61,7 @@ import com.warrly.i18n.appStrings
 import com.warrly.network.ApiClient
 import com.warrly.network.ApiService
 import com.warrly.network.DeviceStatus
+import com.warrly.network.REMINDERS_WITHIN_DAYS
 import com.warrly.network.UpcomingReminder
 import com.warrly.network.WarrantyType
 import com.warrly.network.toUserMessage
@@ -72,9 +73,11 @@ import com.warrly.ui.components.PillKind
 import com.warrly.ui.components.SkeletonList
 import com.warrly.ui.components.StatusPill
 import com.warrly.ui.components.pressScale
+import com.warrly.ui.screens.vietnamDate
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -116,15 +119,17 @@ class RemindersViewModel(private val api: ApiService) : ViewModel() {
     private val _state = MutableStateFlow<State>(State.Loading)
     val state: StateFlow<State> = _state.asStateFlow()
 
-    fun load() {
-        viewModelScope.launch {
+    fun load(): Job {
+        return viewModelScope.launch {
             _state.value = State.Loading
             try {
                 // Two independent reads, run together, exactly like web/iOS:
-                // the plain feed stays the source of the upcoming list (its
-                // request is unchanged — no `includeDismissed` parameter), and
-                // a second call asks the server to add the hidden rows.
-                val upcoming = async { api.listUpcomingReminders() }
+                // the plain feed stays the source of the upcoming list (no
+                // `includeDismissed` parameter) and asks for the same 90-day
+                // horizon web/iOS use; a second call adds the hidden rows.
+                val upcoming = async {
+                    api.listUpcomingReminders(withinDays = REMINDERS_WITHIN_DAYS)
+                }
                 val widened = async {
                     runCatching {
                         api.listUpcomingReminders(
@@ -269,8 +274,11 @@ fun RemindersScreen(
             onRefresh = {
                 scope.launch {
                     refreshing = true
-                    vm.load()
-                    refreshing = false
+                    try {
+                        vm.load().join()
+                    } finally {
+                        refreshing = false
+                    }
                 }
             },
             modifier = Modifier.padding(padding).fillMaxSize(),
@@ -526,7 +534,7 @@ private fun DismissedReminderCard(
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                stringResource(R.string.rem_expires, reminder.endDate.take(10)),
+                stringResource(R.string.rem_expires, vietnamDate(reminder.endDate) ?: reminder.endDate.take(10)),
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
@@ -610,7 +618,7 @@ private fun ReminderCard(
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                stringResource(R.string.rem_expires, reminder.endDate.take(10)),
+                stringResource(R.string.rem_expires, vietnamDate(reminder.endDate) ?: reminder.endDate.take(10)),
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )

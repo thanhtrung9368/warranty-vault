@@ -2,6 +2,7 @@ package com.warrly.ui.screens.inbox
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -60,6 +61,15 @@ import okhttp3.Request
  * icon immediately. A failed/undecodable image (a HEIC on API 26, a 404 from a
  * server that does not serve unfiled attachments yet) degrades to the same icon
  * rather than an empty box.
+ *
+ * ## The in-memory cache
+ *
+ * [thumbnailCache] is the process-scoped LRU this file's "no disk" rule leaves
+ * room for: a `LazyColumn` row that scrolls out and back in used to re-download
+ * the full blob (up to 5 MB) just to draw a 56dp square. The cache is keyed by
+ * attachment id and bounded by the decoded size, not the blob size — a ~64 KB
+ * bitmap per row — so a few MB covers a long inbox. Nothing here is persisted:
+ * killing the process drops every decrypted preview, which is the point.
  */
 @Composable
 internal fun AttachmentThumbnail(
@@ -108,6 +118,9 @@ internal fun AttachmentThumbnail(
  * the screen has its own error card for the actions that actually matter.
  */
 private suspend fun loadThumbnail(id: String): ImageBitmap? = withContext(Dispatchers.IO) {
+    // A preview decoded on an earlier visit to this row is already good enough;
+    // skip the authenticated GET (and its up-to-5 MB body) entirely.
+    thumbnailCache.get(id)?.let { return@withContext it.asImageBitmap() }
     runCatching {
         val token = App.instance.tokenStore.read() ?: return@runCatching null
         val url = "${BuildConfig.BASE_URL.trimEnd('/')}/api/files/$id"
@@ -119,8 +132,20 @@ private suspend fun loadThumbnail(id: String): ImageBitmap? = withContext(Dispat
             if (!response.isSuccessful) return@runCatching null
             response.body?.bytes() ?: return@runCatching null
         }
-        decodeDownsampled(bytes)
+        decodeDownsampled(bytes)?.also { thumbnailCache.put(id, it) }?.asImageBitmap()
     }.getOrNull()
+}
+
+/**
+ * Decoded thumbnails for the whole process, keyed by attachment id. Sized in
+ * bytes of the *decoded* bitmap (see `sizeOf`), so [THUMBNAIL_CACHE_BYTES] is
+ * the memory ceiling rather than a row count. `LruCache` is internally
+ * synchronized and every access here happens on [Dispatchers.IO].
+ */
+private const val THUMBNAIL_CACHE_BYTES = 6 * 1024 * 1024
+
+private val thumbnailCache = object : LruCache<String, Bitmap>(THUMBNAIL_CACHE_BYTES) {
+    override fun sizeOf(key: String, value: Bitmap): Int = value.allocationByteCount
 }
 
 /** Longest edge of the decoded bitmap, in pixels — the box is 56dp. */
@@ -131,7 +156,7 @@ private const val THUMBNAIL_PX = 128
  * [THUMBNAIL_PX]; a 5 MB camera photo never inflates into a full-size bitmap
  * just to be drawn in a 56dp square.
  */
-private fun decodeDownsampled(bytes: ByteArray): ImageBitmap? {
+private fun decodeDownsampled(bytes: ByteArray): Bitmap? {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
     if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
@@ -145,6 +170,5 @@ private fun decodeDownsampled(bytes: ByteArray): ImageBitmap? {
     }
 
     val options = BitmapFactory.Options().apply { inSampleSize = sample }
-    val bitmap: Bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return null
-    return bitmap.asImageBitmap()
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
 }

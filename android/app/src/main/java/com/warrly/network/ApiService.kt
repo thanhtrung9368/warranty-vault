@@ -16,6 +16,20 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Streaming
 
+/**
+ * Lookahead horizon, in days, shared by the reminders screen and the
+ * dashboard's expiry card.
+ *
+ * The server defaults to 30 when `withinDays` is omitted, but the web
+ * (`website/src/app/(app)/reminders/page.tsx` asks for 90) and iOS
+ * (`RemindersStore.windowDays = 90`) both use 90 so their 30/60/90-day buckets
+ * populate. Leaving the parameter off here made Android silently drop
+ * warranties expiring 31–90 days out. Pass this explicitly at both call sites;
+ * the Retrofit default below stays 30 to mirror the server's documented
+ * default for low-level callers.
+ */
+const val REMINDERS_WITHIN_DAYS = 90
+
 interface ApiService {
 
     // ---- Auth ----

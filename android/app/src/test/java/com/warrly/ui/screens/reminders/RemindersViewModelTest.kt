@@ -2,6 +2,7 @@ package com.warrly.ui.screens.reminders
 
 import com.warrly.network.DeviceStatus
 import com.warrly.network.OkResponse
+import com.warrly.network.REMINDERS_WITHIN_DAYS
 import com.warrly.network.RemindersResponse
 import com.warrly.testing.FakeApiService
 import com.warrly.testing.Fixtures
@@ -22,13 +23,14 @@ import org.junit.Test
 import java.io.IOException
 
 /**
- * `RemindersViewModel` — the unchanged upcoming feed, the widened "Đã ẩn"
+ * `RemindersViewModel` — the plain upcoming feed, the widened "Đã ẩn"
  * read, and the dismiss/restore round trip.
  *
- * The two reads are separate calls by design: the default one must stay
- * `GET /api/v1/reminders?withinDays=30` (no `includeDismissed` parameter at
- * all), while the hidden list comes from a second, opt-in call. These tests pin
- * both the request shape and the way the two results combine.
+ * The two reads are separate calls by design: the plain one asks for the same
+ * 90-day horizon web/iOS use (`GET /api/v1/reminders?withinDays=90`, no
+ * `includeDismissed` parameter at all), while the hidden list comes from a
+ * second, opt-in call. These tests pin both the request shape and the way the
+ * two results combine.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class RemindersViewModelTest {
@@ -102,12 +104,12 @@ class RemindersViewModelTest {
         vm.load()
         advanceUntilIdle()
 
-        // The first call is exactly the pre-flag request: `withinDays=30` and
-        // no `includeDismissed` (null is omitted by Retrofit). The second is
-        // the opt-in read — the widest accepted window, flag on.
+        // The first call is the plain feed: the shared 90-day horizon (same
+        // as web/iOS) and no `includeDismissed` (null is omitted by Retrofit).
+        // The second is the opt-in read — the widest accepted window, flag on.
         assertEquals(
             listOf(
-                ReminderRequest(30, null),
+                ReminderRequest(REMINDERS_WITHIN_DAYS, null),
                 ReminderRequest(DISMISSED_WINDOW_DAYS, true),
             ),
             api.requests,

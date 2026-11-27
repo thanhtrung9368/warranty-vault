@@ -82,6 +82,7 @@ import com.warrly.ui.components.SkeletonList
 import com.warrly.ui.screens.attachments.PickedAttachment
 import com.warrly.ui.screens.attachments.readPickedAttachment
 import com.warrly.ui.viewModelFactory
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -193,8 +194,8 @@ class InboxViewModel(private val api: ApiService) : ViewModel() {
      * runs: this is a pull-to-refresh / post-write refresh, and swapping rows
      * for a skeleton on every file action would be worse than a stale second.
      */
-    fun load() {
-        viewModelScope.launch {
+    fun load(): Job {
+        return viewModelScope.launch {
             if (_state.value !is State.Loaded) _state.value = State.Loading
             try {
                 _state.value = State.Loaded(api.getInbox().attachments)
@@ -416,8 +417,11 @@ fun InboxScreen(
             onRefresh = {
                 scope.launch {
                     refreshing = true
-                    vm.load()
-                    refreshing = false
+                    try {
+                        vm.load().join()
+                    } finally {
+                        refreshing = false
+                    }
                 }
             },
             modifier = Modifier.padding(padding).fillMaxSize(),

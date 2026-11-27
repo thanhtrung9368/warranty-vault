@@ -82,6 +82,7 @@ import com.warrly.ui.components.SkeletonList
 import com.warrly.ui.components.SortMenuButton
 import com.warrly.ui.components.StatusPill
 import com.warrly.ui.components.pressScale
+import com.warrly.ui.screens.vietnamDate
 import com.warrly.ui.viewModelFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -452,9 +453,9 @@ private fun SubscriptionCard(sub: Subscription, onClick: () -> Unit) {
                         color = cs.primary,
                     )
                     Spacer(Modifier.weight(1f))
-                    sub.renewalDate?.take(10)?.let {
+                    sub.renewalDate?.let { raw ->
                         Text(
-                            stringResource(R.string.subs_renew, it),
+                            stringResource(R.string.subs_renew, vietnamDate(raw) ?: raw.take(10)),
                             style = MaterialTheme.typography.labelMedium,
                             color = cs.onSurfaceVariant,
                         )

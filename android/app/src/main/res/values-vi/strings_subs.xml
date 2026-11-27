@@ -65,8 +65,8 @@
     <string name="subs_delete_confirm_title">Xoá gói đăng ký?</string>
     <string name="subs_delete_confirm_body">“%1$s” và lịch sử thanh toán sẽ bị xoá. Không thể hoàn tác.</string>
     <string name="wish_add_another_one">Thèm thêm cái nữa</string>
-    <string name="wish_what_you_want">Cái mày đang thèm</string>
-    <string name="wish_nothing_on_your_wishlist_yet">Mày chưa thèm cái nào? Lạ thật.</string>
+    <string name="wish_what_you_want">Cái bạn đang thèm</string>
+    <string name="wish_nothing_on_your_wishlist_yet">Bạn chưa có món nào trong wishlist.</string>
     <string name="wish_add_an_item_to_track_its">Thêm sản phẩm vào để theo dõi giá và quyết định mua đúng lúc.</string>
     <string name="wish_add_the_first_one">Thêm cái đầu tiên</string>
     <string name="wish_items_match_the_filter">%1$s/%2$s món khớp bộ lọc</string>
