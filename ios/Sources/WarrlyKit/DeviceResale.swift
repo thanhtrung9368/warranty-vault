@@ -96,11 +96,11 @@ public enum DeviceResale {
     // MARK: - The server's own copy for the pair rule
 
     /// `fieldErrors.soldAt` when a price was given without a date.
-    public static let soldAtRequiredMessage = L.t("Thiếu ngày bán")
+    public static var soldAtRequiredMessage: String { L.t("Thiếu ngày bán") }
     /// `fieldErrors.soldPrice` when a date was given without a price.
-    public static let soldPriceRequiredMessage = L.t("Thiếu giá bán")
+    public static var soldPriceRequiredMessage: String { L.t("Thiếu giá bán") }
     /// `fieldErrors.soldPrice` for a negative price.
-    public static let soldPriceInvalidMessage = L.t("Giá bán không hợp lệ")
+    public static var soldPriceInvalidMessage: String { L.t("Giá bán không hợp lệ") }
 
     // MARK: - The round trip
 

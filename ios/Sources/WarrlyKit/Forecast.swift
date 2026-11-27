@@ -251,22 +251,21 @@ public enum ForecastRules {
 public enum ForecastCopy {
 
     /// Heading over the money that will be charged automatically.
-    public static let autoRenewHeading = L.t("Sẽ tự động trừ")
+    public static var autoRenewHeading: String { L.t("Sẽ tự động trừ") }
     /// Heading over the renewals the user must decide about.
-    public static let manualRenewHeading = L.t("Bạn phải tự gia hạn")
+    public static var manualRenewHeading: String { L.t("Bạn phải tự gia hạn") }
     /// Explanation of the split.
-    public static let autoRenewNote =
+    public static var autoRenewNote: String {
         L.t("Chỉ phần “%@” là khoản chắc chắn bị trừ. Phần còn lại là các gói bạn phải tự gia hạn.",
                     autoRenewHeading)
+    }
 
     /// Warranty money is a savings reference, not a bill.
-    public static let warrantySavingsNote =
-        L.t("Giá gói bảo hành cũ — chỉ để tham khảo khi để dành tiền, KHÔNG phải khoản chắc chắn phải trả.")
+    public static var warrantySavingsNote: String { L.t("Giá gói bảo hành cũ — chỉ để tham khảo khi để dành tiền, KHÔNG phải khoản chắc chắn phải trả.") }
     /// Wishlist money is a last-recorded price, not a bill.
-    public static let wishlistNote =
-        L.t("Giá ghi nhận gần nhất của món trong wishlist — không phải cam kết chi tiêu.")
+    public static var wishlistNote: String { L.t("Giá ghi nhận gần nhất của món trong wishlist — không phải cam kết chi tiêu.") }
     /// Printed when a package/item has no recorded price at all.
-    public static let noPriceRecorded = L.t("Chưa ghi giá")
+    public static var noPriceRecorded: String { L.t("Chưa ghi giá") }
     /// Shown when no bucket in the window has anything in it.
     public static func emptyWindow(months: Int) -> String {
         L.p("Không có khoản nào sắp tới trong %d tháng tới.", months)

@@ -40,19 +40,21 @@ public enum DeviceCSVExport {
     /// account without ever adding 999 to 25,000,000. Both stay bare numbers so
     /// Excel parses them as numbers; the currency column names the unit of the
     /// first.
-    public static let header: [String] = [
-        L.t("Tên"),
-        L.t("Danh mục"),
-        L.t("Hãng"),
-        "Model",
-        L.t("Số seri"),
-        L.t("Ngày mua"),
-        L.t("Giá mua"),
-        L.t("Tiền tệ"),
-        L.t("Giá mua (VND)"),
-        L.t("Hết bảo hành"),
-        L.t("Trạng thái"),
-    ]
+    public static var header: [String] {
+        [
+            L.t("Tên"),
+            L.t("Danh mục"),
+            L.t("Hãng"),
+            "Model",
+            L.t("Số seri"),
+            L.t("Ngày mua"),
+            L.t("Giá mua"),
+            L.t("Tiền tệ"),
+            L.t("Giá mua (VND)"),
+            L.t("Hết bảo hành"),
+            L.t("Trạng thái"),
+        ]
+    }
 
     // MARK: Field escaping
 

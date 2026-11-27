@@ -309,6 +309,10 @@ private struct InboxAttachmentRow: View {
                     Text(L.t("Gán vào thiết bị"))
                         .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.tint)
+                        // Text-only action: give it the 44 pt minimum tap
+                        // target without changing its visual size.
+                        .frame(minHeight: 44, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 2)

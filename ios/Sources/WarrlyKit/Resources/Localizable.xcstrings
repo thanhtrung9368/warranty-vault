@@ -8828,6 +8828,23 @@
         }
       }
     },
+    "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not reach the server. Check your connection and try again."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại."
+          }
+        }
+      }
+    },
     "Không kết nối được máy chủ. Yêu cầu chưa hoàn tất và chưa có gì được lưu — kiểm tra mạng rồi thử lại.": {
       "extractionState": "manual",
       "localizations": {
@@ -19099,6 +19116,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Xoá gói bảo hành?"
+          }
+        }
+      }
+    },
+    "Xoá lọc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear filters"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xoá lọc"
           }
         }
       }

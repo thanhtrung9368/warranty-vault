@@ -505,12 +505,11 @@ public enum SubscriptionAuditRules {
     }
 
     /// The entry row's title — `GET /api/v1/subscriptions/audit`.
-    public static let entryTitle = L.t("Soát gói đăng ký")
+    public static var entryTitle: String { L.t("Soát gói đăng ký") }
 
     /// One honest sentence about what the entry row opens. No verdict, no numbers:
     /// the screen itself is where the server's note and findings live.
-    public static let entrySubtitle =
-        L.t("Đọc lịch sử thanh toán để tìm gói tự trừ lâu không thấy ghi nhận, gói tăng giá và gói trùng nhau.")
+    public static var entrySubtitle: String { L.t("Đọc lịch sử thanh toán để tìm gói tự trừ lâu không thấy ghi nhận, gói tăng giá và gói trùng nhau.") }
 
     // MARK: Money
 

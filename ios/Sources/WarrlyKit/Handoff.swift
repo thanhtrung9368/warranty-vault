@@ -452,106 +452,100 @@ public enum HandoffCopy {
 
     // MARK: Titles
 
-    public static let sheetTitle = L.t("Chuyển chủ thiết bị")
-    public static let claimTitle = L.t("Nhận thiết bị chuyển chủ")
-    public static let claimEntry = L.t("Nhận thiết bị chuyển chủ")
+    public static var sheetTitle: String { L.t("Chuyển chủ thiết bị") }
+    public static var claimTitle: String { L.t("Nhận thiết bị chuyển chủ") }
+    public static var claimEntry: String { L.t("Nhận thiết bị chuyển chủ") }
 
     /// The stakes, as the title of the surface that shows the code.
-    public static let oneTimeTitle = L.t("Mã chuyển chủ chỉ hiện một lần")
+    public static var oneTimeTitle: String { L.t("Mã chuyển chủ chỉ hiện một lần") }
 
     // MARK: What this is
 
-    public static let intro =
-        L.t("Chuyển hồ sơ thiết bị này sang tài khoản của người nhận. Hai tài khoản phải có kết nối mạng; thiết bị của bạn vẫn giữ nguyên, rồi được đánh dấu đã bán khi người nhận xác nhận.")
+    public static var intro: String { L.t("Chuyển hồ sơ thiết bị này sang tài khoản của người nhận. Hai tài khoản phải có kết nối mạng; thiết bị của bạn vẫn giữ nguyên, rồi được đánh dấu đã bán khi người nhận xác nhận.") }
 
     /// The sentence that keeps this feature honest. Rendered on every surface
     /// where someone could read the handoff as a legal transfer.
-    public static let disclaimer =
-        L.t("Warrly chỉ chuyển dữ liệu thiết bị qua tài khoản. Đây không phải giấy tờ chuyển nhượng pháp lý, không xác nhận quyền sở hữu và không xử lý thanh toán.")
+    public static var disclaimer: String { L.t("Warrly chỉ chuyển dữ liệu thiết bị qua tài khoản. Đây không phải giấy tờ chuyển nhượng pháp lý, không xác nhận quyền sở hữu và không xử lý thanh toán.") }
 
     /// The short form for a row/banner.
-    public static let disclaimerShort =
-        L.t("App chỉ chuyển dữ liệu, không phải giấy tờ pháp lý.")
+    public static var disclaimerShort: String { L.t("App chỉ chuyển dữ liệu, không phải giấy tờ pháp lý.") }
 
     // MARK: What travels
 
-    public static let travelsTitle = L.t("Dữ liệu đi theo thiết bị")
-    public static let travels: [String] = [
-        L.t("Tên, loại, hãng, model và serial/IMEI"),
-        L.t("Ngày mua và nơi mua"),
-        L.t("Các gói bảo hành còn lại: loại, nhà bảo hành, thời hạn và điều khoản"),
-        L.t("Những hoá đơn bạn chọn bên dưới"),
-        L.t("Lịch sử sửa chữa / bảo hành đã ghi"),
-    ]
+    public static var travelsTitle: String { L.t("Dữ liệu đi theo thiết bị") }
+    public static var travels: [String] {
+        [
+            L.t("Tên, loại, hãng, model và serial/IMEI"),
+            L.t("Ngày mua và nơi mua"),
+            L.t("Các gói bảo hành còn lại: loại, nhà bảo hành, thời hạn và điều khoản"),
+            L.t("Những hoá đơn bạn chọn bên dưới"),
+            L.t("Lịch sử sửa chữa / bảo hành đã ghi"),
+        ]
+    }
 
-    public static let neverTitle = L.t("Không đi theo")
-    public static let never: [String] = [
-        L.t("Giá mua, giá bán, lãi/lỗ"),
-        L.t("Chi phí từng gói bảo hành"),
-        L.t("Ghi chú riêng của thiết bị và của gói bảo hành"),
-        L.t("Các thiết bị khác trong tài khoản của bạn"),
-        L.t("Tài khoản, email và mật khẩu của bạn"),
-    ]
+    public static var neverTitle: String { L.t("Không đi theo") }
+    public static var never: [String] {
+        [
+            L.t("Giá mua, giá bán, lãi/lỗ"),
+            L.t("Chi phí từng gói bảo hành"),
+            L.t("Ghi chú riêng của thiết bị và của gói bảo hành"),
+            L.t("Các thiết bị khác trong tài khoản của bạn"),
+            L.t("Tài khoản, email và mật khẩu của bạn"),
+        ]
+    }
 
     // MARK: Rules
 
-    public static let rulesTitle = L.t("Cách mã hoạt động")
-    public static let rules: [String] = [
-        L.t("Mã 6 ký tự, chỉ dùng một lần, hết hạn sau 14 ngày."),
-        L.t("Mỗi thiết bị chỉ chuyển chủ 1 lần trong 30 ngày."),
-        L.t("Người nhận phải đăng nhập, xem trước rồi tự xác nhận — không có “một chạm”."),
-        L.t("Mã chưa dùng thì hết hạn và không có gì được chuyển."),
-    ]
+    public static var rulesTitle: String { L.t("Cách mã hoạt động") }
+    public static var rules: [String] {
+        [
+            L.t("Mã 6 ký tự, chỉ dùng một lần, hết hạn sau 14 ngày."),
+            L.t("Mỗi thiết bị chỉ chuyển chủ 1 lần trong 30 ngày."),
+            L.t("Người nhận phải đăng nhập, xem trước rồi tự xác nhận — không có “một chạm”."),
+            L.t("Mã chưa dùng thì hết hạn và không có gì được chuyển."),
+        ]
+    }
 
     // MARK: Receipts
 
-    public static let receiptsTitle = L.t("Hoá đơn đi theo")
-    public static let receiptsHint =
-        L.t("Chọn hoá đơn cho người nhận xem. Hoá đơn có thể có giá — chỉ chọn tệp bạn muốn chuyển. Bỏ chọn tất cả nghĩa là không tệp nào đi theo.")
-    public static let receiptsEmpty = L.t("Thiết bị này chưa có hoá đơn nào để chọn.")
-    public static let receiptsLoading = L.t("Đang tải hoá đơn…")
+    public static var receiptsTitle: String { L.t("Hoá đơn đi theo") }
+    public static var receiptsHint: String { L.t("Chọn hoá đơn cho người nhận xem. Hoá đơn có thể có giá — chỉ chọn tệp bạn muốn chuyển. Bỏ chọn tất cả nghĩa là không tệp nào đi theo.") }
+    public static var receiptsEmpty: String { L.t("Thiết bị này chưa có hoá đơn nào để chọn.") }
+    public static var receiptsLoading: String { L.t("Đang tải hoá đơn…") }
 
     // MARK: Create
 
-    public static let createAction = L.t("Tạo mã chuyển chủ")
-    public static let creatingAction = L.t("Đang tạo mã…")
-    public static let retryAction = L.t("Thử lại")
+    public static var createAction: String { L.t("Tạo mã chuyển chủ") }
+    public static var creatingAction: String { L.t("Đang tạo mã…") }
+    public static var retryAction: String { L.t("Thử lại") }
 
     /// Shown on the create button while a code already exists (the GET status
     /// returns the row but never the code, so it cannot be re-shown).
-    public static let existingOpen =
-        L.t("Bạn đã tạo một mã đang chờ người nhận, nhưng mã chỉ hiện ở lần tạo nên không xem lại được. Huỷ mã cũ rồi tạo mã mới nếu bạn cần gửi lại.")
+    public static var existingOpen: String { L.t("Bạn đã tạo một mã đang chờ người nhận, nhưng mã chỉ hiện ở lần tạo nên không xem lại được. Huỷ mã cũ rồi tạo mã mới nếu bạn cần gửi lại.") }
 
-    public static let existingClaimed =
-        L.t("Người nhận đã nhận thiết bị này rồi. Thiết bị được đánh dấu đã bán trong tài khoản của bạn.")
-    public static let existingCancelled = L.t("Mã trước đã bị huỷ. Bạn có thể tạo mã mới nếu còn trong giới hạn 30 ngày.")
-    public static let existingExpired =
-        L.t("Mã trước đã hết hạn mà chưa ai nhận, nên không có gì được chuyển. Bạn có thể tạo mã mới nếu còn trong giới hạn 30 ngày.")
+    public static var existingClaimed: String { L.t("Người nhận đã nhận thiết bị này rồi. Thiết bị được đánh dấu đã bán trong tài khoản của bạn.") }
+    public static var existingCancelled: String { L.t("Mã trước đã bị huỷ. Bạn có thể tạo mã mới nếu còn trong giới hạn 30 ngày.") }
+    public static var existingExpired: String { L.t("Mã trước đã hết hạn mà chưa ai nhận, nên không có gì được chuyển. Bạn có thể tạo mã mới nếu còn trong giới hạn 30 ngày.") }
 
-    public static let loadFailed = L.t("Không tải được trạng thái chuyển chủ — thử tải lại nhé.")
-    public static let createFailed = L.t("Không tạo được mã chuyển chủ, thử lại sau.")
-    public static let cancelFailed = L.t("Không huỷ được mã chuyển chủ, thử lại sau.")
-    public static let limitReached =
-        L.t("Mỗi thiết bị chỉ chuyển chủ 1 lần trong 30 ngày. Thiết bị này đã dùng lượt chuyển trong 30 ngày qua.")
+    public static var loadFailed: String { L.t("Không tải được trạng thái chuyển chủ — thử tải lại nhé.") }
+    public static var createFailed: String { L.t("Không tạo được mã chuyển chủ, thử lại sau.") }
+    public static var cancelFailed: String { L.t("Không huỷ được mã chuyển chủ, thử lại sau.") }
+    public static var limitReached: String { L.t("Mỗi thiết bị chỉ chuyển chủ 1 lần trong 30 ngày. Thiết bị này đã dùng lượt chuyển trong 30 ngày qua.") }
 
     // MARK: The one-time code surface
 
-    public static let oneTimeWarning =
-        L.t("Máy chủ chỉ lưu mã băm của mã, nên không ai — kể cả bạn — xem lại được mã này. Hãy sao chép mã và link rồi gửi cho người nhận trước khi đóng. Nếu lỡ đóng mà chưa sao chép, bạn phải huỷ mã và tạo mã mới (nếu còn trong giới hạn 1 lần/30 ngày).")
-    public static let codeLabel = L.t("Mã chuyển chủ")
-    public static let linkLabel = L.t("Link cho người nhận")
-    public static let copyCodeAction = L.t("Sao chép mã")
-    public static let copyLinkAction = L.t("Sao chép link")
-    public static let copiedAction = L.t("Đã sao chép")
-    public static let shareAction = L.t("Chia sẻ")
-    public static let closeAction = L.t("Đóng")
-    public static let cancelAction = L.t("Huỷ")
-    public static let ackLabel =
-        L.t("Tôi đã sao chép hoặc lưu mã và link này, và hiểu rằng không xem lại được.")
-    public static let closeBlockedHint =
-        L.t("Mã chưa được lưu. Hãy sao chép mã hoặc link, hoặc tick xác nhận, rồi mới đóng.")
-    public static let missingLink =
-        L.t("Máy chủ không trả về link cho mã này. Bạn vẫn có thể gửi mã để người nhận dán vào app.")
+    public static var oneTimeWarning: String { L.t("Máy chủ chỉ lưu mã băm của mã, nên không ai — kể cả bạn — xem lại được mã này. Hãy sao chép mã và link rồi gửi cho người nhận trước khi đóng. Nếu lỡ đóng mà chưa sao chép, bạn phải huỷ mã và tạo mã mới (nếu còn trong giới hạn 1 lần/30 ngày).") }
+    public static var codeLabel: String { L.t("Mã chuyển chủ") }
+    public static var linkLabel: String { L.t("Link cho người nhận") }
+    public static var copyCodeAction: String { L.t("Sao chép mã") }
+    public static var copyLinkAction: String { L.t("Sao chép link") }
+    public static var copiedAction: String { L.t("Đã sao chép") }
+    public static var shareAction: String { L.t("Chia sẻ") }
+    public static var closeAction: String { L.t("Đóng") }
+    public static var cancelAction: String { L.t("Huỷ") }
+    public static var ackLabel: String { L.t("Tôi đã sao chép hoặc lưu mã và link này, và hiểu rằng không xem lại được.") }
+    public static var closeBlockedHint: String { L.t("Mã chưa được lưu. Hãy sao chép mã hoặc link, hoặc tick xác nhận, rồi mới đóng.") }
+    public static var missingLink: String { L.t("Máy chủ không trả về link cho mã này. Bạn vẫn có thể gửi mã để người nhận dán vào app.") }
 
     public static func expiryLine(_ date: String) -> String {
         L.t("Hết hạn %@", date)
@@ -570,50 +564,46 @@ public enum HandoffCopy {
 
     // MARK: Cancel
 
-    public static let cancelTitle = L.t("Huỷ mã chuyển chủ?")
-    public static let cancelConfirm =
-        L.t("Người nhận sẽ không dùng được mã này nữa. Không thể hoàn tác.")
-    public static let cancelOpen = L.t("Huỷ mã chuyển chủ")
+    public static var cancelTitle: String { L.t("Huỷ mã chuyển chủ?") }
+    public static var cancelConfirm: String { L.t("Người nhận sẽ không dùng được mã này nữa. Không thể hoàn tác.") }
+    public static var cancelOpen: String { L.t("Huỷ mã chuyển chủ") }
 
     // MARK: Claim entry
 
-    public static let pasteHint =
-        L.t("Dán mã 6 ký tự hoặc link người bán gửi. Mã chỉ dùng được một lần.")
-    public static let codeFieldLabel = L.t("Mã chuyển chủ (6 ký tự)")
-    public static let codeFieldPlaceholder = L.t("VD: A7K2Q9")
-    public static let previewAction = L.t("Xem thiết bị")
-    public static let previewingAction = L.t("Đang tìm thiết bị…")
-    public static let invalidCode = L.t("Mã gồm 6 ký tự chữ và số.")
-    public static let previewFailed = L.t("Không xem trước được thiết bị. Kiểm tra mã và thử lại.")
-    public static let claimFailed = L.t("Không nhận được thiết bị, thử lại sau.")
-    public static let deadCode =
-        L.t("Mã không còn hiệu lực: có thể đã hết hạn, đã bị huỷ hoặc đã được dùng. Hãy xin người bán mã mới.")
-    public static let alreadyClaimed = L.t("Mã này đã được người khác nhận rồi.")
-    public static let ownDevice = L.t("Bạn đang đăng nhập tài khoản người bán nên không thể tự nhận thiết bị của mình.")
-    public static let signInRequired = L.t("Bạn cần đăng nhập để nhận thiết bị.")
+    public static var pasteHint: String { L.t("Dán mã 6 ký tự hoặc link người bán gửi. Mã chỉ dùng được một lần.") }
+    public static var codeFieldLabel: String { L.t("Mã chuyển chủ (6 ký tự)") }
+    public static var codeFieldPlaceholder: String { L.t("VD: A7K2Q9") }
+    public static var previewAction: String { L.t("Xem thiết bị") }
+    public static var previewingAction: String { L.t("Đang tìm thiết bị…") }
+    public static var invalidCode: String { L.t("Mã gồm 6 ký tự chữ và số.") }
+    public static var previewFailed: String { L.t("Không xem trước được thiết bị. Kiểm tra mã và thử lại.") }
+    public static var claimFailed: String { L.t("Không nhận được thiết bị, thử lại sau.") }
+    public static var deadCode: String { L.t("Mã không còn hiệu lực: có thể đã hết hạn, đã bị huỷ hoặc đã được dùng. Hãy xin người bán mã mới.") }
+    public static var alreadyClaimed: String { L.t("Mã này đã được người khác nhận rồi.") }
+    public static var ownDevice: String { L.t("Bạn đang đăng nhập tài khoản người bán nên không thể tự nhận thiết bị của mình.") }
+    public static var signInRequired: String { L.t("Bạn cần đăng nhập để nhận thiết bị.") }
 
     // MARK: Preview
 
     public static func sellerLine(_ name: String) -> String {
         L.t("Người bán: %@", name)
     }
-    public static let remainingWarrantyTitle = L.t("Bảo hành còn lại")
-    public static let noWarranty = L.t("Không có gói bảo hành nào đi theo.")
+    public static var remainingWarrantyTitle: String { L.t("Bảo hành còn lại") }
+    public static var noWarranty: String { L.t("Không có gói bảo hành nào đi theo.") }
     public static func documentsTitle(_ count: Int) -> String {
         L.t("Hoá đơn đi kèm (%d)", count)
     }
-    public static let noDocuments = L.t("Không có hoá đơn nào đi kèm.")
+    public static var noDocuments: String { L.t("Không có hoá đơn nào đi kèm.") }
     public static func repairsTitle(_ count: Int) -> String {
         L.t("Lịch sử sửa chữa (%d)", count)
     }
-    public static let noRepairs = L.t("Không có lịch sử sửa chữa.")
-    public static let purchaseDateLabel = L.t("Ngày mua")
-    public static let serialLabel = L.t("Serial (che giữa)")
-    public static let claimAction = L.t("Nhận thiết bị này")
-    public static let claimingAction = L.t("Đang nhận thiết bị…")
-    public static let claimConfirmTitle = L.t("Nhận thiết bị này?")
-    public static let claimConfirmBody =
-        L.t("Thiết bị sẽ được thêm vào tài khoản của bạn cùng bảo hành và tệp đã chọn. Mã chỉ dùng được một lần.")
+    public static var noRepairs: String { L.t("Không có lịch sử sửa chữa.") }
+    public static var purchaseDateLabel: String { L.t("Ngày mua") }
+    public static var serialLabel: String { L.t("Serial (che giữa)") }
+    public static var claimAction: String { L.t("Nhận thiết bị này") }
+    public static var claimingAction: String { L.t("Đang nhận thiết bị…") }
+    public static var claimConfirmTitle: String { L.t("Nhận thiết bị này?") }
+    public static var claimConfirmBody: String { L.t("Thiết bị sẽ được thêm vào tài khoản của bạn cùng bảo hành và tệp đã chọn. Mã chỉ dùng được một lần.") }
 
     public static func expiresLine(_ date: String) -> String {
         L.t("Mã hết hạn %@.", date)
@@ -638,10 +628,9 @@ public enum HandoffCopy {
 
     // MARK: Device provenance
 
-    public static let handoffSectionTitle = L.t("Chuyển chủ")
-    public static let sellerRowTitle = L.t("Chuyển chủ thiết bị")
-    public static let sellerRowSubtitle =
-        L.t("Chuyển dữ liệu sang tài khoản người mua bằng mã 6 ký tự.")
+    public static var handoffSectionTitle: String { L.t("Chuyển chủ") }
+    public static var sellerRowTitle: String { L.t("Chuyển chủ thiết bị") }
+    public static var sellerRowSubtitle: String { L.t("Chuyển dữ liệu sang tài khoản người mua bằng mã 6 ký tự.") }
 
     public static func receivedFromSeller(_ day: String) -> String {
         L.t("Chuyển từ người bán %@", day)
@@ -651,14 +640,12 @@ public enum HandoffCopy {
         L.t("Đã chuyển cho người mua %@", day)
     }
 
-    public static let receivedFootnote =
-        L.t("Dữ liệu này do người bán chuyển sang. Warrly không xác nhận quyền sở hữu và không phải giấy tờ chuyển nhượng pháp lý.")
+    public static var receivedFootnote: String { L.t("Dữ liệu này do người bán chuyển sang. Warrly không xác nhận quyền sở hữu và không phải giấy tờ chuyển nhượng pháp lý.") }
 
-    public static let sentFootnote =
-        L.t("Thiết bị đã sang tài khoản người mua. Dòng này chỉ ghi nhận dữ liệu đã chuyển, không phải giấy tờ pháp lý.")
+    public static var sentFootnote: String { L.t("Thiết bị đã sang tài khoản người mua. Dòng này chỉ ghi nhận dữ liệu đã chuyển, không phải giấy tờ pháp lý.") }
 
     /// A short marker for the seller's SOLD row in the device list.
-    public static let sentBadge = L.t("Đã chuyển")
+    public static var sentBadge: String { L.t("Đã chuyển") }
 
     // MARK: Claim entry points
 
