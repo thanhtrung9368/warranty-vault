@@ -649,7 +649,7 @@ export function DeviceBulkAdd({ categories }: { categories: CategoryOption[] }) 
           </li>
           <li>
             {t('Có sẵn danh sách từ cửa hàng?')}{' '}
-            <Link href="/devices/import" className="font-semibold text-primary hover:underline">
+            <Link href="/devices/import" className="font-semibold text-primary-text hover:underline">
               {t('Dán bảng để nhập nhiều thiết bị một lúc')}
             </Link>
           </li>

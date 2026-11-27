@@ -430,7 +430,7 @@ export function InstallmentCard({
                 </Button>
               )}
               {state?.message && state.ok !== false && (
-                <span className="text-xs font-medium text-primary">{state.message}</span>
+                <span className="text-xs font-medium text-primary-text">{state.message}</span>
               )}
               {state?.message && state.ok === false && (
                 <span className="text-xs font-medium text-destructive">{state.message}</span>

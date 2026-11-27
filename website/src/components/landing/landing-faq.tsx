@@ -112,7 +112,7 @@ export function LandingFaq() {
                     <Link
                       href={localePath(item.href, locale)}
                       prefetch={false}
-                      className="mt-2 inline-block text-[13px] font-semibold text-primary hover:underline"
+                      className="mt-2 inline-block text-[13px] font-semibold text-primary-text hover:underline"
                     >
                       {item.link} →
                     </Link>

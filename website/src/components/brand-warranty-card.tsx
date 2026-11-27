@@ -203,7 +203,7 @@ export function BrandWarrantyCard({
               href={lookup.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+              className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-primary-text hover:underline"
             >
               <ExternalLink className="h-4 w-4" />
               {lookup.linkLabel}

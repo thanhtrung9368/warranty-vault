@@ -90,7 +90,7 @@ export function OfflineSavedPages() {
                 href={page.url}
                 className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-md px-1.5 py-1.5 text-sm hover:bg-surface-2"
               >
-                <span className="font-semibold text-primary hover:underline">
+                <span className="font-semibold text-primary-text hover:underline">
                   {pageLabel(page, t)}
                 </span>
                 {page.cachedAt !== null && (

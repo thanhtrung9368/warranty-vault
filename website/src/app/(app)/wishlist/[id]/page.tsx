@@ -21,7 +21,7 @@ import {
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CategoryIconBadge } from '@/components/category-icon';
-import { PriceHistoryChart } from '@/components/charts/price-history';
+import { PriceHistoryChart } from '@/components/charts/lazy';
 import {
   UpdatePriceDialog,
   WishlistStatusButtons,
@@ -78,7 +78,7 @@ export default async function WishlistDetailPage({
           eyebrow={t('Mua sắm')}
           title={t('Wishlist')}
         />
-        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive-ink">
           {t('Lỗi tải món: {message}', { message: res.message ?? res.error })}
         </div>
       </PageShell>

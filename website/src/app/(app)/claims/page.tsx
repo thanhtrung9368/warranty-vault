@@ -264,7 +264,7 @@ export default async function ClaimsPage({
           </p>
           <Link
             href="/claims"
-            className="mt-2 inline-block text-sm font-semibold text-primary hover:underline"
+            className="mt-2 inline-block text-sm font-semibold text-primary-text hover:underline"
           >
             {t('Xoá lọc')}
           </Link>

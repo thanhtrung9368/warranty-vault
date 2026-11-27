@@ -44,7 +44,7 @@ const SUPPORT_EMAIL = 'support@warrly.com';
 
 export function PrivacyContent() {
   const t = useT();
-  const mailClass = 'font-semibold text-primary hover:underline';
+  const mailClass = 'font-semibold text-primary-text hover:underline';
   return (
 <article className="prose prose-slate max-w-none dark:prose-invert">
   <h1 className="display text-3xl">{t('Chính sách bảo mật')}</h1>
@@ -255,7 +255,7 @@ export function PrivacyContent() {
           href="https://policies.google.com/technologies/ads"
           target="_blank"
           rel="noopener noreferrer"
-          className="font-semibold text-primary hover:underline"
+          className="font-semibold text-primary-text hover:underline"
         >
           policies.google.com/technologies/ads
         </a>
@@ -464,7 +464,7 @@ export function PrivacyContent() {
           href="https://policies.google.com/technologies/ads"
           target="_blank"
           rel="noopener noreferrer"
-          className="font-semibold text-primary hover:underline"
+          className="font-semibold text-primary-text hover:underline"
         >
           policies.google.com/technologies/ads
         </a>

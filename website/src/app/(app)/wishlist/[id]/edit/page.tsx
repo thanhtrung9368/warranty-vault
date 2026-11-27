@@ -34,7 +34,7 @@ export default async function EditWishlistPage({
           eyebrow={t('Chỉnh sửa')}
           title={t('Sửa món thèm')}
         />
-        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive-ink">
           {t('Lỗi tải món: {message}', { message: res.message ?? res.error })}
         </div>
       </PageShell>

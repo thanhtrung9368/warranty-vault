@@ -225,7 +225,7 @@ export function BrandWarrantyFormSection({
                   // once (never overwrite something the owner typed).
                   setUrl((prev) => (prev.trim() === '' ? lookupView.url : prev));
                 }}
-                className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+                className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-primary-text hover:underline"
               >
                 <ExternalLink className="h-4 w-4" />
                 {lookupView.linkLabel}

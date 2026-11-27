@@ -193,7 +193,7 @@ export default async function SubscriptionsPage({
     return (
       <PageShell>
         <PageHeader eyebrow={t('Gói định kỳ')} title={t('Gói đăng ký')} />
-        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive-ink">
           {t('Lỗi tải danh sách: {message}', {
             message: listRes.message ?? listRes.error,
           })}

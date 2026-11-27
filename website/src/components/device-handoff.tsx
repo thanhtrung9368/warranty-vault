@@ -648,7 +648,7 @@ function CreatedPanel({
 
       <div
         role="alert"
-        className="rounded-xl border-[2px] border-destructive bg-destructive-soft p-3 text-destructive"
+        className="rounded-xl border-[2px] border-destructive bg-destructive-soft p-3 text-destructive-ink"
       >
         <p className="flex items-center gap-2 font-display text-sm font-bold">
           <AlertTriangle className="h-4 w-4 shrink-0" />

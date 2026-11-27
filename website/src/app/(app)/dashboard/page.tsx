@@ -159,7 +159,7 @@ async function SectionCard({
             {title}
           </h3>
         </div>
-        <Button asChild variant="ghost" size="sm" className="h-8 px-3 text-primary">
+        <Button asChild variant="ghost" size="sm" className="h-8 px-3 text-primary-text">
           <Link href={href}>
             {t('Xem tất cả')}
             <ArrowRight className="ml-1 h-3.5 w-3.5" />
@@ -404,7 +404,7 @@ export default async function DashboardPage() {
                 <p>{t(noDataCopy.description)}</p>
                 <Link
                   href={noDataCopy.ctaHref}
-                  className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+                  className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary-text hover:underline"
                 >
                   {t(noDataCopy.ctaLabel)}
                   <ArrowRight className="h-3.5 w-3.5" />

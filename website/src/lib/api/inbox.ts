@@ -9,6 +9,7 @@
 // The payload is the same `AttachmentMeta` shape the device attachment list
 // uses, newest first (the server owns the order; this module does not re-sort).
 
+import { cache } from 'react';
 import { apiFetch, type ApiResult } from './client';
 import type { AttachmentMeta } from './devices';
 
@@ -23,9 +24,13 @@ type InboxBody = {
   inbox?: AttachmentMeta[];
 };
 
-export async function getInbox(): Promise<ApiResult<InboxItem[]>> {
+// The `(app)` layout reads this for the sidebar badge and the `/inbox` page
+// reads it for the list in the same render. React `cache()` dedupes the two
+// calls into one `GET /v1/inbox` per request, the same way `getCurrentUser()`
+// collapses every `/v1/auth/me` in `lib/auth.ts`.
+export const getInbox = cache(async (): Promise<ApiResult<InboxItem[]>> => {
   const res = await apiFetch<InboxBody>('GET', '/v1/inbox');
   if (!res.ok) return res;
   const rows = res.data?.attachments ?? res.data?.inbox ?? [];
   return { ok: true, data: rows };
-}
+});

@@ -34,7 +34,7 @@ const SUPPORT_EMAIL = 'support@warrly.com';
 
 export function TermsContent() {
   const t = useT();
-  const mailClass = 'font-semibold text-primary hover:underline';
+  const mailClass = 'font-semibold text-primary-text hover:underline';
   return (
 <article className="prose prose-slate max-w-none dark:prose-invert">
   <h1 className="display text-3xl">{t('Điều khoản sử dụng')}</h1>

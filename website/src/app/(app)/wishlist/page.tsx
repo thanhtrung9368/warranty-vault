@@ -161,7 +161,7 @@ export default async function WishlistPage({
     return (
       <PageShell>
         <PageHeader eyebrow={t('Mua sắm')} title={t('Wishlist')} />
-        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive-ink">
           {t('Lỗi tải wishlist: {message}', {
             message: listRes.message ?? listRes.error,
           })}

@@ -76,7 +76,7 @@ export default async function SubscriptionDetailPage({
           eyebrow={t('Gói định kỳ')}
           title={t('Gói đăng ký')}
         />
-        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive-ink">
           {t('Lỗi tải gói: {message}', { message: res.message ?? res.error })}
         </div>
       </PageShell>

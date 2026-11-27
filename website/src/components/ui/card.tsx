@@ -82,9 +82,12 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 );
 CardHeader.displayName = 'CardHeader';
 
-const CardTitle = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+// A real heading, not a styled <div>: every card title on a page is a section
+// heading, and screen-reader users navigate by them. Device detail is the
+// densest page in the app and previously exposed no heading below the h1.
+const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <div
+    <h3
       ref={ref}
       className={cn('font-display text-lg font-bold tracking-tight', className)}
       {...props}

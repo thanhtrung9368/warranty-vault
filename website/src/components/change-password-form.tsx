@@ -86,7 +86,7 @@ export function ChangePasswordForm() {
         </div>
       </div>
       {state?.message && !state.ok && (
-        <p className="rounded-md border-[1.5px] border-destructive/30 bg-destructive-soft/60 px-3 py-2 text-sm font-medium text-destructive">
+        <p className="rounded-md border-[1.5px] border-destructive/30 bg-destructive-soft/60 px-3 py-2 text-sm font-medium text-destructive-ink">
           {state.message}
         </p>
       )}
