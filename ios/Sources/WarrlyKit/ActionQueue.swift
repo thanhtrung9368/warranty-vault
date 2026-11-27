@@ -203,13 +203,15 @@ public enum ActionQueueRules {
     /// A few Vietnamese durations rather than a free number field: the decision
     /// is "để đó một thời gian", and every option is inside the server's `1–365`
     /// window, so no choice can produce a 400.
-    public static let snoozeChoices: [SnoozeChoice] = [
-        SnoozeChoice(days: 7, label: L.t("1 tuần")),
-        SnoozeChoice(days: 30, label: L.t("1 tháng")),
-        SnoozeChoice(days: snoozeDaysDefault, label: L.t("3 tháng (mặc định)")),
-        SnoozeChoice(days: 180, label: L.t("6 tháng")),
-        SnoozeChoice(days: snoozeDaysMax, label: L.t("1 năm")),
-    ]
+    public static var snoozeChoices: [SnoozeChoice] {
+        [
+            SnoozeChoice(days: 7, label: L.t("1 tuần")),
+            SnoozeChoice(days: 30, label: L.t("1 tháng")),
+            SnoozeChoice(days: snoozeDaysDefault, label: L.t("3 tháng (mặc định)")),
+            SnoozeChoice(days: 180, label: L.t("6 tháng")),
+            SnoozeChoice(days: snoozeDaysMax, label: L.t("1 năm")),
+        ]
+    }
 
     /// The choices are a client-side convenience; the server still owns the range.
     public static func isValidSnoozeDays(_ days: Int) -> Bool {

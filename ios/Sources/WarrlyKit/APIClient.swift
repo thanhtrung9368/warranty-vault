@@ -167,6 +167,45 @@ public actor APIClient {
         return url
     }
 
+    // MARK: - Transport
+
+    /// One place for the transport hop.
+    ///
+    /// `URLSession` fails with a `URLError` whose `localizedDescription` is
+    /// written by the OS in the **device** language, not the in-app language.
+    /// Every store surfaces `error.localizedDescription`, so a raw `URLError`
+    /// put an English system sentence under a Vietnamese UI — and no translation
+    /// ever applied to it. Offline is the common case (airplane mode, no Wi-Fi,
+    /// timeout), so the app owns one sentence for it: `.notConnectedToInternet`,
+    /// `.timedOut` and every other transport failure map to the same copy.
+    ///
+    /// A cancelled request is not a network failure — it is a screen the user
+    /// left — so it is rethrown untouched for the caller's task cancellation.
+    private func transportData(for req: URLRequest) async throws -> (Data, URLResponse) {
+        do {
+            return try await session.data(for: req)
+        } catch let error as URLError {
+            guard error.code != .cancelled else { throw error }
+            throw APIError.transport(Self.offlineMessage)
+        }
+    }
+
+    private func transportUpload(for req: URLRequest,
+                                 from body: Data) async throws -> (Data, URLResponse) {
+        do {
+            return try await session.upload(for: req, from: body)
+        } catch let error as URLError {
+            guard error.code != .cancelled else { throw error }
+            throw APIError.transport(Self.offlineMessage)
+        }
+    }
+
+    /// Computed, not a `static let`: the sentence has to follow an in-app
+    /// language switch, exactly like every other `L.t` call.
+    private static var offlineMessage: String {
+        L.t("Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.")
+    }
+
     // MARK: - Core request
 
     func request<Out: Decodable>(
@@ -219,7 +258,7 @@ public actor APIClient {
             bearerAttached = true
         }
 
-        let (data, response) = try await session.data(for: req)
+        let (data, response) = try await transportData(for: req)
         guard let http = response as? HTTPURLResponse else {
             throw APIError.transport("Invalid response")
         }
@@ -278,7 +317,7 @@ public actor APIClient {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        let (data, response) = try await session.data(for: req)
+        let (data, response) = try await transportData(for: req)
         guard let http = response as? HTTPURLResponse else {
             throw APIError.transport("Invalid response")
         }
@@ -345,7 +384,7 @@ public actor APIClient {
 
         req.httpBody = body
 
-        let (data, response) = try await session.upload(for: req, from: body)
+        let (data, response) = try await transportUpload(for: req, from: body)
         guard let http = response as? HTTPURLResponse else {
             throw APIError.transport("Invalid response")
         }

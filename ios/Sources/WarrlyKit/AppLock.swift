@@ -558,6 +558,5 @@ public final class AppLockStore: ObservableObject {
         autoDisabledNotice = nil
     }
 
-    static let passcodeLostNotice =
-        L.t("Đã tắt khoá ứng dụng vì thiết bị không còn mã mở khoá để xác thực.")
+    static var passcodeLostNotice: String { L.t("Đã tắt khoá ứng dụng vì thiết bị không còn mã mở khoá để xác thực.") }
 }

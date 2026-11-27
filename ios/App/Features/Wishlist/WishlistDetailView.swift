@@ -389,6 +389,10 @@ struct WishlistDetailView: View {
                                 .frame(height: 30)
                                 .background(active ? WVColor.brand : WVColor.fill3)
                                 .clipShape(Capsule())
+                                // Keep the 30 pt visual chip; the tap target
+                                // grows to the 44 pt minimum.
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(WVPressableStyle())
                     }

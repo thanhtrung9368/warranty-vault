@@ -99,15 +99,14 @@ public struct DeviceSaveResult: Decodable, Sendable {
 public enum DeviceWarningCopy {
 
     /// Heading shown after a successful save that produced advisories.
-    public static let savedHeading = L.t("Đã lưu thiết bị")
+    public static var savedHeading: String { L.t("Đã lưu thiết bị") }
     /// The line that makes "non-blocking" explicit.
-    public static let savedNote =
-        L.t("Thiết bị đã được lưu. Đây là cảnh báo, không phải lỗi — bạn không cần sửa gì cả.")
+    public static var savedNote: String { L.t("Thiết bị đã được lưu. Đây là cảnh báo, không phải lỗi — bạn không cần sửa gì cả.") }
     /// Dismiss button on the advisory card.
     public static let savedDismiss = "Xong"
 
     /// Draft-scan counterpart: values that were kept.
-    public static let draftWarningsNote = L.t("Đã điền, nhưng có vẻ sai — kiểm tra lại.")
+    public static var draftWarningsNote: String { L.t("Đã điền, nhưng có vẻ sai — kiểm tra lại.") }
     /// Draft-scan counterpart: values that were thrown away.
-    public static let draftUnmatchedNote = L.t("Không đọc được, bạn tự nhập.")
+    public static var draftUnmatchedNote: String { L.t("Không đọc được, bạn tự nhập.") }
 }

@@ -909,6 +909,13 @@ private struct DeviceFilterSheet: View {
             .foregroundStyle(WVColor.label)
     }
 
+    /// Same predicate as the screen's `hasActiveFilters`. The reset action is
+    /// only offered when there is something to reset, so the button can never
+    /// claim to have cleared a filter that was never set.
+    private var hasActiveFilters: Bool {
+        statusFilter != nil || categoryFilter != nil || sortOrder != .warrantyAsc
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -995,15 +1002,17 @@ private struct DeviceFilterSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(L.t("Xoá")) {
-                        statusFilter = nil
-                        categoryFilter = nil
-                        sortOrder = .warrantyAsc
+                    if hasActiveFilters {
+                        Button(L.t("Xoá lọc")) {
+                            statusFilter = nil
+                            categoryFilter = nil
+                            sortOrder = .warrantyAsc
+                        }
+                        // A secondary control, so not coral (§5.1 — the same rule
+                        // that takes the tint off "Hủy" in search, §8.8). "Xong"
+                        // is this sheet's one action.
+                        .foregroundStyle(WVColor.label)
                     }
-                    // A secondary control, so not coral (§5.1 — the same rule
-                    // that takes the tint off "Hủy" in search, §8.8). "Xong" is
-                    // this sheet's one action.
-                    .foregroundStyle(WVColor.label)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(L.t("Xong")) { dismiss() }

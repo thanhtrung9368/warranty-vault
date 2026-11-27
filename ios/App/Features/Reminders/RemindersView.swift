@@ -14,6 +14,11 @@ struct RemindersView: View {
     @EnvironmentObject private var push: PushRegistrar
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var store: RemindersStore
+    /// A reminder names a device id. The destination loads the list inline and
+    /// then shows the real detail screen (`DeviceRouteDestination`), so the row
+    /// needs its own store — the same ownership pattern Dashboard and Stats use.
+    @StateObject private var devicesStore: DevicesStore
+    private let client: APIClient
 
     @State private var pendingDismiss: String?
     @State private var pendingRestore: String?
@@ -21,7 +26,9 @@ struct RemindersView: View {
     @State private var recentlyDismissed: UpcomingReminder?
 
     init(client: APIClient) {
+        self.client = client
         _store = StateObject(wrappedValue: RemindersStore(client: client))
+        _devicesStore = StateObject(wrappedValue: DevicesStore(client: client))
     }
 
     var body: some View {
@@ -46,6 +53,9 @@ struct RemindersView: View {
         }
         .task { await store.load() }
         .refreshable { await store.load() }
+        .navigationDestination(for: DashDeviceNav.self) { nav in
+            DeviceRouteDestination(client: client, store: devicesStore, deviceId: nav.id)
+        }
         // The answer may have changed in iOS Settings while this screen sat in
         // the background; refresh it before the next frame claims anything.
         .onChange(of: scenePhase) { _, phase in
@@ -176,60 +186,77 @@ struct RemindersView: View {
         let daysLeft = CalendarDay.days(from: Date(), to: endDate)
 
         return WVRowContainer {
-            HStack(spacing: 12) {
-                WVLeadingIcon(
-                    icon: WVCategory.icon(for: entry.device.category),
-                    color: WVCategory.accent(for: entry.device.category),
-                    size: 36
-                )
+            VStack(alignment: .leading, spacing: 4) {
+                // The row opens the device, like the web reminder row. The
+                // dismiss control is a sibling of the link, never nested inside
+                // it, so neither swallows the other's tap.
+                NavigationLink(value: DashDeviceNav(id: entry.deviceId,
+                                                    name: entry.device.name)) {
+                    HStack(spacing: 12) {
+                        WVLeadingIcon(
+                            icon: WVCategory.icon(for: entry.device.category),
+                            color: WVCategory.accent(for: entry.device.category),
+                            size: 36
+                        )
 
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(entry.device.name)
-                            .wvFont(.calloutEmphasis)
-                            .foregroundStyle(WVColor.label)
-                            .lineLimit(1)
-                        Spacer(minLength: 4)
-                        WarrantyPill(daysLeft: daysLeft)
-                    }
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 8) {
+                                Text(entry.device.name)
+                                    .wvFont(.calloutEmphasis)
+                                    .foregroundStyle(WVColor.label)
+                                    .lineLimit(1)
+                                Spacer(minLength: 4)
+                                WarrantyPill(daysLeft: daysLeft)
+                            }
 
-                    HStack(spacing: 8) {
-                        WVChip(entry.type.label, tone: chipTone(for: entry.type))
-                        if repairDays > 0 {
-                            WVChip(L.p("+%d ngày sửa", repairDays), tone: .blue)
-                        }
-                        Text("\(entry.provider ?? "–") · \(WVFormat.date(endDate))")
-                            .wvFont(.footnote)
-                            .foregroundStyle(WVColor.label3)
-                            .lineLimit(1)
-                    }
-
-                    // Dismiss button
-                    Button {
-                        Task { await dismiss(entry) }
-                    } label: {
-                        HStack(spacing: 4) {
-                            if pendingDismiss == entry.id {
-                                ProgressView().scaleEffect(0.7)
-                            } else {
-                                WVIcon("x", size: 10, weight: .bold)
-                                Text(L.t("Đã xem, ẩn đi"))
+                            HStack(spacing: 8) {
+                                WVChip(entry.type.label, tone: chipTone(for: entry.type))
+                                if repairDays > 0 {
+                                    WVChip(L.p("+%d ngày sửa", repairDays), tone: .blue)
+                                }
+                                Text("\(entry.provider ?? "–") · \(WVFormat.date(endDate))")
+                                    .wvFont(.footnote)
+                                    .foregroundStyle(WVColor.label3)
+                                    .lineLimit(1)
                             }
                         }
-                        .wvFont(.captionEmphasis)
-                        .foregroundStyle(WVColor.label3)
-                        .padding(.horizontal, 8)
-                        .frame(height: 22)
-                        .background(WVColor.fill3)
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(pendingDismiss != nil)
-                    .padding(.top, 2)
-                }
 
-                WVIcon("arrowRight", size: 13, weight: .semibold)
-                    .foregroundStyle(WVColor.label4)
+                        Spacer(minLength: 4)
+                        WVIcon("arrowRight", size: 13, weight: .semibold)
+                            .foregroundStyle(WVColor.label4)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(WVRowButtonStyle())
+
+                // Dismiss button. The visible capsule stays 22 pt; the outer
+                // frame and content shape give it the 44 pt minimum tap target.
+                Button {
+                    Task { await dismiss(entry) }
+                } label: {
+                    HStack(spacing: 4) {
+                        if pendingDismiss == entry.id {
+                            ProgressView().scaleEffect(0.7)
+                        } else {
+                            WVIcon("x", size: 10, weight: .bold)
+                            Text(L.t("Đã xem, ẩn đi"))
+                        }
+                    }
+                    .wvFont(.captionEmphasis)
+                    .foregroundStyle(WVColor.label3)
+                    .padding(.horizontal, 8)
+                    .frame(height: 22)
+                    .background(WVColor.fill3)
+                    .clipShape(Capsule())
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(pendingDismiss != nil)
+                .padding(.top, 2)
+                // 36 pt leading icon + 12 pt spacing: keep the capsule under
+                // the text it used to sit beneath.
+                .padding(.leading, 48)
             }
         }
     }
@@ -289,63 +316,74 @@ struct RemindersView: View {
         let daysLeft = CalendarDay.days(from: Date(), to: endDate)
 
         return WVRowContainer {
-            HStack(spacing: 12) {
-                WVLeadingIcon(
-                    icon: WVCategory.icon(for: item.deviceCategory),
-                    color: WVCategory.accent(for: item.deviceCategory),
-                    size: 36
-                )
+            VStack(alignment: .leading, spacing: 4) {
+                NavigationLink(value: DashDeviceNav(id: item.deviceId,
+                                                    name: item.deviceName)) {
+                    HStack(spacing: 12) {
+                        WVLeadingIcon(
+                            icon: WVCategory.icon(for: item.deviceCategory),
+                            color: WVCategory.accent(for: item.deviceCategory),
+                            size: 36
+                        )
 
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(item.deviceName)
-                            .wvFont(.calloutEmphasis)
-                            .foregroundStyle(WVColor.label)
-                            .lineLimit(1)
-                        Spacer(minLength: 4)
-                        WarrantyPill(daysLeft: daysLeft)
-                    }
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 8) {
+                                Text(item.deviceName)
+                                    .wvFont(.calloutEmphasis)
+                                    .foregroundStyle(WVColor.label)
+                                    .lineLimit(1)
+                                Spacer(minLength: 4)
+                                WarrantyPill(daysLeft: daysLeft)
+                            }
 
-                    HStack(spacing: 8) {
-                        WVChip(item.warrantyTypeLabel,
-                               tone: chipTone(for: item.warrantyType))
-                        if item.deviceStatus != .ACTIVE {
-                            WVChip(item.deviceStatus.label, tone: .gray)
-                        }
-                        if repairDays > 0 {
-                            WVChip(L.p("+%d ngày sửa", repairDays), tone: .blue)
-                        }
-                        Text("\(item.warrantyProvider ?? "–") · \(WVFormat.date(endDate))")
-                            .wvFont(.footnote)
-                            .foregroundStyle(WVColor.label3)
-                            .lineLimit(1)
-                    }
-
-                    Button {
-                        Task { await restore(item.warrantyId, clearUndo: false) }
-                    } label: {
-                        HStack(spacing: 4) {
-                            if pendingRestore == item.warrantyId {
-                                ProgressView().scaleEffect(0.7)
-                            } else {
-                                WVIcon("rotateCcw", size: 10, weight: .bold)
-                                Text(L.t("Khôi phục"))
+                            HStack(spacing: 8) {
+                                WVChip(item.warrantyTypeLabel,
+                                       tone: chipTone(for: item.warrantyType))
+                                if item.deviceStatus != .ACTIVE {
+                                    WVChip(item.deviceStatus.label, tone: .gray)
+                                }
+                                if repairDays > 0 {
+                                    WVChip(L.p("+%d ngày sửa", repairDays), tone: .blue)
+                                }
+                                Text("\(item.warrantyProvider ?? "–") · \(WVFormat.date(endDate))")
+                                    .wvFont(.footnote)
+                                    .foregroundStyle(WVColor.label3)
+                                    .lineLimit(1)
                             }
                         }
-                        .wvFont(.captionEmphasis)
-                        .foregroundStyle(WVColor.tint)
-                        .padding(.horizontal, 8)
-                        .frame(height: 22)
-                        .background(WVColor.tint.opacity(0.14))
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(pendingRestore != nil)
-                    .padding(.top, 2)
-                }
 
-                WVIcon("arrowRight", size: 13, weight: .semibold)
-                    .foregroundStyle(WVColor.label4)
+                        Spacer(minLength: 4)
+                        WVIcon("arrowRight", size: 13, weight: .semibold)
+                            .foregroundStyle(WVColor.label4)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(WVRowButtonStyle())
+
+                Button {
+                    Task { await restore(item.warrantyId, clearUndo: false) }
+                } label: {
+                    HStack(spacing: 4) {
+                        if pendingRestore == item.warrantyId {
+                            ProgressView().scaleEffect(0.7)
+                        } else {
+                            WVIcon("rotateCcw", size: 10, weight: .bold)
+                            Text(L.t("Khôi phục"))
+                        }
+                    }
+                    .wvFont(.captionEmphasis)
+                    .foregroundStyle(WVColor.tint)
+                    .padding(.horizontal, 8)
+                    .frame(height: 22)
+                    .background(WVColor.tint.opacity(0.14))
+                    .clipShape(Capsule())
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(pendingRestore != nil)
+                .padding(.top, 2)
+                .padding(.leading, 48)
             }
         }
     }

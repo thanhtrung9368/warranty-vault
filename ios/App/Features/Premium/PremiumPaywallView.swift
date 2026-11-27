@@ -90,10 +90,10 @@ struct PremiumPaywallView: View {
                 .scaleEffect(1.3)
                 .padding(.bottom, WVSpacing.xs)
             Text(L.t("Warrly Premium"))
-                .font(.system(size: 30, weight: .bold))
+                .wvFont(.titleEmphasis)
                 .foregroundStyle(WVColor.label)
             Text(L.t("Bỏ quảng cáo và mở rộng giới hạn — một lần nâng cấp cho cả tài khoản."))
-                .font(.system(size: 15))
+                .wvFont(.subheadline)
                 .foregroundStyle(WVColor.label2)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -107,16 +107,16 @@ struct PremiumPaywallView: View {
                 WVIcon("check", size: 16, weight: .semibold)
                     .foregroundStyle(WVColor.green)
                 Text(L.t("Premium đang hoạt động"))
-                    .font(.system(size: 17, weight: .semibold))
+                    .wvFont(.bodyEmphasis)
                     .foregroundStyle(WVColor.label)
             }
             Text(L.t("Bạn không còn thấy quảng cáo và đang dùng giới hạn cao hơn."))
-                .font(.system(size: 14))
+                .wvFont(.subheadline)
                 .foregroundStyle(WVColor.label2)
             if let url = premium.manageSubscriptionURL {
                 Link(destination: url) {
                     Text(L.t("Quản lý đăng ký trong App Store"))
-                        .font(.system(size: 15, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.tint)
                 }
             }
@@ -148,7 +148,7 @@ struct PremiumPaywallView: View {
                 .foregroundStyle(WVColor.green)
                 .padding(.top, 2)
             Text(text)
-                .font(.system(size: 15))
+                .wvFont(.subheadline)
                 .foregroundStyle(WVColor.label)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -162,17 +162,17 @@ struct PremiumPaywallView: View {
             HStack(spacing: WVSpacing.sm) {
                 ProgressView()
                 Text(L.t("Đang tải gói…"))
-                    .font(.system(size: 15))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.label2)
             }
             .frame(maxWidth: .infinity, minHeight: 92)
         } else if premium.products.isEmpty {
             VStack(alignment: .leading, spacing: WVSpacing.sm) {
                 Text(L.t("Chưa tải được gói Premium."))
-                    .font(.system(size: 15, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(WVColor.label)
                 Text(L.t("Kiểm tra kết nối mạng rồi thử lại. Nếu vẫn lỗi, gói có thể chưa sẵn sàng trong App Store."))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
                 WVButton(L.t("Thử lại"), kind: .secondary) {
@@ -202,19 +202,20 @@ struct PremiumPaywallView: View {
             HStack(spacing: WVSpacing.md) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(PremiumProductID.title(for: product.id))
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.label)
                     Text(priceLine(product))
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                 }
                 Spacer(minLength: WVSpacing.sm)
                 Text(product.displayPrice)
-                    .font(.system(size: 17, weight: .bold))
+                    .wvFont(.bodyEmphasis)
                     .foregroundStyle(WVColor.label)
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 20))
                     .foregroundStyle(selected ? WVColor.tint : WVColor.label4)
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, WVSpacing.lg)
             .frame(minHeight: 64)
@@ -226,6 +227,11 @@ struct PremiumPaywallView: View {
             .clipShape(RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous))
         }
         .buttonStyle(.plain)
+        // Selection is a border colour plus a glyph for sighted users; VoiceOver
+        // gets the same fact as a trait and the value says which plan is chosen
+        // and what it costs.
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityValue("\(PremiumProductID.title(for: product.id)), \(product.displayPrice)")
     }
 
     private func priceLine(_ product: Product) -> String {
@@ -256,7 +262,7 @@ struct PremiumPaywallView: View {
                 ProgressView()
             } else {
                 Text(purchaseTerms)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -322,7 +328,7 @@ struct PremiumPaywallView: View {
     private var legal: some View {
         VStack(alignment: .leading, spacing: WVSpacing.sm) {
             Text(L.t("Gói tự động gia hạn cho tới khi bạn huỷ. Giá hiển thị do App Store cung cấp; thời hạn và ưu đãi dùng thử áp dụng theo gói bạn chọn."))
-                .font(.system(size: 12))
+                .wvFont(.caption)
                 .foregroundStyle(WVColor.label3)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 6) {
@@ -330,7 +336,7 @@ struct PremiumPaywallView: View {
                 Text("·").foregroundStyle(WVColor.label3)
                 Link(L.t("Quyền riêng tư"), destination: URL(string: "https://warrly.com/privacy")!)
             }
-            .font(.system(size: 12, weight: .semibold))
+            .wvFont(.captionEmphasis)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

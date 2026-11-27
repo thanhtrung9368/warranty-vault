@@ -170,7 +170,7 @@ struct WishlistScreen: View {
             }
         }
         .wvScreen()
-        .navigationTitle("Wishlist")
+        .navigationTitle(L.t("Đang thèm"))
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $query, prompt: L.t("Tìm món..."))
         .toolbar { toolbarContent }

@@ -84,11 +84,11 @@ public enum SessionRevokeOutcome: Equatable, Sendable {
 public enum SessionLabels {
 
     /// The API's documented fallback for a `null` `deviceLabel`.
-    public static let unknownDevice = L.t("Không rõ thiết bị")
+    public static var unknownDevice: String { L.t("Không rõ thiết bị") }
     /// Marker for the session doing the calling.
-    public static let thisDevice = L.t("Thiết bị này")
+    public static var thisDevice: String { L.t("Thiết bị này") }
     /// Fallback when `platform` is missing or unknown.
-    public static let unknownPlatform = L.t("Không rõ nền tảng")
+    public static var unknownPlatform: String { L.t("Không rõ nền tảng") }
 
     /// Human label for a row's title. A `null` label **and** a blank/whitespace
     /// one both fall back, so the row can never render as an empty line.
