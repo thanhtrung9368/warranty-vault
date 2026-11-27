@@ -757,6 +757,7 @@ data class InstallmentPlan(
     val hasUnknownFees: Boolean = false,
 )
 
+@Serializable
 data class DeviceListResponse(val devices: List<Device>)
 
 /**

@@ -59,6 +59,7 @@ import com.warrly.network.SubscriptionResponse
 import com.warrly.network.TestPushResponse
 import com.warrly.network.UpdateLocaleInput
 import com.warrly.network.UpdateProfileInput
+import com.warrly.network.UpdateReminderEmailFallbackInput
 import com.warrly.network.UpdateProfileResponse
 import com.warrly.network.UserStats
 import com.warrly.network.WarrantyInput
@@ -100,6 +101,13 @@ open class FakeApiService : ApiService {
     // updateProfile so saving a name cannot wipe a stored language.
     override suspend fun updateLocale(body: UpdateLocaleInput): UpdateProfileResponse =
         notStubbed("updateLocale")
+
+    // `PATCH /auth/me` with only `reminderEmailFallback`. Added with #8; the fake
+    // was never given the override, which is what left the Android unit-test
+    // target unable to compile (the CI job has been red since 2026-11-16).
+    override suspend fun updateReminderEmailFallback(
+        body: UpdateReminderEmailFallbackInput,
+    ): UpdateProfileResponse = notStubbed("updateReminderEmailFallback")
 
     // The two-step email change (the flow Android was missing).
     override suspend fun changeEmail(body: ChangeEmailRequest): ChangeEmailResult =
