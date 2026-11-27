@@ -70,6 +70,7 @@ import com.warrly.network.WishlistItem
 import com.warrly.network.WishlistPrice
 import com.warrly.network.WishlistStatus
 import com.warrly.network.toUserMessage
+import com.warrly.ui.screens.vietnamDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -375,7 +376,7 @@ private fun SummaryCard(item: WishlistItem) {
             DetailRow(stringResource(R.string.wish_priority), stringResource(item.priority.labelRes))
             item.initialPrice?.let { DetailRow(stringResource(R.string.wish_initial_price), formatVnd(it)) }
             item.currentPrice?.let { DetailRow(stringResource(R.string.wish_current_price), formatVnd(it)) }
-            item.targetDate?.let { DetailRow(stringResource(R.string.wish_planned_purchase), it.take(10)) }
+            item.targetDate?.let { raw -> DetailRow(stringResource(R.string.wish_planned_purchase), vietnamDate(raw) ?: raw.take(10)) }
             item.reminderIntervalDays?.let {
                 DetailRow(
                     stringResource(R.string.wish_remind_me_again),
@@ -411,8 +412,8 @@ private fun PriceRow(p: WishlistPrice) {
                     color = cs.onSurface,
                     modifier = Modifier.weight(1f),
                 )
-                (p.createdAt ?: p.recordedAt)?.take(10)?.let {
-                    Text(it, fontSize = 12.sp, color = cs.onSurfaceVariant)
+                (p.createdAt ?: p.recordedAt)?.let { raw ->
+                    Text(vietnamDate(raw) ?: raw.take(10), fontSize = 12.sp, color = cs.onSurfaceVariant)
                 }
             }
             if (!p.note.isNullOrBlank()) {

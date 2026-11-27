@@ -17,7 +17,7 @@
     <string name="dash_warranty_expiring_soon">Sắp hết bảo hành</string>
     <string name="dash_subscriptions">Gói đăng ký</string>
     <string name="dash_wishlist">Đang thèm</string>
-    <string name="dash_open_the_queue_of_things_the">Mở hàng đợi việc app tự suy ra từ dữ liệu của mày</string>
+    <string name="dash_open_the_queue_of_things_the">Mở hàng đợi việc app tự suy ra từ dữ liệu của bạn</string>
     <string name="dash_nothing_waiting_to_be_handled">Không có việc nào đang chờ xử lý</string>
     <plurals name="dash_items_need_attention_high">
         <item quantity="other">%1$s việc cần xử lý · %2$s mức cao</item>
@@ -40,13 +40,13 @@
     <string name="dash_year_plans_running">~ %1$s/năm · %2$s gói đang chạy</string>
     <string name="dash_renewing_soon">SẮP GIA HẠN</string>
     <string name="dev_add_device">Thêm thiết bị</string>
-    <string name="dev_loading_your_list">Đang tải danh sách của mày…</string>
+    <string name="dev_loading_your_list">Đang tải danh sách của bạn…</string>
     <plurals name="dev_items_tracked">
         <item quantity="other">%1$s món đang theo dõi</item>
     </plurals>
     <string name="dev_search_by_name_brand_model_serial">Tìm theo tên, hãng, model, serial...</string>
     <string name="dev_nothing_matches_the_filter">Không có gì khớp bộ lọc</string>
-    <string name="dev_no_devices_yet">Chưa có thiết bị nào, mày</string>
+    <string name="dev_no_devices_yet">Chưa có thiết bị nào</string>
     <string name="dev_try_loosening_the_filters_or_clearing">Thử nới bộ lọc hoặc xoá ô tìm kiếm xem sao.</string>
     <string name="dev_add_the_first_one_to_start">Thêm cái đầu tiên để bắt đầu theo dõi bảo hành nha.</string>
     <string name="dev_add_your_first_device">Thêm thiết bị đầu tiên</string>
@@ -305,7 +305,7 @@
          "thất bại": thiết bị ĐÃ được lưu, đây chỉ là lời nhắc. ===== -->
     <string name="warn_imei_checksum">IMEI 15 số này không đúng checksum (Luhn) — có thể sai một chữ số. Vẫn lưu được, nhưng nên đối chiếu lại với tem máy hoặc hoá đơn.</string>
     <string name="warn_imei_length">Chuỗi số này không phải IMEI 15 số. Vẫn lưu được, nhưng nên kiểm tra lại.</string>
-    <string name="warn_serial_duplicate">Serial này đã có ở một thiết bị khác của mày. Vẫn lưu được — chỉ là cảnh báo.</string>
+    <string name="warn_serial_duplicate">Serial này đã có ở một thiết bị khác của bạn. Vẫn lưu được — chỉ là cảnh báo.</string>
     <string name="warn_generic">Giá trị này có thể không đúng. Thiết bị vẫn được lưu — chỉ là cảnh báo.</string>
     <string name="warn_title_saved">Đã lưu, nhưng nên xem lại</string>
     <string name="warn_title_updated">Đã cập nhật, nhưng nên xem lại</string>

@@ -19,10 +19,10 @@ class SubscriptionFiltersTest {
     @Test
     fun monthlyEquivalent_normalisesEachCycleLikeTheWeb() {
         assertEquals(260_000, monthlyEquivalent(260_000, BillingCycle.MONTHLY, null))
-        // round(300000 * 30 / 91) = 98901
-        assertEquals(98_901, monthlyEquivalent(300_000, BillingCycle.QUARTERLY, null))
-        // round(1200000 * 30 / 365) = 98630
-        assertEquals(98_630, monthlyEquivalent(1_200_000, BillingCycle.YEARLY, null))
+        // 300000 / 3 = 100000 (integer division, like Go/web/iOS)
+        assertEquals(100_000, monthlyEquivalent(300_000, BillingCycle.QUARTERLY, null))
+        // 1200000 / 12 = 100000 (integer division, like Go/web/iOS)
+        assertEquals(100_000, monthlyEquivalent(1_200_000, BillingCycle.YEARLY, null))
         // CUSTOM uses its own interval
         assertEquals(428_571, monthlyEquivalent(100_000, BillingCycle.CUSTOM, 7))
     }

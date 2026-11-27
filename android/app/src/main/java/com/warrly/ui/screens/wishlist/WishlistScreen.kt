@@ -80,6 +80,7 @@ import com.warrly.ui.components.SkeletonList
 import com.warrly.ui.components.SortMenuButton
 import com.warrly.ui.components.StatusPill
 import com.warrly.ui.components.pressScale
+import com.warrly.ui.screens.vietnamDate
 import com.warrly.ui.viewModelFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -470,9 +471,9 @@ private fun WishlistCard(item: WishlistItem, onClick: () -> Unit) {
                     }
                     PriorityPill(item.priority)
                     Spacer(Modifier.weight(1f))
-                    item.targetDate?.take(10)?.let {
+                    item.targetDate?.let { raw ->
                         Text(
-                            it,
+                            vietnamDate(raw) ?: raw.take(10),
                             style = MaterialTheme.typography.labelMedium,
                             color = cs.onSurfaceVariant,
                         )

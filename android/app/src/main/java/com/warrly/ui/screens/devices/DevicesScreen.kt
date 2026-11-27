@@ -89,7 +89,9 @@ import com.warrly.ui.components.WarrantyPill
 import com.warrly.ui.components.pressScale
 import com.warrly.ui.components.warrantyState
 import com.warrly.ui.screens.common.rememberCatalog
+import com.warrly.ui.screens.vietnamDate
 import com.warrly.ui.viewModelFactory
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -122,14 +124,24 @@ class DevicesViewModel(private val api: ApiService) : ViewModel() {
     private val _state = MutableStateFlow<State>(State.Loading)
     val state: StateFlow<State> = _state.asStateFlow()
 
+    /**
+     * Sequence of the newest [load] call. The debounced filter box can have two
+     * requests in flight at once, and without this the older one was free to
+     * publish when it landed — a slow response for "i" overwriting the results
+     * of a newer "ip". Only the newest call may write [_state]; the coroutine
+     * is not cancelled, so pull-to-refresh can still `join()` its own job.
+     */
+    private var requestSeq = 0
+
     fun load(
         query: String = "",
         status: DeviceStatus? = null,
         category: String? = null,
         sort: DeviceSort = DeviceSort.PurchaseDateDesc,
-    ) {
-        viewModelScope.launch {
-            _state.value = State.Loading
+    ): Job {
+        val seq = ++requestSeq
+        return viewModelScope.launch {
+            if (seq == requestSeq) _state.value = State.Loading
             try {
                 val res = api.listDevices(
                     q = query.trim().ifBlank { null },
@@ -138,9 +150,9 @@ class DevicesViewModel(private val api: ApiService) : ViewModel() {
                     sort = sort.sort,
                     dir = sort.dir,
                 )
-                _state.value = State.Loaded(res.devices)
+                if (seq == requestSeq) _state.value = State.Loaded(res.devices)
             } catch (e: Exception) {
-                _state.value = State.Error(e.toUserMessage(ApiClient.json))
+                if (seq == requestSeq) _state.value = State.Error(e.toUserMessage(ApiClient.json))
             }
         }
     }
@@ -267,8 +279,11 @@ fun DevicesScreen(
             onRefresh = {
                 scope.launch {
                     refreshing = true
-                    reload()
-                    refreshing = false
+                    try {
+                        reload().join()
+                    } finally {
+                        refreshing = false
+                    }
                 }
             },
             modifier = Modifier.padding(padding).fillMaxSize(),
@@ -541,7 +556,7 @@ private fun DeviceCard(device: Device, onClick: () -> Unit) {
                     )
                     Spacer(Modifier.weight(1f))
                     Text(
-                        device.purchaseDate.take(10),
+                        vietnamDate(device.purchaseDate) ?: device.purchaseDate.take(10),
                         style = MaterialTheme.typography.labelMedium,
                         color = cs.onSurfaceVariant,
                     )

@@ -355,7 +355,7 @@ private fun SummaryCard(sub: Subscription) {
                 stringResource(R.string.devdetail_price),
                 formatPriceCycle(s, sub.price, sub.billingCycle),
             )
-            DetailRow(stringResource(R.string.devdetail_starts), sub.startedAt.take(10))
+            DetailRow(stringResource(R.string.devdetail_starts), vietnamDate(sub.startedAt) ?: sub.startedAt.take(10))
             // Trial vs renewal (SubscriptionTrial.kt): the same row changes its
             // meaning when a trial exists, and the post-trial price joins it.
             // Without a trial the original renewal row is untouched.
@@ -371,8 +371,8 @@ private fun SummaryCard(sub: Subscription) {
                     )
                 }
             } else {
-                sub.renewalDate?.let {
-                    DetailRow(billingPhaseLabel(s, phase), it.take(10))
+                sub.renewalDate?.let { raw ->
+                    DetailRow(billingPhaseLabel(s, phase), vietnamDate(raw) ?: raw.take(10))
                 }
             }
             // Reminder schedule (`leadDays`): "Nhắc trước · 30 và 7 ngày". The
@@ -415,7 +415,7 @@ private fun PaymentRow(p: Payment) {
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    p.paidAt.take(10),
+                    vietnamDate(p.paidAt) ?: p.paidAt.take(10),
                     fontSize = 12.sp,
                     color = cs.onSurfaceVariant,
                 )

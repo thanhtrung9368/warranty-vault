@@ -71,6 +71,7 @@ import com.warrly.network.ApiService
 import com.warrly.network.Device
 import com.warrly.network.Subscription
 import com.warrly.network.SubscriptionStatus
+import com.warrly.network.REMINDERS_WITHIN_DAYS
 import com.warrly.network.UpcomingReminder
 import com.warrly.network.UserStats
 import com.warrly.network.WishlistItem
@@ -81,6 +82,7 @@ import com.warrly.ui.components.ErrorState
 import com.warrly.ui.components.SectionHeader
 import com.warrly.ui.components.pressScale
 import com.warrly.ui.screens.actions.actionBadgeCount
+import com.warrly.ui.screens.vietnamDate
 import com.warrly.ui.theme.WVAccent
 import com.warrly.ui.viewModelFactory
 import java.time.LocalDate
@@ -89,6 +91,7 @@ import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -139,13 +142,13 @@ class DashboardViewModel(private val api: ApiService) : ViewModel() {
     private val _state = MutableStateFlow<State>(State.Loading)
     val state: StateFlow<State> = _state.asStateFlow()
 
-    fun load() {
-        viewModelScope.launch {
+    fun load(): Job {
+        return viewModelScope.launch {
             _state.value = State.Loading
             try {
                 val data = coroutineScope {
                     val stats = async { api.getStats() }
-                    val reminders = async { api.listUpcomingReminders().reminders }
+                    val reminders = async { api.listUpcomingReminders(withinDays = REMINDERS_WITHIN_DAYS).reminders }
                     val subs = async { api.listSubscriptions().subscriptions }
                     val wish = async { api.listWishlist().items }
                     val devices = async { api.listDevices().devices }
@@ -216,8 +219,11 @@ fun DashboardScreen(
             onRefresh = {
                 scope.launch {
                     refreshing = true
-                    vm.load()
-                    refreshing = false
+                    try {
+                        vm.load().join()
+                    } finally {
+                        refreshing = false
+                    }
                 }
             },
             modifier = Modifier.padding(padding).fillMaxSize(),
@@ -756,7 +762,7 @@ private fun SubsCostCard(
                             modifier = Modifier.weight(1f),
                         )
                         Text(
-                            sub.renewalDate?.take(10) ?: "—",
+                            sub.renewalDate?.let { vietnamDate(it) ?: it.take(10) } ?: "—",
                             style = MaterialTheme.typography.bodySmall,
                             color = if (days != null && days < 0L) cs.error else cs.onSurfaceVariant,
                         )
@@ -791,7 +797,7 @@ private fun WishPreviewRow(item: WishlistItem) {
                 )
                 val subtitle = listOfNotNull(
                     item.brand?.takeIf { it.isNotBlank() },
-                    item.targetDate?.take(10),
+                    item.targetDate?.let { vietnamDate(it) ?: it.take(10) },
                 ).joinToString(" • ")
                 if (subtitle.isNotBlank()) {
                     Text(

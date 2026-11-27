@@ -17,13 +17,13 @@
     <string name="set_csv_export_failed">Không xuất được CSV: %1$s</string>
     <string name="set_there_are_no_devices_to_export">Không có thiết bị nào để xuất</string>
     <string name="set_import_failed">Nhập thất bại: %1$s</string>
-    <string name="set_personalise_your_account_and_appearance">Cá nhân hoá tài khoản &amp; giao diện của mày</string>
+    <string name="set_personalise_your_account_and_appearance">Cá nhân hoá tài khoản &amp; giao diện của bạn</string>
     <string name="set_profile">Hồ sơ</string>
     <string name="set_display_name">Tên hiển thị</string>
     <string name="set_no_name_yet_tap_to_add">Chưa đặt tên — bấm để thêm.</string>
     <string name="set_appearance">Giao diện</string>
     <string name="set_change_password">Đổi mật khẩu</string>
-    <string name="set_update_the_password_you_sign_in">Cập nhật mật khẩu đăng nhập của mày.</string>
+    <string name="set_update_the_password_you_sign_in">Cập nhật mật khẩu đăng nhập của bạn.</string>
     <string name="set_notification_devices">Thiết bị nhận thông báo</string>
     <string name="set_manage_the_devices_registered_for_push">Quản lý các thiết bị đăng ký push notification.</string>
     <!-- Email nhắc hạn (#8). Câu đồng ý: điều kiện gửi, giới hạn một email mỗi
@@ -107,7 +107,7 @@
     <string name="login_welcome_back">Chào mừng quay lại</string>
     <string name="login_create_a_new_account">Tạo tài khoản mới</string>
     <string name="login_sign_in_to_keep_tracking_your">Đăng nhập để tiếp tục theo dõi bảo hành &amp; gói dịch vụ</string>
-    <string name="login_sign_up_to_start_keeping_your">Đăng ký để bắt đầu lưu giữ bảo hành &amp; wishlist của mày</string>
+    <string name="login_sign_up_to_start_keeping_your">Đăng ký để bắt đầu lưu giữ bảo hành &amp; wishlist của bạn</string>
     <string name="login_sign_in">Đăng nhập</string>
     <string name="login_register">Đăng ký</string>
     <string name="login_name">Tên</string>
@@ -150,14 +150,14 @@
     <string name="set_import_mode_body">“Gộp” thêm dữ liệu từ file vào dữ liệu hiện có. “Thay thế” XOÁ TOÀN BỘ dữ liệu hiện tại trước khi nạp — không thể hoàn tác.</string>
     <string name="set_delete_account_body">Toàn bộ thiết bị, hoá đơn, ảnh BH và cài đặt sẽ bị xoá vĩnh viễn — không thể hoàn tác. Nhập mật khẩu để xác nhận.</string>
     <!-- Thiết bị nhận thông báo đẩy (PushDevicesScreen.kt). -->
-    <string name="push_no_devices_registered">Mày chưa đăng ký nhận thông báo trên thiết bị nào.</string>
+    <string name="push_no_devices_registered">Bạn chưa đăng ký nhận thông báo trên thiết bị nào.</string>
     <string name="push_device_tail">Thiết bị …%1$s</string>
 
     <!-- Phiên đăng nhập (SessionsScreen.kt). -->
     <string name="sess_already_revoked">Phiên đăng nhập này đã được thu hồi trước đó.</string>
     <string name="sess_revoked">Đã thu hồi phiên đăng nhập.</string>
     <string name="sess_none_active">Không có phiên đăng nhập nào đang hoạt động.</string>
-    <string name="sess_list_body">Đây là các thiết bị đang đăng nhập vào tài khoản của mày. Thu hồi một phiên sẽ đăng xuất thiết bị đó ngay lập tức — các phiên khác giữ nguyên.</string>
+    <string name="sess_list_body">Đây là các thiết bị đang đăng nhập vào tài khoản của bạn. Thu hồi một phiên sẽ đăng xuất thiết bị đó ngay lập tức — các phiên khác giữ nguyên.</string>
     <string name="sess_this_device_note">“%1$s” là thiết bị bạn đang dùng.</string>
     <string name="sess_other_device_note">“%1$s” sẽ bị đăng xuất ngay.</string>
     <string name="sess_signed_in_at">Đăng nhập %1$s</string>
