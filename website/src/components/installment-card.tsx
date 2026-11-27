@@ -409,7 +409,10 @@ export function InstallmentCard({
                   variant="ghost"
                   className="rounded-pill text-destructive hover:bg-destructive/10 hover:text-destructive"
                   disabled={removing}
-                  onClick={() =>
+                  onClick={() => {
+                    if (!confirm(t('Xoá kế hoạch trả góp? Không thể khôi phục.'))) {
+                      return;
+                    }
                     startRemoving(async () => {
                       const res = await clearInstallment(deviceId);
                       if (res.ok === false) {
@@ -418,8 +421,8 @@ export function InstallmentCard({
                       }
                       setOpen(false);
                       toast.success(t('Đã xoá kế hoạch trả góp.'));
-                    })
-                  }
+                    });
+                  }}
                 >
                   {removing ? (
                     <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />

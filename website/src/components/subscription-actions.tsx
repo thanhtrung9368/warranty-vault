@@ -79,7 +79,7 @@ export function LogPaymentDialog({
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="rounded-pill border-border-strong">
           <RefreshCcw className="mr-2 h-4 w-4" />
-          {label ?? 'Log payment'}
+          {t(label ?? 'Ghi nhận khoản đã trừ')}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md rounded-lg border-[1.5px]">
@@ -177,7 +177,7 @@ export function RenewNowButton({ subId }: { subId: string }) {
       ) : (
         <RefreshCcw className="mr-2 h-4 w-4" />
       )}
-      {t('Đã gia hạn')}
+      {t('Gia hạn 1 chu kỳ')}
     </Button>
   );
 }
@@ -232,6 +232,7 @@ export function SubscriptionStatusButtons({
 
 export function DeleteSubscriptionButton({ subId }: { subId: string }) {
   const t = useT();
+  const router = useRouter();
   const [pending, setPending] = React.useState(false);
   return (
     <Button
@@ -243,7 +244,13 @@ export function DeleteSubscriptionButton({ subId }: { subId: string }) {
         if (!confirm(t('Xoá gói này? Lịch sử thanh toán cũng sẽ mất.'))) return;
         setPending(true);
         try {
-          await deleteSubscription(subId);
+          const res = await deleteSubscription(subId);
+          if (!res.ok) {
+            toast.error(res.message ?? t('Không xoá được'));
+            setPending(false);
+            return;
+          }
+          router.push('/subscriptions');
         } catch {
           toast.error(t('Không xoá được'));
           setPending(false);

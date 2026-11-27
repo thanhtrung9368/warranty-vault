@@ -377,6 +377,11 @@ export const dashboard = defineMessages({
   'Chưa hoãn việc nào. Việc nào bạn bấm “Hoãn” sẽ nằm ở đây để bỏ hoãn.':
     'Nothing is snoozed yet. Anything you snooze lands here so you can un-snooze it.',
   'Xem {entity}': 'View {entity}',
+  // One record, not the section: the three link sentences name a single device
+  // / subscription / wishlist item instead of the plural nav nouns.
+  'Mở thiết bị': 'Open device',
+  'Mở gói đăng ký': 'Open subscription',
+  'Mở món đang thèm': 'Open wishlist item',
   'Hoãn': 'Snooze',
   'Bỏ hoãn': 'Un-snooze',
   'Hoãn việc này trong': 'Snooze this item for',

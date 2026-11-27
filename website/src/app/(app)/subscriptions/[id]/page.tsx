@@ -221,7 +221,9 @@ export default async function SubscriptionDetailPage({
               <Calendar className="h-3 w-3" /> {t('Gia hạn tới')}
             </p>
             <p className="display mt-1 text-2xl">
-              {isLifetime ? 'Lifetime' : formatDate(renewalDate, locale)}
+              {isLifetime
+                ? billingCycleLabel('LIFETIME', locale)
+                : formatDate(renewalDate, locale)}
             </p>
             {!isLifetime && (
               <p className={cn('text-xs', isOverdue ? 'font-semibold' : 'text-muted-foreground')}>

@@ -302,9 +302,25 @@ export default async function DeviceDetailPage({
           </span>
         }
         description={
-          device.brand || device.model
-            ? [device.brand, device.model].filter(Boolean).join(' • ')
-            : undefined
+          device.brand || device.model || displayedEnd ? (
+            <>
+              {(device.brand || device.model) && (
+                <span className="block">
+                  {[device.brand, device.model].filter(Boolean).join(' • ')}
+                </span>
+              )}
+              {displayedEnd && (
+                <span className="mt-1 flex flex-wrap items-center gap-2">
+                  <WarrantyPill warrantyEnd={displayedEnd} variant="badge" />
+                  <span>
+                    {t('Bảo hành đến {date}', {
+                      date: formatDate(displayedEnd, locale),
+                    })}
+                  </span>
+                </span>
+              )}
+            </>
+          ) : undefined
         }
         actions={
           <>

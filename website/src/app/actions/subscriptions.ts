@@ -116,10 +116,12 @@ export async function setSubscriptionStatus(id: string, status: string) {
   return { ok: true };
 }
 
-export async function deleteSubscription(id: string) {
+export async function deleteSubscription(id: string): Promise<SubscriptionFormState> {
   const res = await api.subscriptions.remove(id);
-  if (!res.ok) redirect('/subscriptions');
-  redirect('/subscriptions');
+  if (!res.ok) return toFormState(res);
+  // No redirect: the caller navigates only after `ok`, so a failed delete
+  // leaves the subscription and its payment history on screen.
+  return { ok: true };
 }
 
 export async function renewSubscriptionNow(id: string): Promise<SubscriptionFormState> {

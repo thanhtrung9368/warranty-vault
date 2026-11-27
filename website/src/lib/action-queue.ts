@@ -135,13 +135,12 @@ export function actionHref(item: Pick<ActionItem, 'kind'> & Partial<ActionItem>)
 }
 
 // Vietnamese noun for the linked entity ("Thiết bị" / "Gói đăng ký" / "Món đang
-// thèm"), used as the link's accessible label.
+// thèm"), used to pick the link's per-entity sentence.
 //
 // It returns the Vietnamese NOUN rather than a translated one on purpose: the
-// noun is a dictionary key, and the link also has to write the sentence around
-// it ("Xem {entity}" / "View {entity}"), which only the render site can do —
-// `t('Xem {entity}', { entity: t(entity) })`. Translating here would leave the
-// caller holding an English noun with no way back to the key.
+// noun is the key the render site maps to a full sentence ("Mở thiết bị" /
+// "Open device"), which only the render site can translate. Translating here
+// would leave the caller holding an English noun with no way back to the key.
 export function entityLabel(
   item: Pick<ActionItem, 'kind'> & Partial<ActionItem>,
 ): string | null {

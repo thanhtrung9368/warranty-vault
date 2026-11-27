@@ -447,12 +447,17 @@ export async function dismissDeviceWarnings(): Promise<void> {
   await clearDeviceWarningsFlash();
 }
 
-export async function deleteDevice(id: string) {
-  // Best-effort delete; either way redirect back to the list. The Go service
-  // 404s for not-found / not-owned, which we treat as a successful no-op.
-  await api.devices.remove(id);
-  // No revalidatePath — the affected pages are all `force-dynamic`.
-  redirect('/devices');
+export async function deleteDevice(id: string): Promise<FormState> {
+  // Best-effort delete. The Go service 404s for not-found / not-owned, which we
+  // treat as a successful no-op (the row is already gone for this user). Any
+  // other failure keeps the row and is returned to the caller — the old
+  // unconditional redirect reported success even when the delete had failed.
+  const res = await api.devices.remove(id);
+  if (!res.ok && res.status !== 404) return toFormState(res);
+  // No redirect: the caller navigates only after `ok`, so a failed delete
+  // cannot pretend to have removed the device. No revalidatePath — the affected
+  // pages are all `force-dynamic`.
+  return { ok: true };
 }
 
 // ── Paste a table → many devices (FEATURE_IDEAS #13) ────────────────────────
