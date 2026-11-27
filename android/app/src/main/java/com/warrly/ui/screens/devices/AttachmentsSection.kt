@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -42,6 +43,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -81,6 +83,10 @@ fun AttachmentsSection(api: ApiService, deviceId: String) {
     // Which attachment's description is being edited (PATCH
     // /api/v1/attachments/{id} — description is the only mutable field).
     var editing by remember { mutableStateOf<Attachment?>(null) }
+    // The row whose red trash icon was tapped, held until the confirmation
+    // dialog answers. There is no undo endpoint, so this dialog is the only
+    // guard between a mis-tap and a permanently deleted invoice photo.
+    var pendingDelete by remember { mutableStateOf<Attachment?>(null) }
 
     suspend fun reload() {
         loading = true
@@ -221,20 +227,45 @@ fun AttachmentsSection(api: ApiService, deviceId: String) {
                             }
                         },
                         onEditDescription = { editing = att },
-                        onDelete = {
-                            scope.launch {
-                                try {
-                                    api.deleteAttachment(att.id)
-                                    reload()
-                                } catch (e: Exception) {
-                                    error = e.toUserMessage(ApiClient.json)
-                                }
-                            }
-                        },
+                        onDelete = { pendingDelete = att },
                     )
                 }
             }
         }
+    }
+
+    // Deleting a file is permanent (no undo endpoint, and the encrypted bytes
+    // are gone server-side), so a single tap on the row's trash icon must not
+    // be enough. Same AlertDialog pattern as deleting a device/warranty.
+    pendingDelete?.let { att ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text(stringResource(R.string.att_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.att_delete_confirm_body, att.fileName)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingDelete = null
+                    scope.launch {
+                        try {
+                            api.deleteAttachment(att.id)
+                            reload()
+                        } catch (e: Exception) {
+                            error = e.toUserMessage(ApiClient.json)
+                        }
+                    }
+                }) {
+                    Text(
+                        stringResource(R.string.action_delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
     }
 
     // Description editing. Reached from the pencil on a row; ownership of the

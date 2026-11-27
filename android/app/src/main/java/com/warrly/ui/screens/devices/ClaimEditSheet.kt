@@ -38,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -117,21 +118,21 @@ fun ClaimEditSheet(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    var status by remember { mutableStateOf(existing?.status ?: ClaimStatus.OPEN) }
-    var warrantyId by remember { mutableStateOf<String?>(existing?.warrantyId) }
-    var openedAt by remember {
+    var status by rememberSaveable { mutableStateOf(existing?.status ?: ClaimStatus.OPEN) }
+    var warrantyId by rememberSaveable { mutableStateOf<String?>(existing?.warrantyId) }
+    var openedAt by rememberSaveable {
         mutableStateOf(existing?.openedAt?.take(10) ?: todayUtcIso())
     }
-    var expectedReturnAt by remember {
+    var expectedReturnAt by rememberSaveable {
         mutableStateOf(existing?.expectedReturnAt?.take(10).orEmpty())
     }
-    var ticketNumber by remember { mutableStateOf(existing?.ticketNumber.orEmpty()) }
-    var serviceCenter by remember { mutableStateOf(existing?.serviceCenter.orEmpty()) }
-    var issue by remember { mutableStateOf(existing?.issue.orEmpty()) }
-    var diagnosis by remember { mutableStateOf(existing?.diagnosis.orEmpty()) }
-    var outcome by remember { mutableStateOf(existing?.outcome.orEmpty()) }
-    var cost by remember { mutableStateOf(existing?.cost?.toString().orEmpty()) }
-    var coveredByWarranty by remember { mutableStateOf(existing?.coveredByWarranty) }
+    var ticketNumber by rememberSaveable { mutableStateOf(existing?.ticketNumber.orEmpty()) }
+    var serviceCenter by rememberSaveable { mutableStateOf(existing?.serviceCenter.orEmpty()) }
+    var issue by rememberSaveable { mutableStateOf(existing?.issue.orEmpty()) }
+    var diagnosis by rememberSaveable { mutableStateOf(existing?.diagnosis.orEmpty()) }
+    var outcome by rememberSaveable { mutableStateOf(existing?.outcome.orEmpty()) }
+    var cost by rememberSaveable { mutableStateOf(existing?.cost?.toString().orEmpty()) }
+    var coveredByWarranty by rememberSaveable { mutableStateOf(existing?.coveredByWarranty) }
 
     var submitting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }

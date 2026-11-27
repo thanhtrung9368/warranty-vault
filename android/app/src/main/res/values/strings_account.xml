@@ -118,6 +118,10 @@
     <string name="login_at_least_8_characters">At least 8 characters</string>
     <string name="login_create_account">Create account</string>
     <string name="login_forgot_password">Forgot password?</string>
+    <!-- Launch verification failed without a 401 (RootScreen.kt). The stored
+         token is kept; this screen only retries /auth/me. -->
+    <string name="auth_unreachable_title">Could not reach the server.</string>
+    <string name="auth_unreachable_body">Check your connection and try again.</string>
     <string name="forgot_forgot_password">Forgot password</string>
     <string name="forgot_enter_your_email_to_get_a">Enter your email to get a password reset link</string>
     <string name="forgot_request_sent">Request sent</string>

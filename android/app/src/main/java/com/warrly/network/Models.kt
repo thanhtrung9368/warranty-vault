@@ -1087,10 +1087,14 @@ data class DeviceInput(
     //  * `N > 0` — create (create) or create/replace (update) the row.
     //
     // Android has no screen that sends `0`: removing a package is
-    // `DELETE /api/v1/warranties/{id}` on the device detail screen. Every
-    // device PATCH carries the stored row back instead (see
-    // `AddDeviceSheet` and `deviceInputForBrandWarranty`); `null` is only for a
-    // device that has no inline package, where there is nothing to preserve.
+    // `DELETE /api/v1/warranties/{id}` on the device detail screen. The device
+    // form sends this block only on create. On PATCH a present `N > 0` does NOT
+    // mean "keep": the server recomputes StartDate = purchaseDate and EndDate =
+    // addMonths(purchaseDate, months), so an edit that carried the stored months
+    // back would move a warranty created "today" to the purchase date. An edit
+    // in that form therefore sends `null` and the stored row is left alone; a
+    // device with no inline package has nothing to preserve and also sends
+    // `null`.
     /**
      * Length in months of the inline STANDARD package, or `null` for "this
      * request does not carry the block".
@@ -1098,8 +1102,9 @@ data class DeviceInput(
     val warrantyMonths: Int? = null,
     /*
      * The four details belong to the block: the API writes them only when
-     * [warrantyMonths] is present. With `N > 0` they are a full replacement —
-     * an absent value stores NULL — so a PATCH has to carry them too.
+     * [warrantyMonths] is present, and then as a full replacement (an absent
+     * value stores NULL). A PATCH that carries the block must re-send all four
+     * or they become NULL.
      */
     val warrantyProvider: String? = null,
     val warrantyAddress: String? = null,

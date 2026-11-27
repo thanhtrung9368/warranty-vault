@@ -175,6 +175,8 @@
     <string name="att_description">Mô tả</string>
     <string name="att_leave_it_empty_to_clear_the">Để trống để xoá mô tả.</string>
     <string name="att_open">Mở</string>
+    <string name="att_delete_confirm_title">Xoá tài liệu này?</string>
+    <string name="att_delete_confirm_body">“%1$s” sẽ bị xoá vĩnh viễn. Không thể hoàn tác.</string>
     <string name="warr_add_a_warranty_plan">Thêm gói bảo hành</string>
     <string name="warr_edit_warranty_plan">Sửa gói bảo hành</string>
     <string name="warr_start_date_yyyy_mm_dd">Ngày bắt đầu (YYYY-MM-DD) *</string>

@@ -38,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,22 +80,22 @@ fun WishlistEditSheet(
     val scope = rememberCoroutineScope()
     val isEdit = existing != null
 
-    var name by remember { mutableStateOf(existing?.name ?: prefill?.name ?: "") }
-    var brand by remember { mutableStateOf(existing?.brand ?: "") }
-    var category by remember { mutableStateOf(existing?.category ?: "") }
-    var initialPrice by remember {
+    var name by rememberSaveable { mutableStateOf(existing?.name ?: prefill?.name ?: "") }
+    var brand by rememberSaveable { mutableStateOf(existing?.brand ?: "") }
+    var category by rememberSaveable { mutableStateOf(existing?.category ?: "") }
+    var initialPrice by rememberSaveable {
         mutableStateOf(existing?.initialPrice?.toString() ?: "")
     }
-    var currentPrice by remember {
+    var currentPrice by rememberSaveable {
         mutableStateOf(existing?.currentPrice?.toString() ?: "")
     }
-    var buyUrl by remember { mutableStateOf(existing?.buyUrl ?: prefill?.buyUrl ?: "") }
-    var imageUrl by remember { mutableStateOf(existing?.imageUrl ?: "") }
-    var targetDate by remember { mutableStateOf(existing?.targetDate?.take(10) ?: "") }
-    var priority by remember { mutableStateOf(existing?.priority ?: WishlistPriority.WANT) }
-    var status by remember { mutableStateOf(existing?.status ?: WishlistStatus.WATCHING) }
-    var notes by remember { mutableStateOf(existing?.notes ?: "") }
-    var reminderDays by remember {
+    var buyUrl by rememberSaveable { mutableStateOf(existing?.buyUrl ?: prefill?.buyUrl ?: "") }
+    var imageUrl by rememberSaveable { mutableStateOf(existing?.imageUrl ?: "") }
+    var targetDate by rememberSaveable { mutableStateOf(existing?.targetDate?.take(10) ?: "") }
+    var priority by rememberSaveable { mutableStateOf(existing?.priority ?: WishlistPriority.WANT) }
+    var status by rememberSaveable { mutableStateOf(existing?.status ?: WishlistStatus.WATCHING) }
+    var notes by rememberSaveable { mutableStateOf(existing?.notes ?: "") }
+    var reminderDays by rememberSaveable {
         mutableStateOf(existing?.reminderIntervalDays?.toString() ?: "")
     }
 
@@ -104,7 +105,7 @@ fun WishlistEditSheet(
     // Deleting a wishlist item destroys its price history for good, so it asks
     // first — the same AlertDialog pattern as deleting a device / a warranty.
     // (iOS: `WishlistDetailView` → "Xoá khỏi wishlist?".)
-    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
 
     fun performDelete(target: WishlistItem) {
         scope.launch {

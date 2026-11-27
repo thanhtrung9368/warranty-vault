@@ -1,5 +1,6 @@
 package com.warrly.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.annotation.StringRes
@@ -237,6 +238,35 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
             AppDestination.Reminders -> selected = Tab.Reminders
         }
         App.instance.navigationIntake.consume(destination)
+    }
+
+    // System Back must pop the pushed route instead of finishing the Activity.
+    // The routes below are rendered by early return, so there is no NavHost
+    // owning a back stack: replay the exact close calls each screen's own
+    // `onBack` makes, in render order (topmost route first). A device opened
+    // from a wishlist item is handled like DeviceDetailScreen's `onBack`, so
+    // Back returns to that item rather than to the tab.
+    val hasPushedRoute = openDeviceId != null || openSubscriptionId != null ||
+        openWishlistId != null || openPushDevices || openSessions || openSearch ||
+        openActions || openAudit || openBulkAdd
+    BackHandler(enabled = hasPushedRoute) {
+        when {
+            openDeviceId != null -> {
+                openDeviceId = null
+                wishlistReturnId?.let { returnTo ->
+                    wishlistReturnId = null
+                    openWishlistId = returnTo
+                }
+            }
+            openSubscriptionId != null -> openSubscriptionId = null
+            openWishlistId != null -> openWishlistId = null
+            openPushDevices -> openPushDevices = false
+            openSessions -> openSessions = false
+            openSearch -> openSearch = false
+            openActions -> openActions = false
+            openAudit -> openAudit = false
+            openBulkAdd -> openBulkAdd = false
+        }
     }
 
     val devId = openDeviceId

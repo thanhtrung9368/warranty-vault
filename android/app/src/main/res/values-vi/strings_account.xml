@@ -116,6 +116,10 @@
     <string name="login_at_least_8_characters">Tối thiểu 8 ký tự</string>
     <string name="login_create_account">Tạo tài khoản</string>
     <string name="login_forgot_password">Quên mật khẩu?</string>
+    <!-- Kiểm tra phiên lúc khởi động thất bại nhưng không phải 401
+         (RootScreen.kt). Token vẫn được giữ; màn hình này chỉ thử lại /auth/me. -->
+    <string name="auth_unreachable_title">Không kết nối được máy chủ.</string>
+    <string name="auth_unreachable_body">Kiểm tra kết nối rồi thử lại.</string>
     <string name="forgot_forgot_password">Quên mật khẩu</string>
     <string name="forgot_enter_your_email_to_get_a">Nhập email để nhận link đặt lại mật khẩu</string>
     <string name="forgot_request_sent">Đã gửi yêu cầu</string>

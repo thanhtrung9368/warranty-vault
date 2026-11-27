@@ -46,23 +46,31 @@ object ApiClient {
      * each ViewModel. It defaults to a no-op so the network tests never touch
      * widget storage.
      *
-     * Both deliberately sit BEFORE [tokenProvider] so that the long-standing
-     * trailing-lambda form `ApiClient.build(url) { token }` keeps binding to the
-     * token provider — a defaulted parameter appended at the end would silently
-     * steal the lambda instead (it did, and the compiler caught it, but the
-     * ordering is what keeps every existing call site unchanged).
+     * [onUnauthorized] is the dead-session observer: it fires when a request
+     * that carried a bearer comes back `401` (never for login/register, which
+     * is what keeps a wrong password from signing out the stored session).
+     * `App.onCreate` forwards it to `AuthStore.handleUnauthorizedSession`, which
+     * clears the token exactly once and returns to Login. Defaults to a no-op
+     * for tests. See [AuthInterceptor].
+     *
+     * All three deliberately sit BEFORE [tokenProvider] so that the
+     * long-standing trailing-lambda form `ApiClient.build(url) { token }` keeps
+     * binding to the token provider — a defaulted parameter appended at the end
+     * would silently steal the lambda instead (it did, and the compiler caught
+     * it, but the ordering is what keeps every existing call site unchanged).
      */
     fun build(
         baseUrl: String,
         languageProvider: () -> String? = { null },
         onDeadlineMutation: () -> Unit = {},
+        onUnauthorized: () -> Unit = {},
         tokenProvider: () -> String?,
     ): ApiService {
         val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BASIC
         }
         val ok = baseClient.newBuilder()
-            .addInterceptor(AuthInterceptor(tokenProvider, languageProvider))
+            .addInterceptor(AuthInterceptor(tokenProvider, languageProvider, onUnauthorized))
             .addInterceptor(DeadlineMutationInterceptor(onDeadlineMutation))
             .addInterceptor(logging)
             .build()

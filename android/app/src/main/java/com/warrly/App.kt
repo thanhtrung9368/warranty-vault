@@ -120,11 +120,17 @@ class App : Application() {
         // Settings takes effect on the next call without rebuilding Retrofit.
         // `onDeadlineMutation` is the widget's write hook: it fires only for
         // successful writes that can move a warranty end date.
+        // `onUnauthorized` is the dead-session observer (an authenticated
+        // request came back 401). It fires from an OkHttp worker thread and
+        // routes to the one-shot AuthStore transition, which is why `auth` is
+        // guarded: the store is constructed just below, and no request can run
+        // before `onCreate` returns.
         api = ApiClient.build(
             baseUrl = BuildConfig.BASE_URL,
             tokenProvider = { tokenStore.read() },
             languageProvider = { languageStore.language.value.tag },
             onDeadlineMutation = { deadlineSnapshots.onMutation() },
+            onUnauthorized = { if (::auth.isInitialized) auth.handleUnauthorizedSession() },
         )
         deadlineSnapshots.attach(api)
         // The store's silent "Theo thiết bị" mirror writes through the same

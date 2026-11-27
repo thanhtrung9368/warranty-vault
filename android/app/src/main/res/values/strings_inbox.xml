@@ -56,5 +56,7 @@
     </plurals>
     <string name="inbox_pick_another_device">Pick another device</string>
     <string name="inbox_delete_receipt">Delete receipt</string>
+    <string name="inbox_delete_confirm_title">Delete this receipt?</string>
+    <string name="inbox_delete_confirm_body">“%1$s” will be deleted permanently. This cannot be undone.</string>
 
 </resources>
