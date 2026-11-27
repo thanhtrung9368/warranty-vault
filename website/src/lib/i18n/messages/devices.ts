@@ -230,11 +230,11 @@ export const devices = defineMessages({
   'Không lấy được tỷ giá tham khảo.': 'Could not fetch the reference rate.',
   'Tỷ giá tham khảo chỉ để so sánh, không phải số tiền đã bị trừ.':
     'The reference rate is for comparison only; it is not the amount charged.',
-  'Có {count} gói bảo hành tính bằng ngoại tệ nhưng API chưa trả giá trị VND — các tổng bên dưới chưa gồm những gói đó.':
+  'Có {count} gói bảo hành tính bằng ngoại tệ chưa được quy đổi trong các tổng theo tháng, theo năm và theo loại — riêng "Tổng chi mua sắm" đã gồm các gói này theo tỷ giá đã khoá.':
     {
-      en: '{count} warranty plans are priced in a foreign currency but the API does not return a VND value yet — the totals below do not include them.',
+      en: '{count} warranty plans are priced in a foreign currency and are not converted in the monthly, yearly or category totals — the account-wide "Total purchase spend" tile does include them at the locked rate.',
       enOne:
-        '{count} warranty plan is priced in a foreign currency but the API does not return a VND value yet — the totals below do not include it.',
+        '{count} warranty plan is priced in a foreign currency and is not converted in the monthly, yearly or category totals — the account-wide "Total purchase spend" tile does include it at the locked rate.',
     },
   'Có {count} thiết bị ngoại tệ thiếu tỷ giá nên chưa quy được giá mua sang VND — các tổng bên dưới chưa gồm giá mua của chúng.':
     {

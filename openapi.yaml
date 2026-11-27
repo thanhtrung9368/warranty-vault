@@ -6500,11 +6500,20 @@ components:
                 nếu có. Đây là cách duy nhất để nói "bỏ bảo hành", và nó phải
                 được gửi tường minh.
               * `N > 0` ⇒ `POST`/bulk tạo gói STANDARD; `PATCH` cập nhật gói đã có
-                (không thêm dòng) hoặc tạo mới nếu chưa có.
+                (không thêm dòng) hoặc tạo mới nếu chưa có. Nếu số tháng gửi
+                lên **bằng** số tháng đang lưu thì đây là **no-op**: gói hiện
+                có (ngày bắt đầu/kết thúc, provider, SĐT, địa chỉ, ghi chú,
+                chi phí) được giữ nguyên — client mang giá trị cũ về mỗi lần
+                lưu không còn làm bảo hành nhảy về `purchaseDate`. Khi số
+                tháng **khác**, `startDate` đang lưu (nếu có) được giữ và
+                `endDate` được tính lại bằng `startDate + N`; chỉ gói mới
+                (chưa có `startDate`) mới neo vào `purchaseDate`.
 
             Bốn trường `warranty*` còn lại thuộc cùng khối và **chỉ** được ghi
-            khi `warrantyMonths` có mặt. Khi khối có mặt với `N > 0` thì phần chi
-            tiết là **thay thế toàn bộ**: provider / address / phone / notes
+            khi `warrantyMonths` có mặt **và** khối thực sự thay đổi dòng (tạo
+            mới hoặc đổi số tháng) — nhờ vậy một PATCH lặp lại số tháng đang
+            lưu không xoá chi tiết đã có. Khi khối có ghi với `N > 0` thì phần
+            chi tiết là **thay thế toàn bộ**: provider / address / phone / notes
             không gửi ⇒ `null`, đúng quy tắc full-replacement của PATCH. Muốn
             sửa riêng phần chi tiết mà không đổi thời hạn, dùng
             `PATCH /api/v1/warranties/{id}`.

@@ -152,12 +152,13 @@ export default async function StatsPage({
   const warrantiesComplete = warrantyResults.every((r) => r.res.ok);
 
   const entries = buildSpendEntries(devices, warrantiesByDevice);
-  // The frozen contract has no per-warranty `costVnd`, so a foreign-currency
-  // package cannot join the per-month/per-category VND rollups without a
-  // client-side conversion. (`GET /v1/stats` does expose an account-wide
-  // `devices.totalWarrantyCost` converted server-side, but it cannot be
-  // attributed to a month or category.) Count the gap and say so below rather
-  // than quietly under-reporting.
+  // The frozen contract has no per-warranty `costVnd`, so the local entries only
+  // carry warranty packages priced in VND; a foreign-currency package has no
+  // month/category attribution here without a client-side conversion.
+  // `GET /v1/stats` exposes the account-wide `devices.totalWarrantyCost` already
+  // converted at each device's locked rate, which is the authoritative figure
+  // for the one tile that sums the whole account. Count the local gap and say so
+  // below rather than quietly under-reporting the date/category breakdowns.
   const unconvertedWarrantyCosts = countUnconvertedWarrantyCosts(
     devices,
     warrantiesByDevice,
@@ -207,6 +208,21 @@ export default async function StatsPage({
   const yearByCategory = spendByCategoryRollup([], entriesForYear(entries, year), locale);
   const yearTotal = yearlySpend(entries, year);
   const allTime = allTimeSpend(entries);
+  // "Tổng chi mua sắm" is the account-wide tile, so its warranty half must come
+  // from the server's converted sum: a foreign-currency package is in
+  // `devices.totalWarrantyCost` at the device's locked rate even though the
+  // local entries above cannot carry it. The purchase half stays on the same
+  // `ownershipCostVnd` basis the rest of the page uses. A failed stats read
+  // falls back to the local VND-only floor rather than hiding the tile.
+  const localWarrantyTotal = entries.reduce(
+    (sum, e) => (e.kind === 'warranty' ? sum + e.amount : sum),
+    0,
+  );
+  const allTimeWarrantyTotal = statsRes.ok
+    ? statsRes.data.devices.totalWarrantyCost
+    : localWarrantyTotal;
+  const allTimeAccountTotal =
+    allTime.total - localWarrantyTotal + allTimeWarrantyTotal;
   const top = topExpensiveRollup(devices, 5);
   const asset = activeAssetValue(devices);
   // đ/ngày (FEATURE_IDEAS #7): the inverse story of `top`. Same pure helper the
@@ -273,7 +289,7 @@ export default async function StatsPage({
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
           <p>
             {t(
-              'Có {count} gói bảo hành tính bằng ngoại tệ nhưng API chưa trả giá trị VND — các tổng bên dưới chưa gồm những gói đó.',
+              'Có {count} gói bảo hành tính bằng ngoại tệ chưa được quy đổi trong các tổng theo tháng, theo năm và theo loại — riêng "Tổng chi mua sắm" đã gồm các gói này theo tỷ giá đã khoá.',
               { count: unconvertedWarrantyCosts },
             )}
           </p>
@@ -291,7 +307,7 @@ export default async function StatsPage({
         />
         <KpiCard
           eyebrow={t('Tổng chi mua sắm')}
-          value={formatVND(allTime.total, locale)}
+          value={formatVND(allTimeAccountTotal, locale)}
           sub={deviceWarrantyCounts(t, allTime.deviceCount, allTime.warrantyCount)}
           tint="tint-violet"
           icon={<Wallet className="h-5 w-5" />}

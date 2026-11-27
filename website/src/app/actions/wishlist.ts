@@ -85,9 +85,19 @@ export async function logWishlistPrice(
 
 // Quick status flip. Go's PATCH validator requires name; we fetch first,
 // merge, then submit.
-export async function setWishlistStatus(id: string, status: string) {
+//
+// Both failures carry the server's own message (400/409/429 are explained by
+// Go in the request's language). The caller toasts it, falling back to its own
+// generic copy only when the server sent nothing — same shape as
+// `deleteWishlistItem` below.
+export type WishlistStatusResult = { ok: true } | { ok: false; message?: string };
+
+export async function setWishlistStatus(
+  id: string,
+  status: string,
+): Promise<WishlistStatusResult> {
   const cur = await api.wishlist.get(id);
-  if (!cur.ok) return { ok: false };
+  if (!cur.ok) return { ok: false, message: cur.message };
   const it = cur.data.item;
   const res = await api.wishlist.update(id, {
     name: it.name,
@@ -103,7 +113,7 @@ export async function setWishlistStatus(id: string, status: string) {
     notes: it.notes,
     reminderIntervalDays: it.reminderIntervalDays,
   });
-  if (!res.ok) return { ok: false };
+  if (!res.ok) return { ok: false, message: res.message };
   return { ok: true };
 }
 

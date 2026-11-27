@@ -2261,6 +2261,18 @@ export function DeviceForm({
         name="receivedAt"
         value={receivedAtInputValue(initial?.receivedAt)}
       />
+      {/* The term this row was loaded with. `updateDevice` compares it with the
+          submitted `warrantyMonths` and omits that key when the user did not
+          change it, so a plain edit (rename, notes, SOLD, …) cannot re-anchor a
+          warranty whose start date was chosen in the warranty form. The create
+          flow has no stored term, so it does not ship this marker. */}
+      {isEdit && (
+        <input
+          type="hidden"
+          name="warrantyMonthsInitial"
+          value={initial?.warrantyMonths ?? 0}
+        />
+      )}
     </form>
   );
 }

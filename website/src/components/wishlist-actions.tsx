@@ -145,7 +145,7 @@ export function WishlistStatusButtons({
     setPending(next);
     try {
       const res = await setWishlistStatus(itemId, next);
-      if (!res.ok) toast.error(t('Không đổi được trạng thái'));
+      if (!res.ok) toast.error(res.message ?? t('Không đổi được trạng thái'));
       else router.refresh();
     } finally {
       setPending(null);
