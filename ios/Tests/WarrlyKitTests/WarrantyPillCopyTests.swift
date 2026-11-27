@@ -58,7 +58,7 @@ final class WarrantyPillCopyTests: KitTestCase {
         XCTAssertEqual(WarrantyPillCopy.status(daysLeft: -1), .expired)
         XCTAssertEqual(WarrantyPillCopy.status(daysLeft: 0), .danger)
         XCTAssertEqual(WarrantyPillCopy.status(daysLeft: 9), .danger)
-        XCTAssertEqual(WarrantyPillCopy.status(daysLeft: 31), .warn)
+        XCTAssertEqual(WarrantyPillCopy.status(daysLeft: 31), .safe)
         XCTAssertEqual(WarrantyPillCopy.status(daysLeft: 91), .safe)
         // Unknown is drawn like expired, not like "fine".
         XCTAssertEqual(WarrantyPillCopy.status(daysLeft: nil), .expired)

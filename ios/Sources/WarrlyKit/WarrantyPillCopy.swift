@@ -23,11 +23,17 @@ public enum WarrantyPillCopy {
         case expired
     }
 
+    // The thresholds are the frozen ones from the web client
+    // (`website/src/lib/warranty-state.ts:42-60`: danger <= 15, warn <= 30, safe
+    // <= 90, safe/months above). They used to be 30/90 here, so a warranty with
+    // 45 days left was amber on iOS and green on web and Android for the same
+    // device — the same item read with two different urgencies. Change these
+    // three numbers only together with the web table.
     public static func status(daysLeft: Int?) -> Status {
         guard let d = daysLeft else { return .expired }
         if d < 0 { return .expired }
-        if d <= 30 { return .danger }
-        if d <= 90 { return .warn }
+        if d <= 15 { return .danger }
+        if d <= 30 { return .warn }
         return .safe
     }
 
@@ -40,7 +46,7 @@ public enum WarrantyPillCopy {
         if d < 0 { return L.t("Hết %dd", abs(d)) }
         if d == 0 { return L.t("Hết hôm nay") }
         if d <= 90 { return L.t("Còn %dd", d) }
-        if d <= 365 { return L.t("Còn ~%dth", Int((Double(d) / 30).rounded())) }
+        if d <= 365 { return L.t("Còn ~%dth", max(1, d / 30)) }
         // Whole years, not a decimal. This branch only fires past a year, and
         // "%.1f" rendered the first two months of it as "Còn 1.0 năm" / "1.0 years
         // left" — a false-looking number in Vietnamese and a plural violation in
