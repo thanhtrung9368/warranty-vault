@@ -58,6 +58,7 @@ import com.warrly.network.SubscriptionListResponse
 import com.warrly.network.SubscriptionResponse
 import com.warrly.network.TestPushResponse
 import com.warrly.network.UpdateLocaleInput
+import com.warrly.network.InstallmentInput
 import com.warrly.network.UpdateProfileInput
 import com.warrly.network.UpdateReminderEmailFallbackInput
 import com.warrly.network.UpdateProfileResponse
@@ -105,6 +106,12 @@ open class FakeApiService : ApiService {
     // `PATCH /auth/me` with only `reminderEmailFallback`. Added with #8; the fake
     // was never given the override, which is what left the Android unit-test
     // target unable to compile (the CI job has been red since 2026-11-16).
+    override suspend fun saveInstallment(id: String, body: InstallmentInput): DeviceResponse =
+        notStubbed("saveInstallment")
+
+    override suspend fun deleteInstallment(id: String): DeviceResponse =
+        notStubbed("deleteInstallment")
+
     override suspend fun updateReminderEmailFallback(
         body: UpdateReminderEmailFallbackInput,
     ): UpdateProfileResponse = notStubbed("updateReminderEmailFallback")
