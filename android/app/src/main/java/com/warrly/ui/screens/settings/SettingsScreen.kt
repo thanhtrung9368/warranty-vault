@@ -85,6 +85,7 @@ import com.warrly.auth.AppLockFailure
 import com.warrly.auth.AppLockNotice
 import com.warrly.auth.AppLockStore
 import com.warrly.auth.AuthStore
+import com.warrly.backup.downloadAndShareBackup
 import com.warrly.export.csvFileName
 import com.warrly.export.devicesCsvBytes
 import com.warrly.i18n.appStrings
@@ -103,6 +104,18 @@ import com.warrly.ui.theme.ThemeStore
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+
+// Both shapes the server accepts on `POST /api/v1/backup/import`: the ZIP this
+// screen now exports (document + encrypted attachment blobs) and the older
+// metadata-only JSON. Go decides by ZIP magic bytes, so this filter is only a
+// picker convenience — but with only `application/json` the new `.zip` would be
+// invisible in the document picker. `application/x-zip-compressed` is what some
+// file providers report for a ZIP on older OEMs.
+private val BACKUP_IMPORT_MIME_TYPES = arrayOf(
+    "application/json",
+    "application/zip",
+    "application/x-zip-compressed",
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -171,9 +184,10 @@ fun SettingsScreen(
     // CSV export of the device list. Built client-side by `devicesCsvBytes()`
     // (pure, unit-tested in app/src/test/.../export/CsvExportTest.kt) from
     // `GET /api/v1/devices` — the same call the "Thiết bị" tab already makes, so
-    // this adds no API surface. Delivered through SAF exactly like the JSON
-    // backup below; `pendingCsv` holds the finished bytes so cancelling the
-    // picker never leaves a half-written file behind.
+    // this adds no API surface. Delivered through SAF; `pendingCsv` holds the
+    // finished bytes so cancelling the picker never leaves a half-written file
+    // behind. (The backup ZIP goes through the share sheet instead, so another
+    // app can receive the whole archive.)
     var csvBusy by remember { mutableStateOf(false) }
     var pendingCsv by remember { mutableStateOf<ByteArray?>(null) }
     var pendingCsvCount by remember { mutableStateOf(0) }
@@ -188,18 +202,28 @@ fun SettingsScreen(
 
     fun snack(msg: String) { scope.launch { snackbarHostState.showSnackbar(msg) } }
 
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json"),
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
+    /**
+     * Download the full backup and open the system share sheet.
+     *
+     * The export is now a ZIP (`includeBlobs=true`), not the metadata-only JSON
+     * the old SAF flow streamed into a `CreateDocument` picker — that file never
+     * contained a receipt image even though the row implied it did. The archive
+     * has to be written to the FileProvider cache first because the receiving
+     * app cannot carry this app's bearer token; `downloadAndShareBackup` deletes
+     * a partial file before the exception reaches this snackbar.
+     *
+     * There is deliberately no silent branch: a failed download, an empty body,
+     * an unusable FileProvider path or a chooser that cannot open all become a
+     * snackbar carrying the server's message where there is one and a localized
+     * fallback where there is not.
+     */
+    fun startBackupExport() {
+        if (backupBusy) return
+        backupBusy = true
         scope.launch {
-            backupBusy = true
             try {
-                val body = api.exportBackup()
-                context.contentResolver.openOutputStream(uri)?.use { out ->
-                    body.byteStream().use { it.copyTo(out) }
-                } ?: throw IllegalStateException("no stream")
-                snack(context.getString(R.string.set_backed_up_to_a_json_file))
+                downloadAndShareBackup(context = context, api = api)
+                snack(context.getString(R.string.set_backup_zip_ready))
             } catch (e: Exception) {
                 snack(context.getString(R.string.set_backup_failed, e.toUserMessage(ApiClient.json, context)))
             } finally {
@@ -208,9 +232,9 @@ fun SettingsScreen(
         }
     }
 
-    // SAF writer for the CSV bytes prepared by `startCsvExport()`. Same
-    // `CreateDocument` pattern as the JSON backup above, with `text/csv` so the
-    // picker offers spreadsheet-friendly targets.
+    // SAF writer for the CSV bytes prepared by `startCsvExport()`. A
+    // `CreateDocument` with `text/csv` so the picker offers spreadsheet-friendly
+    // targets.
     val csvLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv"),
     ) { uri ->
@@ -724,11 +748,9 @@ fun SettingsScreen(
                 Column {
                     SettingsRow(
                         icon = Icons.Filled.CloudDownload,
-                        title = if (backupBusy) stringResource(R.string.set_working) else stringResource(R.string.set_back_up_export_json),
+                        title = if (backupBusy) stringResource(R.string.set_working) else stringResource(R.string.set_back_up_export_zip),
                         subtitle = stringResource(R.string.set_download_every_device_plan_and_wishlist),
-                        onClick = {
-                            if (!backupBusy) exportLauncher.launch("warrly-backup.json")
-                        },
+                        onClick = { startBackupExport() },
                         showDivider = true,
                     )
                     SettingsRow(
@@ -851,14 +873,14 @@ fun SettingsScreen(
                 TextButton(onClick = {
                     pendingImportMode = "merge"
                     showImportModeDialog = false
-                    importLauncher.launch(arrayOf("application/json"))
+                    importLauncher.launch(BACKUP_IMPORT_MIME_TYPES)
                 }) { Text(stringResource(R.string.set_merge)) }
             },
             dismissButton = {
                 TextButton(onClick = {
                     pendingImportMode = "replace"
                     showImportModeDialog = false
-                    importLauncher.launch(arrayOf("application/json"))
+                    importLauncher.launch(BACKUP_IMPORT_MIME_TYPES)
                 }) { Text(stringResource(R.string.set_replace), color = cs.error) }
             },
         )

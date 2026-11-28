@@ -9,7 +9,7 @@
   which `StringResourceParityTest` enforces over the whole values/ pair.
 -->
 <resources>
-    <string name="set_backed_up_to_a_json_file">Đã sao lưu ra file JSON</string>
+    <string name="set_backup_zip_ready">File ZIP sao lưu đã sẵn sàng — chọn nơi lưu</string>
     <string name="set_backup_failed">Không sao lưu được: %1$s</string>
     <plurals name="set_exported_devices_to_a_csv_file">
         <item quantity="other">Đã xuất %1$s thiết bị ra file CSV</item>
@@ -42,8 +42,15 @@
     <string name="set_ai_invoice_scanning_is_off">Đã tắt tính năng AI</string>
     <string name="set_data">Dữ liệu</string>
     <string name="set_working">Đang xử lý…</string>
-    <string name="set_back_up_export_json">Sao lưu (xuất JSON)</string>
-    <string name="set_download_every_device_plan_and_wishlist">Tải toàn bộ thiết bị, gói &amp; wishlist ra 1 file JSON.</string>
+    <string name="set_back_up_export_zip">Sao lưu (ZIP kèm ảnh hoá đơn)</string>
+    <string name="set_download_every_device_plan_and_wishlist">Tải toàn bộ thiết bị, gói, wishlist và ảnh hoá đơn ra 1 file ZIP. Ảnh hoá đơn đã được máy chủ mã hoá; khôi phục ở máy chủ khác cần đúng khoá chủ (FILE_MASTER_KEY) của máy chủ đã tạo bản sao lưu.</string>
+    <!-- Khung chia sẻ file ZIP sao lưu (backup/BackupShare.kt). Đây là chữ
+         trong hộp chọn ứng dụng, không nằm trong chính file backup. -->
+    <string name="backup_chooser_title">Lưu hoặc gửi file ZIP sao lưu</string>
+    <string name="backup_share_subject">Bản sao lưu Warrly</string>
+    <string name="backup_error_cache">Không chuẩn bị được file tạm cho bản sao lưu.</string>
+    <string name="backup_error_empty">Máy chủ trả về bản sao lưu rỗng.</string>
+    <string name="backup_error_no_target">Không có ứng dụng nào trên điện thoại nhận được file ZIP sao lưu.</string>
     <string name="set_export_csv_excel">Xuất CSV (Excel)</string>
     <string name="set_download_the_device_list_as_a">Tải danh sách thiết bị ra file CSV (UTF-8) để mở bằng Excel / Google Sheets.</string>
     <!-- Bảng kê bảo hiểm (Cài đặt → Dữ liệu; insurance/InsurancePackShare.kt).
@@ -63,7 +70,7 @@
     <string name="insurance_pack_error_empty">Máy chủ trả về file PDF rỗng.</string>
     <string name="insurance_pack_error_no_target">Không có ứng dụng nào trên điện thoại nhận được file PDF.</string>
     <string name="set_restore_from_a_backup">Khôi phục từ sao lưu</string>
-    <string name="set_import_your_data_back_from_an">Nhập lại dữ liệu từ file JSON đã xuất.</string>
+    <string name="set_import_your_data_back_from_an">Nhập lại dữ liệu từ file JSON hoặc ZIP đã xuất.</string>
     <string name="set_system">Hệ thống</string>
     <string name="set_sign_out">Đăng xuất</string>
     <string name="set_delete_account">Xoá tài khoản</string>

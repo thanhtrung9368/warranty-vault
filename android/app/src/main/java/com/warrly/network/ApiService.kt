@@ -106,9 +106,24 @@ interface ApiService {
     suspend fun revokeSession(@Path("id") id: String): SessionRevokeResult
 
     // ---- Backup ----
+    //
+    // The export has TWO shapes on one route, and `includeBlobs` is the choice
+    // between them — there is deliberately no default here, because a default
+    // is how the client ended up shipping a metadata-only JSON while the UI
+    // promised a full backup:
+    //
+    //  * `false` → `application/json`, backup schema v5, attachment METADATA
+    //    only (`includesAttachmentBytes: false`);
+    //  * `true`  → `application/zip`, the same document plus every attachment's
+    //    AES-256-GCM ciphertext (`includesAttachmentBytes: true`).
+    //
+    // `@Streaming` keeps either body out of memory; the caller copies the byte
+    // stream straight into the cache file it will share. Blobs are encrypted
+    // with a key wrapped by the server's `FILE_MASTER_KEY`, so a ZIP restored
+    // on a server with a different key keeps the rows but cannot decrypt them.
     @Streaming
     @GET("api/v1/backup/export")
-    suspend fun exportBackup(): ResponseBody
+    suspend fun exportBackup(@Query("includeBlobs") includeBlobs: Boolean): ResponseBody
 
     @POST("api/v1/backup/import")
     suspend fun importBackup(

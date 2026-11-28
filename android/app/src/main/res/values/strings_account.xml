@@ -9,7 +9,7 @@
   which `StringResourceParityTest` enforces over the whole values/ pair.
 -->
 <resources>
-    <string name="set_backed_up_to_a_json_file">Backed up to a JSON file</string>
+    <string name="set_backup_zip_ready">Backup ZIP ready — choose where to save it</string>
     <string name="set_backup_failed">Backup failed: %1$s</string>
     <plurals name="set_exported_devices_to_a_csv_file">
         <item quantity="one">Exported %1$s device to a CSV file</item>
@@ -42,8 +42,15 @@
     <string name="set_ai_invoice_scanning_is_off">AI features are off</string>
     <string name="set_data">Data</string>
     <string name="set_working">Working…</string>
-    <string name="set_back_up_export_json">Back up (export JSON)</string>
-    <string name="set_download_every_device_plan_and_wishlist">Download every device, plan and wishlist item as one JSON file.</string>
+    <string name="set_back_up_export_zip">Back up (ZIP with receipt images)</string>
+    <string name="set_download_every_device_plan_and_wishlist">Download every device, plan, wishlist item and receipt image as one ZIP. Receipt images are already encrypted on the server; restoring them on another server needs the same server master key (FILE_MASTER_KEY).</string>
+    <!-- Backup ZIP share sheet (backup/BackupShare.kt). The archive leaves the
+         app; these are chooser chrome, not text inside the file. -->
+    <string name="backup_chooser_title">Save or send the backup ZIP</string>
+    <string name="backup_share_subject">Warrly backup</string>
+    <string name="backup_error_cache">Could not prepare the cache file for the backup.</string>
+    <string name="backup_error_empty">The server returned an empty backup.</string>
+    <string name="backup_error_no_target">No app on this phone can receive the backup ZIP.</string>
     <string name="set_export_csv_excel">Export CSV (Excel)</string>
     <string name="set_download_the_device_list_as_a">Download the device list as a UTF-8 CSV for Excel / Google Sheets.</string>
     <!-- Insurance PDF pack (Settings → Data; insurance/InsurancePackShare.kt).
@@ -65,7 +72,7 @@
     <string name="insurance_pack_error_empty">The server returned an empty PDF.</string>
     <string name="insurance_pack_error_no_target">No app on this phone can receive a PDF.</string>
     <string name="set_restore_from_a_backup">Restore from a backup</string>
-    <string name="set_import_your_data_back_from_an">Import your data back from an exported JSON file.</string>
+    <string name="set_import_your_data_back_from_an">Import your data back from an exported JSON or ZIP file.</string>
     <string name="set_system">System</string>
     <string name="set_sign_out">Sign out</string>
     <string name="set_delete_account">Delete account</string>

@@ -120,7 +120,8 @@ open class FakeApiService : ApiService {
 
     override suspend fun listSessions(): SessionListResponse = notStubbed("listSessions")
     override suspend fun revokeSession(id: String): SessionRevokeResult = notStubbed("revokeSession")
-    override suspend fun exportBackup(): ResponseBody = notStubbed("exportBackup")
+    override suspend fun exportBackup(includeBlobs: Boolean): ResponseBody =
+        notStubbed("exportBackup")
     override suspend fun importBackup(mode: String, body: RequestBody): ImportResultResponse =
         notStubbed("importBackup")
 
