@@ -23,7 +23,10 @@ concurrency:
 jobs:
   swift-build:
     name: swift build
-    runs-on: macos-14
+    # macOS 14 images were retired on 2026-11-02; jobs targeting the old label
+    # are rejected before a runner is assigned ("configuration ... is not
+    # supported"). `macos-15` is one of the supported arm64 labels.
+    runs-on: macos-15
     defaults:
       run:
         working-directory: ios
