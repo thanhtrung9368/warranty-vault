@@ -17,6 +17,14 @@ import (
 // bandwidth predictable for receipt photos.
 const MaxImageDimension = 1600
 
+// Thumbnail width bounds for the on-the-fly `?w=` variant served by
+// GET /api/files/{id}. The handler rejects anything outside this window with
+// 400 VALIDATION; DownscaleToWidth clamps defensively for other callers.
+const (
+	MinThumbnailWidth = 64
+	MaxThumbnailWidth = 800
+)
+
 // MaybeResize re-encodes the image when its longest dimension exceeds
 // MaxImageDimension, returning the (possibly identical) buffer to be
 // encrypted. Skips PDFs and HEIC: the latter has poor pure-Go decode
@@ -54,6 +62,51 @@ func MaybeResize(buf []byte, mime string) ([]byte, error) {
 
 type decoderFunc func([]byte) (image.Image, error)
 type encoderFunc func(image.Image) ([]byte, error)
+
+// DownscaleToWidth is the on-the-fly counterpart to MaybeResize: it re-encodes
+// a stored image so its width is at most `width` pixels, preserving the aspect
+// ratio and the MIME type. It is used by GET /api/files/{id}?w=... and never
+// touches disk — the returned bytes stay in memory for the response only.
+//
+// Only JPEG and PNG can be re-encoded without changing the Content-Type (webp
+// has a decoder but no pure-Go encoder; HEIC has neither), so those types —
+// plus PDF and every non-image — are returned untouched for the caller to
+// stream as-is. GIF is deliberately ignored too: reproducing an animation at a
+// different width would mean re-encoding every frame.
+//
+// A decode/encode failure returns the error; the HTTP handler falls back to the
+// original bytes rather than failing the download.
+func DownscaleToWidth(buf []byte, mime string, width int) ([]byte, error) {
+	if width < MinThumbnailWidth {
+		width = MinThumbnailWidth
+	} else if width > MaxThumbnailWidth {
+		width = MaxThumbnailWidth
+	}
+	switch mime {
+	case "image/jpeg":
+		return downscaleWidthFn(buf, decodeJPEG, encodeJPEG, width)
+	case "image/png":
+		return downscaleWidthFn(buf, decodePNG, encodePNG, width)
+	default:
+		// application/pdf, image/gif, image/webp, image/heic, anything else:
+		// no re-encode that keeps the declared type.
+		return buf, nil
+	}
+}
+
+// downscaleWidthFn is the common JPEG/PNG path: decode, resize only when the
+// original is wider than the requested width (never upscale), re-encode with
+// the same encoder MaybeResize uses.
+func downscaleWidthFn(buf []byte, dec decoderFunc, enc encoderFunc, width int) ([]byte, error) {
+	img, err := dec(buf)
+	if err != nil {
+		return nil, err
+	}
+	if img.Bounds().Dx() <= width {
+		return buf, nil
+	}
+	return enc(imaging.Resize(img, width, 0, imaging.Lanczos))
+}
 
 // resizeFn is the common JPEG/PNG path.
 func resizeFn(buf []byte, _ func(image.Rectangle) *image.RGBA, dec decoderFunc, enc encoderFunc) ([]byte, error) {

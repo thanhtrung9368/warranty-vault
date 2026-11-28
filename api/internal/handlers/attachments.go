@@ -6,10 +6,12 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/files"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ratelimit"
@@ -67,8 +69,10 @@ func toAttachmentDTO(a store.Attachment) attachmentDTO {
 // errors they pass on are already finished strings in the request's language
 // (services/attachments.go) and the code → status mapping is unchanged, except
 // for the one new filing endpoint whose 409 is documented as such.
-// downloadFileHandler is deliberately NOT converted: it answers 404 with an
-// empty body on every failure, so it has no copy to translate.
+// downloadFileHandler keeps the plain `http.NotFound` reply on every auth /
+// ownership / disk failure — no domain copy to translate there. Its one new
+// refusal, the optional `?w=` thumbnail width, IS translated, so the handler
+// resolves the request language itself.
 func RegisterAttachments(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/v1/devices/{id}/attachments", uploadDeviceAttachmentHandler(deps))
 	mux.HandleFunc("POST /api/v1/attachments", uploadInboxAttachmentHandler(deps))
@@ -404,21 +408,68 @@ func deleteAttachmentHandler(d Deps) http.HandlerFunc {
 
 // downloadFileHandler streams the decrypted blob. We always 404 on auth /
 // ownership / disk miss to avoid leaking which IDs exist.
+//
+// `?w=<px>` (optional) asks for a downscaled variant of an image attachment
+// (the web grid uses w=320, the inbox list w=160). It is decrypted and resized
+// in memory only — the variant is never written to disk — and the response
+// keeps the attachment's own Content-Type. PDF and GIF ignore the parameter
+// (GIF would mean re-encoding every frame; PDF is not an image). A value that
+// is not an integer in [files.MinThumbnailWidth, files.MaxThumbnailWidth] is a
+// 400 VALIDATION, which is why this handler resolves the request language even
+// though its 404s carry no translated copy.
 func downloadFileHandler(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
+		ctx := i18n.Attach(r)
+		us, err := auth.VerifyBearer(ctx, d.DB, r.Header.Get("Authorization"))
 		if err != nil {
 			http.NotFound(w, r)
 			return
 		}
+
+		// Validate the width before decrypting: a bad query parameter should not
+		// cost a blob read + AES-GCM open.
+		width, widthOK := thumbnailWidth(r)
+		if !widthOK {
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "VALIDATION",
+				i18n.Text(ctx, "Tham số w không hợp lệ"),
+				map[string][]string{
+					"w": {i18n.T(ctx, "Phải là số nguyên từ %d tới %d", files.MinThumbnailWidth, files.MaxThumbnailWidth)},
+				})
+			return
+		}
+
 		id := r.PathValue("id")
-		mime, name, body, size, sErr := services.OpenStream(r.Context(), d.DB, us.UserID, id)
+		mime, name, body, size, sErr := services.OpenStream(ctx, d.DB, us.UserID, id)
 		if sErr != nil {
 			// All service errors map to 404 here per the TS route.
 			http.NotFound(w, r)
 			return
 		}
 		defer func() { _ = body.Close() }()
+
+		// `variant` stays nil unless a thumbnail was actually produced; nil means
+		// "stream the stored bytes exactly as before". PDF is not an image, and
+		// GIF is ignored on purpose; every other image type reaches the helper,
+		// which returns the original bytes for formats it cannot re-encode
+		// without changing the Content-Type (webp, HEIC).
+		var variant []byte
+		if width > 0 && strings.HasPrefix(mime, "image/") && mime != "image/gif" {
+			plain, readErr := io.ReadAll(body)
+			if readErr != nil {
+				slog.Warn("thumbnail read failed", "err", readErr, "attachmentId", id)
+				http.NotFound(w, r)
+				return
+			}
+			out, resizeErr := files.DownscaleToWidth(plain, mime, width)
+			if resizeErr != nil {
+				// The fallback is the original file: a receipt whose stored image
+				// the decoder cannot read is still better served than 500'd.
+				slog.Warn("thumbnail downscale failed", "err", resizeErr, "attachmentId", id)
+				out = plain
+			}
+			variant = out
+			size = int64(len(variant))
+		}
 
 		download := r.URL.Query().Get("download") == "1"
 		w.Header().Set("Content-Type", mime)
@@ -435,10 +486,31 @@ func downloadFileHandler(d Deps) http.HandlerFunc {
 			w.Header().Set("Content-Disposition", "inline")
 		}
 		w.WriteHeader(http.StatusOK)
+		if variant != nil {
+			if _, writeErr := w.Write(variant); writeErr != nil {
+				slog.Warn("thumbnail response write failed", "err", writeErr, "attachmentId", id)
+			}
+			return
+		}
 		if _, copyErr := io.Copy(w, body); copyErr != nil {
 			slog.Warn("file stream copy failed", "err", copyErr, "attachmentId", id)
 		}
 	}
+}
+
+// thumbnailWidth parses the optional `?w=` query parameter. ok is false when
+// the parameter is present but is not an integer in the documented range; an
+// absent parameter returns (0, true) and means "stream the original".
+func thumbnailWidth(r *http.Request) (width int, ok bool) {
+	q := r.URL.Query()
+	if !q.Has("w") {
+		return 0, true
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(q.Get("w")))
+	if err != nil || n < files.MinThumbnailWidth || n > files.MaxThumbnailWidth {
+		return 0, false
+	}
+	return n, true
 }
 
 // ---- helpers ---------------------------------------------------------------

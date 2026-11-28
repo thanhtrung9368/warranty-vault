@@ -22,13 +22,10 @@ import {
 } from '@/app/actions/attachments';
 import type { InboxDevice, InboxItem } from '@/lib/inbox';
 import { deviceIsFull } from '@/lib/inbox';
+import { fileUrl } from '@/lib/file-url';
 import { formatDate, formatRelativeDay } from '@/lib/format';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
-
-function fileUrl(id: string): string {
-  return `/api/files/${id}`;
-}
 
 /**
  * The unfiled attachments, newest first (the server owns the order).
@@ -158,7 +155,7 @@ function InboxRow({ item, devices }: { item: InboxItem; devices: InboxDevice[] }
               className="block h-full w-full"
             >
               <Image
-                src={fileUrl(item.id)}
+                src={fileUrl(item.id, { width: 160 })}
                 alt={item.description ?? item.fileName}
                 width={80}
                 height={80}
