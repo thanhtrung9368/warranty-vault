@@ -75,7 +75,7 @@ final class DynamicTypeSmokeTests: WarrlyFlowTestCase {
         // "Giá mua": the label must wrap rather than lose characters, and its
         // value must still be the device's own currency.
         let purchaseTitle = app.staticTexts["Giá mua"]
-        XCTAssertTrue(UITestSupport.scrollTo(purchaseTitle, in: app),
+        XCTAssertTrue(UITestSupport.scrollTo(purchaseTitle, in: app, maxSwipes: 40),
                       "Giá mua never became visible at AX3")
         UITestSupport.assertNotClipped(purchaseTitle, style: .body, in: app)
         XCTAssertTrue(app.staticTexts[Fixture.purchasePrice].exists,
@@ -84,14 +84,14 @@ final class DynamicTypeSmokeTests: WarrlyFlowTestCase {
         // The two rows that must not collapse into one another: the actual
         // charge and the locked rate are separate facts.
         let chargedTitle = app.staticTexts["Thực tế bị charge"]
-        XCTAssertTrue(UITestSupport.scrollTo(chargedTitle, in: app),
+        XCTAssertTrue(UITestSupport.scrollTo(chargedTitle, in: app, maxSwipes: 40),
                       "Thực tế bị charge never became visible at AX3")
         UITestSupport.assertNotClipped(chargedTitle, style: .body, in: app)
         XCTAssertTrue(app.staticTexts[Fixture.actualCharged].exists,
                       "The actual charged amount is missing at AX3")
 
         let lockedTitle = app.staticTexts["Tỷ giá đã chốt"]
-        XCTAssertTrue(UITestSupport.scrollTo(lockedTitle, in: app),
+        XCTAssertTrue(UITestSupport.scrollTo(lockedTitle, in: app, maxSwipes: 40),
                       "Tỷ giá đã chốt never became visible at AX3")
         UITestSupport.assertNotClipped(lockedTitle, style: .body, in: app)
         XCTAssertTrue(app.staticTexts[Fixture.lockedRate].exists,
