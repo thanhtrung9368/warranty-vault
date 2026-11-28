@@ -19,6 +19,14 @@ import (
 // MaxWarrantiesPerDevice mirrors website/src/lib/services/warranties.ts.
 const MaxWarrantiesPerDevice = 5
 
+// MaxWarrantiesDeviceIDs bounds `GET /api/v1/warranties?deviceIds=`. It is a
+// request-shape limit, not a quota: the per-account device ceilings are 500 rows
+// total (2,000 on Premium), and a client that needs more than one page chunks
+// (the web client sends 200 ids per call). The cap keeps a hostile URL from
+// turning into an unbounded `= ANY(...)` array; the count is taken after
+// trimming and de-duplication, so a repeated id cannot trip it.
+const MaxWarrantiesDeviceIDs = 500
+
 // enforceWarrantyQuota is the single definition of the per-device warranty cap.
 // It is consulted before every write that would ADD a Warranty row, and it
 // counts EVERY type — STANDARD, EXTENDED and THIRD_PARTY alike. That last part
@@ -251,6 +259,75 @@ func ListWarrantiesByDevice(ctx context.Context, db *pgxpool.Pool, userID, devic
 		rows = []store.Warranty{}
 	}
 	return rows, nil
+}
+
+// ListWarrantiesByDeviceIDs reads the warranty packages of many devices in one
+// call — `GET /api/v1/warranties?deviceIds=`. It is the batch form of
+// ListWarrantiesByDevice: same rows, same order (type ASC, endDate DESC), each
+// carrying its `deviceId`, so a client can group them without a second lookup.
+//
+// Ownership stays in the SQL: the query joins through Device and filters on
+// "Device"."userId", so a foreign or unknown id simply produces no rows instead
+// of a 404 that would confirm the id exists.
+func ListWarrantiesByDeviceIDs(ctx context.Context, db *pgxpool.Pool, userID, rawDeviceIDs string) ([]store.Warranty, error) {
+	deviceIDs, err := parseWarrantyDeviceIDs(ctx, rawDeviceIDs)
+	if err != nil {
+		return nil, err
+	}
+	q := store.New(db)
+	rows, err := q.ListWarrantiesByDeviceIDs(ctx, store.ListWarrantiesByDeviceIDsParams{
+		Column1: deviceIDs,
+		UserId:  userID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list warranties for devices: %w", err)
+	}
+	// The response contract says the array is never null: no warranties (or no
+	// matching ids) is `[]`, the same shape the per-device read answers with.
+	if rows == nil {
+		rows = []store.Warranty{}
+	}
+	return rows, nil
+}
+
+// parseWarrantyDeviceIDs turns the raw `?deviceIds=` value into the bounded,
+// trimmed, de-duplicated list the bulk query takes.
+//
+// Absent or empty is a VALIDATION error rather than "all devices": this endpoint
+// exists to replace a fan-out the caller already knows the ids for, and a
+// missing parameter silently answering the whole account would be a much larger
+// read than the request asked for. Empty comma segments (a trailing comma, or
+// `?deviceIds=,,,`) are ignored; after trimming nothing is left, that is the
+// same empty case.
+func parseWarrantyDeviceIDs(ctx context.Context, raw string) ([]string, error) {
+	if strings.TrimSpace(raw) == "" {
+		msg := i18n.Text(ctx, "Thiếu tham số deviceIds")
+		return nil, ErrValidationKeyed(msg, FieldErrors{"deviceIds": {msg}})
+	}
+	parts := strings.Split(raw, ",")
+	seen := make(map[string]struct{}, len(parts))
+	ids := make([]string, 0, len(parts))
+	for _, part := range parts {
+		id := strings.TrimSpace(part)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		msg := i18n.Text(ctx, "Thiếu tham số deviceIds")
+		return nil, ErrValidationKeyed(msg, FieldErrors{"deviceIds": {msg}})
+	}
+	if len(ids) > MaxWarrantiesDeviceIDs {
+		msg := i18n.T(ctx, "Chỉ được đọc bảo hành của tối đa %d thiết bị mỗi lần",
+			MaxWarrantiesDeviceIDs)
+		return nil, ErrValidationKeyed(msg, FieldErrors{"deviceIds": {msg}})
+	}
+	return ids, nil
 }
 
 // GetWarranty fetches a single warranty with the ownership chain.
