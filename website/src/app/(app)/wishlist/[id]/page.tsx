@@ -368,9 +368,10 @@ export default async function WishlistDetailPage({
             <Card padding="none" tone="muted" className="overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={item.imageUrl}
+                src={`/api/wishlist-image?url=${encodeURIComponent(item.imageUrl)}`}
                 alt={item.name}
                 referrerPolicy="no-referrer"
+                loading="lazy"
                 className="mx-auto max-h-[420px] w-auto object-contain"
               />
             </Card>

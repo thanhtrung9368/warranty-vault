@@ -311,9 +311,10 @@ export default async function WishlistPage({
                   {it.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={it.imageUrl}
+                      src={`/api/wishlist-image?url=${encodeURIComponent(it.imageUrl)}`}
                       alt={it.name}
                       referrerPolicy="no-referrer"
+                      loading="lazy"
                       className="h-full w-full object-cover"
                     />
                   ) : (
