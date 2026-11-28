@@ -109,18 +109,18 @@ final class APIClientTests: KitTestCase {
         XCTAssertNil(APIClient.DateFormatters.parse(""))
     }
 
-    func testTransportFailurePropagatesURLError() async throws {
+    func testTransportFailureMapsToTheLocalizedOfflineError() async {
+        // A raw `URLError` carries the OS's device-language sentence. `APIClient`
+        // owns the offline copy instead (see `transportData`), so the test pins
+        // that mapping rather than the old passthrough.
         StubURLProtocol.install(.failure(URLError(.notConnectedToInternet)))
         let client = makeStubbedClient(token: "tok_abc")
 
-        do {
-            _ = try await client.listDevices()
-            XCTFail("Expected the request to fail")
-        } catch let error as URLError {
-            XCTAssertEqual(error.code, .notConnectedToInternet)
-        } catch {
-            XCTFail("Expected URLError, got \(type(of: error)): \(error)")
+        let error = await captureAPIError { try await client.listDevices() }
+        guard case let .transport(message) = error else {
+            return XCTFail("Expected .transport, got \(String(describing: error))")
         }
+        XCTAssertEqual(message, L.t("Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại."))
     }
 
     func testEmptyResponseSkipsDecodingOfEmptyBody() async throws {

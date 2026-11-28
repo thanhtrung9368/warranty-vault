@@ -24196,23 +24196,6 @@
         }
       }
     },
-    "Đồ dùng cá nhân...": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Personal care..."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Đồ dùng cá nhân..."
-          }
-        }
-      }
-    },
     "chai, tuýp, gói...": {
       "extractionState": "manual",
       "localizations": {
@@ -24893,91 +24876,6 @@
         }
       }
     },
-    "Khi bật, ảnh hoá đơn (đã giải mã) và thông tin lần sửa chữa sẽ được gửi tới dịch vụ AI bên thứ ba để tự điền thông tin hoặc đánh giá bảo hành. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When on, receipt images (decrypted) and repair details are sent to a third-party AI service to fill in fields or assess a warranty. You always review before saving. Off by default."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Khi bật, ảnh hoá đơn (đã giải mã) và thông tin lần sửa chữa sẽ được gửi tới dịch vụ AI bên thứ ba để tự điền thông tin hoặc đánh giá bảo hành. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt."
-          }
-        }
-      }
-    },
-    "Quét hoá đơn & đánh giá bảo hành": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Receipt scanning & warranty assessment"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quét hoá đơn & đánh giá bảo hành"
-          }
-        }
-      }
-    },
-    "Đánh giá bảo hành dùng chung một lần bật AI với tính năng quét hoá đơn. Khi bật, thông tin lần sửa chữa (mô tả lỗi, chẩn đoán, chi phí) và điều khoản bảo hành sẽ được gửi tới dịch vụ AI bên thứ ba để phân tích.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Warranty assessment uses the same AI opt-in as receipt scanning. When it is on, the repair details (problem description, diagnosis, cost) and warranty terms are sent to a third-party AI service for analysis."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Đánh giá bảo hành dùng chung một lần bật AI với tính năng quét hoá đơn. Khi bật, thông tin lần sửa chữa (mô tả lỗi, chẩn đoán, chi phí) và điều khoản bảo hành sẽ được gửi tới dịch vụ AI bên thứ ba để phân tích."
-          }
-        }
-      }
-    },
-    "Đang bật — ảnh hoá đơn được gửi tới dịch vụ AI": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On — receipt photos are sent to an AI service"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Đang bật — ảnh hoá đơn được gửi tới dịch vụ AI"
-          }
-        }
-      }
-    },
-    "Đang tắt — không gửi gì ra ngoài": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Off — nothing is sent out"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Đang tắt — không gửi gì ra ngoài"
-          }
-        }
-      }
-    },
     "Đang trong hạn": {
       "extractionState": "manual",
       "localizations": {
@@ -25123,7 +25021,7 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "promised 1 day"
+                  "value": "promised %d day"
                 }
               },
               "other": {
@@ -25152,7 +25050,7 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "returns 1 day"
+                  "value": "returns %d day"
                 }
               },
               "other": {
@@ -25181,7 +25079,7 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Use 1 day"
+                  "value": "Use %d day"
                 }
               },
               "other": {
