@@ -9,15 +9,18 @@
 //
 // `warrantyState` (which has to read the clock and parse a date) stays in
 // `format.ts` and delegates here.
+//
+// This module keeps the `(days, locale)` signature for the server pages and the
+// signed-in app's client components. Those may translate against the full map.
+// The public landing page instead imports `warranty-state-core.ts` and passes
+// its provider's translator, so the marketing surface does not drag the whole
+// dictionary into first-load JS just to render three demo pills.
 
-import { translate } from '@/lib/i18n/catalog';
+import { translatorFor } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
+import { warrantyStateFromDaysWith, type WarrantyState } from './warranty-state-core';
 
-export type WarrantyState = {
-  daysLeft: number;
-  label: string;
-  tone: 'safe' | 'warn' | 'danger' | 'expired';
-};
+export type { WarrantyState };
 
 /**
  * The label and tone for an ALREADY-COMPUTED calendar-day count.
@@ -30,38 +33,5 @@ export type WarrantyState = {
  * pills after first paint. A number has no timezone — the label is then pure.
  */
 export function warrantyStateFromDays(days: number, locale: Locale): WarrantyState {
-  if (days < 0) {
-    const n = Math.abs(days);
-    return {
-      daysLeft: days,
-      label: translate(locale, 'Đã hết {days} ngày', { days: n, count: n }),
-      tone: 'expired',
-    };
-  }
-  if (days === 0) return { daysLeft: 0, label: translate(locale, 'Hết hôm nay'), tone: 'danger' };
-  if (days <= 15)
-    return {
-      daysLeft: days,
-      label: translate(locale, 'Còn {days} ngày', { days, count: days }),
-      tone: 'danger',
-    };
-  if (days <= 30)
-    return {
-      daysLeft: days,
-      label: translate(locale, 'Còn {days} ngày', { days, count: days }),
-      tone: 'warn',
-    };
-  if (days <= 90)
-    return {
-      daysLeft: days,
-      label: translate(locale, 'Còn {days} ngày', { days, count: days }),
-      tone: 'safe',
-    };
-  // > 90 days, render as months for compactness
-  const months = Math.floor(days / 30);
-  return {
-    daysLeft: days,
-    label: translate(locale, 'Còn {months} tháng', { months, count: months }),
-    tone: 'safe',
-  };
+  return warrantyStateFromDaysWith(translatorFor(locale), days);
 }

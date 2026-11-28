@@ -35,6 +35,7 @@
 // into an instant. No `new Date()` runs in the client components.
 
 import { InstantI18nProvider } from '@/lib/i18n/client';
+import { landingCatalog } from '@/lib/i18n/messages/bundles';
 import { PublicStructuredData } from '@/lib/structured-data';
 import { RevealObserver } from '@/components/reveal-observer';
 import { DocumentTitleSync } from '@/components/i18n/document-title';
@@ -93,7 +94,7 @@ export default async function LandingPage() {
   const year = new Date().getFullYear();
 
   return (
-    <InstantI18nProvider locale={locale}>
+    <InstantI18nProvider locale={locale} catalog={landingCatalog}>
       <div className="flex min-h-screen flex-col">
         {/* WebSite + Organization. The landing page is outside the `(public)`
             route group, so it renders the shared node set itself; the legal

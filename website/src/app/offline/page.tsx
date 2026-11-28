@@ -3,6 +3,8 @@ import type { Metadata } from 'next';
 import { Wifi, Plane, RotateCcw, Info } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { WarrlyLockup } from '@/components/brand';
+import { I18nProvider } from '@/lib/i18n/client';
+import { offlineCatalog } from '@/lib/i18n/messages/bundles';
 import { getI18n } from '@/lib/i18n/server';
 import { OfflineSavedPages } from '@/components/offline-saved-pages';
 import { RetryButton } from './retry-button';
@@ -26,19 +28,20 @@ export async function generateMetadata(): Promise<Metadata> {
 // really cached (with their save time) and says plainly that the data may be
 // stale. It no longer claims Warrly has no offline data.
 export default async function OfflinePage() {
-  const { t } = await getI18n();
+  const { locale, t } = await getI18n();
   return (
-    <div className="auth-gradient flex min-h-screen flex-col">
-      <header className="flex items-center justify-between px-4 py-5 md:px-8">
-        <Link href="/" aria-label="Warrly" className="inline-flex">
-          <WarrlyLockup height={40} />
-        </Link>
-      </header>
+    <I18nProvider locale={locale} catalog={offlineCatalog}>
+      <div className="auth-gradient flex min-h-screen flex-col">
+        <header className="flex items-center justify-between px-4 py-5 md:px-8">
+          <Link href="/" aria-label="Warrly" className="inline-flex">
+            <WarrlyLockup height={40} />
+          </Link>
+        </header>
 
-      <main className="flex flex-1 items-center justify-center px-4 pb-12">
-        <Card padding="none" className="w-full max-w-lg bg-card/80 px-6 py-10 text-center shadow-pop backdrop-blur md:px-10">
-          <div className="mb-2 flex justify-center">
-            <span className="eyebrow">{t('Trạng thái · Ngoại tuyến')}</span>
+        <main className="flex flex-1 items-center justify-center px-4 pb-12">
+          <Card padding="none" className="w-full max-w-lg bg-card/80 px-6 py-10 text-center shadow-pop backdrop-blur md:px-10">
+            <div className="mb-2 flex justify-center">
+              <span className="eyebrow">{t('Trạng thái · Ngoại tuyến')}</span>
           </div>
 
           <div className="mb-5 flex justify-center">
@@ -102,7 +105,8 @@ export default async function OfflinePage() {
           </div>
         </Card>
       </main>
-    </div>
+      </div>
+    </I18nProvider>
   );
 }
 

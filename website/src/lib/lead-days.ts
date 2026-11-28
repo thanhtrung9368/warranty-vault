@@ -25,8 +25,9 @@
 // Kept free of React / server-only imports so it is usable from the client
 // form, the server action and the RSC detail page.
 
-import { translate } from '@/lib/i18n/catalog';
+import { translatorFor } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
+import { leadDaysLabelWith, orderedLeadDays } from './lead-days-label';
 
 export const LEAD_DAY_MIN = 0;
 export const LEAD_DAY_MAX = 365;
@@ -51,38 +52,6 @@ export const LEAD_DAY_PRESETS: readonly number[] = [60, 30, 14, 7, 1, 0];
  * Go for its own `fieldErrors.leadDays`.
  */
 export const LEAD_DAYS_REQUIRED_MESSAGE = 'Cần chọn ít nhất một mốc nhắc';
-
-function toDay(value: unknown): number | null {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? Math.trunc(value) : null;
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (trimmed === '') return null;
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
-  }
-  return null;
-}
-
-/**
- * Sort/denormalise but keep every distinct day — used by display, where hiding
- * a sixth day the server somehow returned would be worse than showing it.
- */
-function orderedLeadDays(input: readonly unknown[] | null | undefined): number[] {
-  if (!input) return [];
-  const seen = new Set<number>();
-  const days: number[] = [];
-  for (const raw of input) {
-    const day = toDay(raw);
-    if (day === null) continue;
-    const clamped = Math.min(LEAD_DAY_MAX, Math.max(LEAD_DAY_MIN, day));
-    if (seen.has(clamped)) continue;
-    seen.add(clamped);
-    days.push(clamped);
-  }
-  return days.sort((a, b) => b - a);
-}
 
 /**
  * The shape this client is willing to send: descending, deduped, clamped and no
@@ -132,15 +101,6 @@ export function leadDaysError(
     : undefined;
 }
 
-function joinWithAnd(parts: string[], locale: Locale): string {
-  if (parts.length === 0) return '';
-  if (parts.length === 1) return parts[0];
-  return translate(locale, '{head} và {last}', {
-    head: parts.slice(0, -1).join(', '),
-    last: parts[parts.length - 1],
-  });
-}
-
 /**
  * The schedule as a sentence: `[30, 7]` ⇒ "Nhắc trước 30 và 7 ngày" /
  * "Remind 30 and 7 days before".
@@ -151,29 +111,13 @@ function joinWithAnd(parts: string[], locale: Locale): string {
  *
  * `locale` is required on purpose (same rule as `lib/format.ts`): a caller that
  * forgets it becomes a compile error instead of an untranslated fragment.
+ *
+ * The wording itself lives in `lead-days-label.ts`, which takes a translator so
+ * a client component can use its provider's bundle instead of the full map.
  */
 export function leadDaysLabel(
   days: readonly number[] | null | undefined,
   locale: Locale,
 ): string {
-  const ordered = orderedLeadDays(days);
-  const onTheDay = ordered.includes(0);
-  const positive = ordered.filter((day) => day > 0);
-
-  if (positive.length === 0) {
-    return onTheDay
-      ? translate(locale, 'Nhắc đúng ngày')
-      : translate(locale, 'Chưa đặt mốc nhắc');
-  }
-
-  const joined = joinWithAnd(
-    positive.map((day) => String(day)),
-    locale,
-  );
-  // English inflects "day"; a list is plural unless it is exactly `[1]`.
-  const count = positive.length === 1 && positive[0] === 1 ? 1 : 2;
-
-  return onTheDay
-    ? translate(locale, 'Nhắc trước {days} ngày và đúng ngày', { days: joined, count })
-    : translate(locale, 'Nhắc trước {days} ngày', { days: joined, count });
+  return leadDaysLabelWith(translatorFor(locale), days);
 }

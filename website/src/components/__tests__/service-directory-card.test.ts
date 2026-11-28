@@ -19,6 +19,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { ServiceDirectoryCard } from '@/components/service-directory-card';
 import { I18nProvider } from '@/lib/i18n/client';
+import { allMessages } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
 import {
   DIRECTORY_NO_BRAND_INPUT_TITLE,
@@ -60,7 +61,7 @@ function renderVi(element: React.ReactElement): string {
   return renderToStaticMarkup(
     React.createElement(
       I18nProvider,
-      { locale: VI } as React.Attributes & { locale: Locale; children: React.ReactNode },
+      { locale: VI, catalog: allMessages() } as React.Attributes & { locale: Locale; catalog: ReturnType<typeof allMessages>; children: React.ReactNode },
       element,
     ),
   );

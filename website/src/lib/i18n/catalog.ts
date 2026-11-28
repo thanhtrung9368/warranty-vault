@@ -1,8 +1,10 @@
-// The translator.
+// The SERVER translator, bound to the full merged dictionary.
 //
-// `translate(locale, key, params)` is the whole public surface; everything else
-// in the app goes through it (directly on the server, via `useT()` in the
-// browser — see `client.tsx`).
+// `translate(locale, key, params)` is the whole public surface for server code;
+// `useT()` in the browser resolves against the route bundle its provider was
+// given instead (see `client.tsx` and `translate.ts`). Keeping this module out
+// of the client provider's import graph is what stops the ~80 KB-gzip app
+// catalog from being part of `/` and `/login`'s first load.
 //
 // ── Why the key is the Vietnamese sentence ────────────────────────────────
 //
@@ -18,36 +20,20 @@
 
 import { DEFAULT_LOCALE, type Locale } from './locale';
 import { messages } from './messages';
-import type { Catalog, Message, TranslateParams, Translator } from './types';
+import { interpolate, translateWith, translatorForCatalog } from './translate';
+import type { Catalog, TranslateParams, Translator } from './types';
 
 export type { Message, Catalog, TranslateParams, Translator } from './types';
 
-/**
- * Fill `{name}` placeholders. Unknown placeholders are left alone rather than
- * replaced with "undefined": a typo should be visible in the UI, not silent.
- *
- * Runs only when params were actually passed, so a sentence containing a
- * literal `{` is returned verbatim — the same hazard the Go side contains by
- * skipping Sprintf for static messages.
- */
-export function interpolate(template: string, params: TranslateParams): string {
-  return template.replace(/\{(\w+)\}/g, (match, name: string) =>
-    Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : match,
-  );
-}
+// Server-side helpers keep translating against the FULL dictionary. That is
+// deliberate: only the client reference manifest is the problem, and server
+// bundles already contain every message. The browser gets a route bundle handed
+// to it as a prop by the layout that owns it (see `messages/bundles.ts`).
 
-function pick(message: Message, locale: Locale, params?: TranslateParams): string {
-  // Plurals exist in English and not in Vietnamese (docs/I18N_PLAN.md §4.6), so
-  // only the `en` branch branches. `count` is the conventional param name; an
-  // entry with `enOne` and no `count` is a mistake the catalog test catches.
-  if (locale === 'en' && message.enOne !== undefined && params?.count === 1) {
-    return message.enOne;
-  }
-  return locale === 'en' ? message.en : message.vi;
-}
+export { interpolate };
 
 /**
- * Render one message.
+ * Render one message from the full catalog.
  *
  * A key that is not registered falls back to the key itself — the Vietnamese
  * original — in BOTH languages. That is the failure mode this design wants: an
@@ -55,14 +41,12 @@ function pick(message: Message, locale: Locale, params?: TranslateParams): strin
  * partially converted screen is obvious to anyone reading it.
  */
 export function translate(locale: Locale, key: string, params?: TranslateParams): string {
-  const message = messages[key];
-  const template = message ? pick(message, locale, params) : key;
-  return params ? interpolate(template, params) : template;
+  return translateWith(messages, locale, key, params);
 }
 
 /** Bind a locale once so callers can pass a plain `(key, params) => string`. */
 export function translatorFor(locale: Locale): Translator {
-  return (key, params) => translate(locale, key, params);
+  return translatorForCatalog(messages, locale);
 }
 
 export function hasMessage(key: string): boolean {

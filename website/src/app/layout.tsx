@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
 import { PwaRegister } from '@/components/pwa-register';
 import { I18nProvider } from '@/lib/i18n/client';
+import { rootCatalog } from '@/lib/i18n/messages/bundles';
 import { getI18n } from '@/lib/i18n/server';
 import { pageMetadata, siteBaseUrl } from '@/lib/metadata';
 
@@ -111,7 +112,7 @@ export default async function RootLayout({
         {/* eslint-disable-next-line @next/next/no-css-tags -- a standalone URL is the point: the service worker answers it */}
         <link rel="stylesheet" href="/offline-indicator.css" />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <I18nProvider locale={locale}>
+          <I18nProvider locale={locale} catalog={rootCatalog}>
             <div className="app-bg" aria-hidden />
             {children}
             <Toaster richColors closeButton position="top-right" />

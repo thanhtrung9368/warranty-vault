@@ -19,6 +19,7 @@
 // every sentence and each literal is registered in `messages/handoff.ts`.
 
 import { formatDate, formatNumber } from '@/lib/format';
+import { HANDOFF_FAILURE_BODIES, HANDOFF_FAILURE_TITLES, type HandoffFailureReason } from './handoff-failure';
 import { translate } from '@/lib/i18n/catalog';
 import { labelOf } from '@/lib/i18n/labels';
 import type { Locale } from '@/lib/i18n/locale';
@@ -317,45 +318,11 @@ export const HANDOFF_PUBLIC_NOT_VERIFIED =
 
 // ── Failure copy ──────────────────────────────────────────────────────────
 
-/**
- * The ONLY reasons a claim can fail, as stable codes. The public preview has
- * just one honest state (`unavailable`) because the server answers a uniform
- * 404 for unknown/expired/cancelled/claimed; the specific reasons can only be
- * learned by a signed-in visitor actually claiming.
- */
-export type HandoffFailureReason =
-  | 'unavailable'
-  | 'expired'
-  | 'claimed'
-  | 'forbidden'
-  | 'rate_limited'
-  | 'auth'
-  | 'error';
-
-const HANDOFF_FAILURE_TITLES: Record<HandoffFailureReason, string> = {
-  unavailable: 'Mã không còn hiệu lực',
-  expired: 'Mã đã hết hạn',
-  claimed: 'Mã đã được dùng',
-  forbidden: 'Không thể tự nhận',
-  rate_limited: 'Thử lại sau',
-  auth: 'Cần đăng nhập',
-  error: 'Không mở được lời mời',
-};
-
-const HANDOFF_FAILURE_BODIES: Record<HandoffFailureReason, string> = {
-  unavailable:
-    'Mã không tồn tại, đã hết hạn, đã được dùng hoặc đã bị người bán huỷ. Hãy kiểm tra lại với người bán — Warrly không cho biết mã nào từng tồn tại.',
-  expired:
-    'Mã đã hết hạn trước khi có người nhận. Không có dữ liệu nào được chuyển; hãy nhờ người bán tạo mã mới.',
-  claimed:
-    'Mã này đã được người khác dùng để nhận thiết bị. Mỗi mã chỉ nhận được một lần.',
-  forbidden:
-    'Bạn không thể nhận thiết bị từ chính mình. Hãy gửi mã cho người mua.',
-  rate_limited:
-    'Bạn đã thử quá nhiều lần. Chờ vài phút rồi mở lại link.',
-  auth: 'Bạn cần đăng nhập để nhận thiết bị.',
-  error: 'Không tải được thông tin chuyển chủ. Thử tải lại trang.',
-};
+// The failure codes and their copy live in `handoff-failure.ts` so the public
+// claim page can import them without pulling this module (and the full catalog)
+// into its client bundle. Re-exported here so the existing server imports keep
+// working.
+export type { HandoffFailureReason } from './handoff-failure';
 
 export function handoffFailureTitle(
   reason: HandoffFailureReason,

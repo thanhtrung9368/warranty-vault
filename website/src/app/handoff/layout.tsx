@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import { PublicFooter, PublicHeader } from '@/components/legal/public-chrome';
+import { I18nProvider } from '@/lib/i18n/client';
+import { handoffCatalog } from '@/lib/i18n/messages/bundles';
+import { getI18n } from '@/lib/i18n/server';
 
 /**
  * Chrome for the public resale-handoff claim page (`/handoff/[code]`).
@@ -19,18 +22,21 @@ export const metadata: Metadata = {
   referrer: 'no-referrer',
 };
 
-export default function HandoffLayout({ children }: { children: React.ReactNode }) {
+export default async function HandoffLayout({ children }: { children: React.ReactNode }) {
+  const { locale } = await getI18n();
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <PublicHeader />
-      <main className="flex-1 px-4 py-10 md:px-8">
-        <div className="mx-auto w-full max-w-2xl">{children}</div>
-      </main>
-      <div className="px-4 pb-8 md:px-8">
-        <div className="mx-auto max-w-2xl">
-          <PublicFooter />
+    <I18nProvider locale={locale} catalog={handoffCatalog}>
+      <div className="flex min-h-screen flex-col bg-background">
+        <PublicHeader />
+        <main className="flex-1 px-4 py-10 md:px-8">
+          <div className="mx-auto w-full max-w-2xl">{children}</div>
+        </main>
+        <div className="px-4 pb-8 md:px-8">
+          <div className="mx-auto max-w-2xl">
+            <PublicFooter />
+          </div>
         </div>
       </div>
-    </div>
+    </I18nProvider>
   );
 }

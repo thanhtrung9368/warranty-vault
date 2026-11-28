@@ -8,6 +8,7 @@ import { APP_BADGE_WITHIN_DAYS, dueBadgeCount } from '@/lib/app-badge';
 import { badgeCount } from '@/lib/action-queue';
 import { inboxCount } from '@/lib/inbox';
 import { requireUser } from '@/lib/auth';
+import { AppI18nProvider } from '@/lib/i18n/app-provider';
 import { getI18n } from '@/lib/i18n/server';
 
 // Signed-in pages inherit the root layout's metadata, including its canonical
@@ -26,7 +27,7 @@ export default async function AppLayout({
   const user = await requireUser();
   // The skip link is the first focusable control on every signed-in page. It is
   // rendered in the request's language, like the rest of the shell.
-  const { t } = await getI18n();
+  const { locale, t } = await getI18n();
   // Three sidebar badges, all derived server-side:
   //  - reminders: 30-day horizon to match the previous countActiveReminders()
   //    default. The Go endpoint already filters out dismissed reminders and only
@@ -49,7 +50,7 @@ export default async function AppLayout({
   const inboxWaiting = inboxRes.ok ? inboxCount(inboxRes.data) : 0;
 
   return (
-    <>
+    <AppI18nProvider locale={locale}>
       {/* WCAG 2.4.1: a keyboard or screen-reader user should not have to tab
           through ten nav items before reaching the page content. Hidden until
           focused, then pinned to the top-left corner. */}
@@ -89,6 +90,6 @@ export default async function AppLayout({
       <OfflineBridge />
       {/* The installed-PWA icon badge. Renders nothing; feature-detected. */}
       <AppBadge count={reminderCount} />
-    </>
+    </AppI18nProvider>
   );
 }

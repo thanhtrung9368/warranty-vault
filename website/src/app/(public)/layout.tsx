@@ -1,4 +1,5 @@
 import { InstantI18nProvider } from '@/lib/i18n/client';
+import { legalCatalog } from '@/lib/i18n/messages/bundles';
 import { PublicStructuredData } from '@/lib/structured-data';
 import { PublicBackLink, PublicFooter, PublicHeader } from '@/components/legal/public-chrome';
 import { ConsentBanner } from '@/components/consent/consent-banner';
@@ -25,7 +26,7 @@ export default async function PublicLayout({
 }) {
   const { locale } = await getI18n();
   return (
-    <InstantI18nProvider locale={locale}>
+    <InstantI18nProvider locale={locale} catalog={legalCatalog}>
       <div className="flex min-h-screen flex-col">
         <PublicHeader />
         <main className="flex-1 px-4 py-10 md:px-8">
