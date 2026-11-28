@@ -3,10 +3,10 @@ package com.warrly.ui.screens.devices
 import com.warrly.ui.screens.todayDayIso
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -58,7 +58,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -203,6 +202,10 @@ fun DeviceDetailScreen(
     var deletingWarrantyId by rememberSaveable { mutableStateOf<String?>(null) }
     var showDeleteDevice by rememberSaveable { mutableStateOf(false) }
     var deletingDevice by remember { mutableStateOf(false) }
+    // Installment plan editor. The plan has its own endpoint, so it has its own
+    // sheet and its own delete confirmation — never the device form/PATCH.
+    var showInstallmentSheet by rememberSaveable { mutableStateOf(false) }
+    var showDeleteInstallment by rememberSaveable { mutableStateOf(false) }
     var actionError by remember { mutableStateOf<String?>(null) }
     // Advisories from the last successful edit ("đã sửa, nhưng…"); the device is
     // saved, so they are informational and dismissible.
@@ -332,6 +335,7 @@ fun DeviceDetailScreen(
                         },
                         onEdit = { editingWarrantyId = it.id },
                         onDelete = { deletingWarrantyId = it.id },
+                        onEditInstallment = { showInstallmentSheet = true },
                         onToggleReminder = { warranty ->
                             scope.launch {
                                 actionError = null
@@ -386,6 +390,61 @@ fun DeviceDetailScreen(
                 // the "dates agree / dates differ" line reflects what was just
                 // stored instead of the previous check.
                 vm.load()
+            },
+        )
+    }
+
+    // Installment plan editor. The write answer is a full device read, but the
+    // detail body also shows claims/attachments/warranties that the write does
+    // not carry — reload so `installment`, `ownershipCostVnd` and every derived
+    // row come back in one piece (the same reason a device edit refetches).
+    if (showInstallmentSheet && deviceLoaded != null) {
+        InstallmentEditSheet(
+            api = api,
+            device = deviceLoaded,
+            onDismiss = { showInstallmentSheet = false },
+            onSaved = {
+                showInstallmentSheet = false
+                vm.load()
+            },
+            onDeleteRequest = {
+                showInstallmentSheet = false
+                showDeleteInstallment = true
+            },
+        )
+    }
+
+    // Removing the plan is irreversible and changes the money basis, so it gets
+    // the same confirm dialog as deleting a warranty, a claim or the device.
+    if (showDeleteInstallment && deviceLoaded != null) {
+        val deviceId = deviceLoaded.id
+        AlertDialog(
+            onDismissRequest = { showDeleteInstallment = false },
+            title = { Text(stringResource(R.string.devdetail_installment_delete_title)) },
+            text = { Text(stringResource(R.string.devdetail_installment_delete_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteInstallment = false
+                    actionError = null
+                    scope.launch {
+                        try {
+                            api.deleteInstallment(deviceId)
+                            vm.load()
+                        } catch (e: Exception) {
+                            actionError = e.toUserMessage(ApiClient.json)
+                        }
+                    }
+                }) {
+                    Text(
+                        stringResource(R.string.action_delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteInstallment = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
             },
         )
     }
@@ -589,6 +648,8 @@ private fun DeviceDetailBody(
     onEdit: (Warranty) -> Unit,
     onDelete: (Warranty) -> Unit,
     onToggleReminder: (Warranty) -> Unit,
+    /** Opens the installment plan sheet from the summary card. */
+    onEditInstallment: () -> Unit,
     /** The brand record was saved; the host reloads the detail row. */
     onBrandWarrantySaved: () -> Unit,
 ) {
@@ -597,7 +658,7 @@ private fun DeviceDetailBody(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { DeviceSummaryCard(device) }
+        item { DeviceSummaryCard(device, onEditInstallment) }
         // "Đối chiếu với hãng" sits directly under the summary: the warranty
         // start the user typed is a guess from the invoice, and a brand answer
         // that disagrees is the one thing on this screen that can change what
@@ -725,7 +786,7 @@ private fun DeviceDetailBody(
 }
 
 @Composable
-private fun DeviceSummaryCard(device: Device) {
+private fun DeviceSummaryCard(device: Device, onEditInstallment: () -> Unit) {
     val s = appStrings()
     val cs = MaterialTheme.colorScheme
     Card(
@@ -866,60 +927,69 @@ private fun DeviceSummaryCard(device: Device) {
                 DetailRow(stringResource(R.string.devadd_serial_number), device.serialNumber)
             }
             // Installment plan (FEATURE_RESEARCH_2026-11 §6.5, migration 0031).
-            // READ-ONLY on Android: wave 1 cut the Android editor on purpose, so
-            // the card shows the plan and points at the web app. The write path
-            // is its own endpoint (`PUT /api/v1/devices/{id}/installment`), not
-            // the device PATCH, which is why this screen can display a plan it
-            // cannot edit without risking erasing it.
+            // The section is ALWAYS rendered: a device with no plan needs an
+            // entry point to record one, which is what the "record" action
+            // below is for. Editing goes through its own sheet and its own
+            // endpoint (`PUT/DELETE /api/v1/devices/{id}/installment`), never
+            // the device PATCH — the PATCH replaces the whole device and would
+            // erase a plan it does not carry.
             //
             // No "overdue" wording anywhere: `paidCount` is self-reported and the
             // app cannot see whether the bank charged. The next due DAY is shown;
             // the reader judges.
-            device.installment?.let { plan ->
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.devdetail_installment),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = cs.onSurface)
+            Spacer(Modifier.height(8.dp))
+            Text(stringResource(R.string.devdetail_installment),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = cs.onSurface)
+            val installmentPlan = device.installment
+            if (installmentPlan == null) {
+                Text(
+                    stringResource(R.string.devdetail_installment_none),
+                    fontSize = 12.sp,
+                    color = cs.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            } else {
                 DetailRow(
                     stringResource(R.string.devdetail_installment_progress,
-                        plan.paidCount, plan.months),
-                    if (plan.completed) {
+                        installmentPlan.paidCount, installmentPlan.months),
+                    if (installmentPlan.completed) {
                         stringResource(R.string.devdetail_installment_completed)
                     } else {
-                        formatDeviceMoney(plan.monthlyAmount, device.currency) + "/" +
+                        formatDeviceMoney(installmentPlan.monthlyAmount, device.currency) + "/" +
                             stringResource(R.string.devdetail_installment_per_period)
                     },
                 )
                 DetailRow(
                     stringResource(R.string.devdetail_installment_remaining),
-                    if (plan.completed) {
+                    if (installmentPlan.completed) {
                         stringResource(R.string.devdetail_installment_completed)
                     } else {
-                        formatDeviceMoney(plan.remainingAmount, device.currency)
+                        formatDeviceMoney(installmentPlan.remainingAmount, device.currency)
                     },
                 )
                 DetailRow(
                     stringResource(R.string.devdetail_installment_total),
-                    formatDeviceMoney(plan.totalCost, device.currency),
+                    formatDeviceMoney(installmentPlan.totalCost, device.currency),
                 )
                 // The next due day is the SERVER's (it owns the month-clamp rule:
                 // 31 Jan + 1 month = 28/29 Feb). Never re-derived here.
-                if (!plan.completed) {
-                    plan.nextDueAt?.let { next ->
+                if (!installmentPlan.completed) {
+                    installmentPlan.nextDueAt?.let { next ->
                         DetailRow(
                             stringResource(R.string.devdetail_installment_next_due),
                             vietnamDate(next) ?: next.take(10),
                         )
                     }
                 }
-                if (!plan.lender.isNullOrBlank()) {
+                if (!installmentPlan.lender.isNullOrBlank()) {
                     DetailRow(
                         stringResource(R.string.devdetail_installment_lender),
-                        plan.lender ?: "",
+                        installmentPlan.lender ?: "",
                     )
                 }
-                if (plan.hasUnknownFees) {
+                if (installmentPlan.hasUnknownFees) {
                     Text(
                         stringResource(R.string.devdetail_installment_unknown_fees),
                         fontSize = 12.sp,
@@ -927,22 +997,22 @@ private fun DeviceSummaryCard(device: Device) {
                         modifier = Modifier.padding(top = 2.dp),
                     )
                 }
-                // The editor lives on the web (see the section comment). The URL
-                // is the web app's own device edit page, where the plan form is.
-                val context = LocalContext.current
+            }
+            // The real write path, replacing the old "Sửa trên web" link.
+            TextButton(
+                onClick = onEditInstallment,
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.padding(top = 2.dp),
+            ) {
                 Text(
-                    stringResource(R.string.devdetail_installment_edit_on_web),
-                    fontSize = 13.sp,
-                    color = cs.primary,
-                    textDecoration = TextDecoration.Underline,
-                    modifier = Modifier
-                        .padding(top = 4.dp)
-                        .clickable {
-                            openDirectoryLink(
-                                context,
-                                "https://warrly.com/devices/${device.id}/edit",
-                            )
+                    stringResource(
+                        if (installmentPlan == null) {
+                            R.string.devdetail_installment_add
+                        } else {
+                            R.string.devdetail_installment_edit
                         },
+                    ),
+                    fontSize = 13.sp,
                 )
             }
             // Resale (roadmap #12) — only when a sale is actually recorded.

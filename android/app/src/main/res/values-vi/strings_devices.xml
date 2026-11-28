@@ -142,8 +142,9 @@
     <string name="devdetail_sale_date">Ngày bán</string>
     <string name="devdetail_sale_price">Giá bán</string>
     <string name="devdetail_profit_loss">Lãi/lỗ</string>
-    <!-- Kế hoạch trả góp (§6.5). Chỉ đọc trên Android — sửa trên web. Không câu
-         nào nói "quá hạn": `paidCount` là người dùng tự khai. -->
+    <!-- Kế hoạch trả góp (§6.5). Ghi và sửa từ sheet của thẻ chi tiết, ghi qua
+         PUT/DELETE /devices/{id}/installment. Không câu nào nói "quá hạn":
+         `paidCount` là người dùng tự khai. -->
     <string name="devdetail_installment">Trả góp</string>
     <string name="devdetail_installment_progress">Đã trả %1$d/%2$d kỳ</string>
     <string name="devdetail_installment_per_period">kỳ</string>
@@ -153,7 +154,26 @@
     <string name="devdetail_installment_next_due">Kỳ tới</string>
     <string name="devdetail_installment_lender">Nơi trả góp</string>
     <string name="devdetail_installment_unknown_fees">Chưa ghi phí, nên tổng chi phí là mức tối thiểu.</string>
-    <string name="devdetail_installment_edit_on_web">Sửa trên web</string>
+    <string name="devdetail_installment_add">Ghi kế hoạch</string>
+    <string name="devdetail_installment_edit">Sửa kế hoạch</string>
+    <string name="devdetail_installment_none">Thiết bị này chưa ghi trả góp. Ghi kế hoạch để chi phí sở hữu, lãi/lỗ khi bán lại và thống kê tính đúng số tiền bạn thật sự trả.</string>
+    <string name="devdetail_installment_delete">Xoá kế hoạch trả góp</string>
+    <string name="devdetail_installment_delete_title">Xoá kế hoạch trả góp?</string>
+    <string name="devdetail_installment_delete_body">Không thể khôi phục. Mọi con số tiền quay lại theo giá mua và tỷ giá đã khoá.</string>
+    <string name="devdetail_installment_down_payment">Trả trước (%1$s)</string>
+    <string name="devdetail_installment_months">Số kỳ (tháng)</string>
+    <string name="devdetail_installment_monthly_amount">Mỗi kỳ trả (%1$s)</string>
+    <string name="devdetail_installment_first_due">Ngày kỳ đầu (YYYY-MM-DD)</string>
+    <string name="devdetail_installment_file_fee">Phí hồ sơ (%1$s)</string>
+    <string name="devdetail_installment_monthly_fee">Phí mỗi kỳ (%1$s)</string>
+    <string name="devdetail_installment_paid_count">Đã trả (số kỳ)</string>
+    <string name="devdetail_installment_fee_hint">Để trống phí nghĩa là “chưa biết”, không phải 0. Khi thiếu phí, tổng chi phí chỉ là mức tối thiểu.</string>
+    <string name="devdetail_installment_fee_placeholder">Chưa biết — để trống</string>
+    <string name="devdetail_installment_currency_note">Số tiền tính theo đơn vị tiền của thiết bị (%1$s).</string>
+    <string name="devdetail_installment_months_invalid">Số kỳ phải từ 1 đến 60.</string>
+    <string name="devdetail_installment_monthly_amount_invalid">Số tiền mỗi kỳ phải lớn hơn 0.</string>
+    <string name="devdetail_installment_paid_count_invalid">Số kỳ đã trả phải từ 0 đến số kỳ.</string>
+    <string name="devdetail_installment_first_due_invalid">Nhập ngày kỳ đầu theo dạng YYYY-MM-DD.</string>
     <string name="devdetail_reminder_turned_off">Đã tắt nhắc</string>
     <string name="devdetail_starts">Bắt đầu</string>
     <string name="devdetail_ends">Kết thúc</string>
