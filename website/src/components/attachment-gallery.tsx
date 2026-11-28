@@ -26,6 +26,7 @@ import {
   deleteAttachment,
   updateAttachmentDescription,
 } from '@/app/actions/attachments';
+import { fileUrl } from '@/lib/file-url';
 import { useT } from '@/lib/i18n/client';
 
 type Attachment = {
@@ -34,11 +35,6 @@ type Attachment = {
   fileType: string;
   description: string | null;
 };
-
-// Authenticated file URL — only the logged-in owner can fetch this.
-function fileUrl(id: string, opts?: { download?: boolean }): string {
-  return `/api/files/${id}${opts?.download ? '?download=1' : ''}`;
-}
 
 export function AttachmentGallery({ items }: { items: Attachment[] }) {
   const router = useRouter();
@@ -138,7 +134,7 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                   className="relative block aspect-square w-full overflow-hidden"
                 >
                   <Image
-                    src={fileUrl(a.id)}
+                    src={fileUrl(a.id, { width: 320 })}
                     alt={caption ?? a.fileName}
                     fill
                     sizes="(max-width: 768px) 50vw, 25vw"

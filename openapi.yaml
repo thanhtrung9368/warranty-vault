@@ -2221,12 +2221,27 @@ paths:
       summary: Stream an encrypted attachment (decrypted on the fly)
       parameters:
         - { name: download, in: query, schema: { type: string, enum: [ '1' ] } }
+        - name: w
+          in: query
+          description: |
+            Thumbnail width in pixels for an image attachment. When present, Go
+            decrypts the blob as usual, downscales it **in memory** and returns
+            the variant with the SAME `Content-Type`; it is never written to
+            disk. Must be an integer between 64 and 800 — anything else
+            (including a non-integer or an empty value) is **400
+            `VALIDATION`**. Ignored for PDF and GIF, and for WebP/HEIC (no pure-Go
+            encoder preserves those MIME types): the original bytes are streamed
+            unchanged. The web grid asks for `w=320`, the inbox list for
+            `w=160`; the lightbox keeps the full-size URL. The response stays
+            `Cache-Control: private, no-store` because it is decrypted content.
+          schema: { type: integer, minimum: 64, maximum: 800 }
       responses:
         '200':
           description: File bytes (Content-Type matches the attachment)
           content:
             'application/octet-stream':
               schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/BadInput' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /api/v1/subscriptions:

@@ -1092,6 +1092,17 @@ var messages = map[string]message{
 	},
 	"Thiếu deviceId": {vi: "Thiếu deviceId", en: "Missing deviceId"},
 
+	// GET /api/files/{id}?w=... — the thumbnail width is the download route's
+	// only translated refusal (its auth/ownership/disk misses keep the plain
+	// http.NotFound reply, so there is nothing else to translate there). The field message names the
+	// same 64..800 window as files.MinThumbnailWidth/MaxThumbnailWidth; the
+	// handler passes the constants so the two cannot drift.
+	"Tham số w không hợp lệ": {vi: "Tham số w không hợp lệ", en: "Invalid w parameter"},
+	"Phải là số nguyên từ %d tới %d": {
+		vi: "Phải là số nguyên từ %d tới %d",
+		en: "Must be an integer from %d to %d",
+	},
+
 	// internal/files copy. That package has no request context of its own and is
 	// called from two domains, so its error TEXT is the key and the caller that
 	// owns a request renders it (services.filesText). The AI handler, which is a
