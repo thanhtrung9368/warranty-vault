@@ -111,7 +111,11 @@ struct BackupImportFlow: ViewModifier {
             }
             .fileImporter(
                 isPresented: $showImporter,
-                allowedContentTypes: [.json],
+                // `.zip` as well as `.json`: the backup button now produces the
+                // ZIP (receipt images included), and Go's import route accepts
+                // both shapes by magic bytes. A picker limited to JSON made the
+                // file this screen just wrote impossible to restore here.
+                allowedContentTypes: [.json, .zip],
                 allowsMultipleSelection: false
             ) { result in
                 handleSelection(result)
