@@ -245,8 +245,14 @@ final class LocalizationTests: XCTestCase {
 
         var orphans: [String] = []
         for key in L.allKeys {
+            // A key can contain a newline (the handoff code/link sentences do).
+            // The Swift literal spells that as `\n`, so the raw key never
+            // appears in the sources; compare the escaped spelling too.
             let escaped = key.replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
+                .replacingOccurrences(of: "\n", with: "\\n")
+                .replacingOccurrences(of: "\t", with: "\\t")
+                .replacingOccurrences(of: "\r", with: "\\r")
             if !sources.contains(key) && !sources.contains(escaped) {
                 orphans.append(key)
             }

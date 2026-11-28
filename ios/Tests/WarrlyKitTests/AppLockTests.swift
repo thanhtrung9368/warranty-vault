@@ -170,12 +170,26 @@ final class AppLockTests: XCTestCase {
 
     // MARK: - Background / foreground
 
-    func testBackgroundingLocksAndForegroundUnlocksAfterAuthentication() async {
+    // `AppLockStore.handleForeground()` no longer exists, and foregrounding no
+    // longer authenticates. It used to `await unlock()` on every `.active`,
+    // which looped: cancelling the Face ID sheet returns the app to `.active`,
+    // which re-opened the sheet immediately. The store now only refreshes
+    // availability (`handleForegroundWithoutPrompt`) and the unlock prompt
+    // belongs to `AppLockScreen`, whose `.task` / "Mở khoá" button calls
+    // `unlock()`. The tests below model that division instead of the old
+    // auto-unlock.
+
+    func testBackgroundingLocksAndForegroundLeavesThePromptToTheLockScreen() async {
         let (store, auth, _) = makeStore(enabled: true)
         store.handleEnterBackground()
         XCTAssertTrue(store.isLocked)
 
-        await store.handleForeground()
+        store.handleForegroundWithoutPrompt()
+        XCTAssertTrue(store.isLocked, "foregrounding must not silently unlock the app")
+        XCTAssertEqual(auth.authenticateCallCount, 0, "the lock screen owns the prompt")
+
+        // What `AppLockScreen` does when the cover appears (or "Mở khoá" is tapped).
+        await store.unlock()
         XCTAssertEqual(auth.authenticateCallCount, 1)
         XCTAssertFalse(store.isLocked)
     }
@@ -256,7 +270,7 @@ final class AppLockTests: XCTestCase {
                                                      biometricsAvailable: false,
                                                      deviceOwnerAuthAvailable: false,
                                                      passcodeNotSet: true)
-        await store.handleForeground()
+        store.handleForegroundWithoutPrompt()
 
         XCTAssertFalse(store.isLocked)
         XCTAssertFalse(store.isEnabled)
@@ -272,10 +286,16 @@ final class AppLockTests: XCTestCase {
         auth.availabilityValue = AppLockAvailability(biometry: .none,
                                                      biometricsAvailable: false,
                                                      deviceOwnerAuthAvailable: true)
-        await store.handleForeground()
+        store.handleForegroundWithoutPrompt()
 
         XCTAssertTrue(store.isEnabled, "the passcode fallback still works")
         XCTAssertTrue(storage.isEnabled)
+        XCTAssertTrue(store.isLocked, "refresh does not unlock; the cover asks for the passcode")
+        XCTAssertEqual(auth.authenticateCallCount, 0)
+
+        // The lock screen's prompt uses `.deviceOwnerAuthentication`, so with
+        // Face ID gone the passcode fallback is what authenticates.
+        await store.unlock()
         XCTAssertEqual(auth.authenticateCallCount, 1)
         XCTAssertFalse(store.isLocked)
     }
