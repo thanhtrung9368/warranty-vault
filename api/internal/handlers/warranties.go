@@ -13,6 +13,7 @@ import (
 //
 // Routes:
 //
+//	GET    /api/v1/warranties                  - list for many devices (deviceIds=...)
 //	GET    /api/v1/devices/{id}/warranties     - list (verifies device ownership)
 //	POST   /api/v1/devices/{id}/warranties     - create (write rate limit, count<5)
 //	PATCH  /api/v1/warranties/{id}             - update
@@ -22,6 +23,7 @@ import (
 func RegisterWarranties(mux *http.ServeMux, deps Deps) {
 	requireUser := auth.RequireUser(deps.DB)
 
+	mux.Handle("GET /api/v1/warranties", requireUser(http.HandlerFunc(listWarrantiesForDevicesHandler(deps))))
 	mux.Handle("GET /api/v1/devices/{id}/warranties", requireUser(http.HandlerFunc(listWarrantiesHandler(deps))))
 	mux.Handle("POST /api/v1/devices/{id}/warranties", requireUser(http.HandlerFunc(createWarrantyHandler(deps))))
 	mux.Handle("PATCH /api/v1/warranties/{id}", requireUser(http.HandlerFunc(updateWarrantyHandler(deps))))
@@ -45,6 +47,26 @@ func listWarrantiesHandler(deps Deps) http.HandlerFunc {
 		rows, err := services.ListWarrantiesByDevice(ctx, deps.DB, us.UserID, deviceID)
 		if err != nil {
 			writeDevicesErr(w, ctx, err, "list warranties")
+			return
+		}
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{"warranties": rows})
+	}
+}
+
+// listWarrantiesForDevicesHandler implements GET /api/v1/warranties?deviceIds=.
+//
+// The query parameter is parsed and validated in the service, which owns the
+// "absent/empty is a 400, >500 unique ids is a 400" contract and keeps the
+// ownership filter on the SQL side. The response is the same
+// `{"warranties": [...]}` envelope as the per-device read; every row carries its
+// `deviceId` so a client can group the flat list locally.
+func listWarrantiesForDevicesHandler(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
+		rows, err := services.ListWarrantiesByDeviceIDs(ctx, deps.DB, us.UserID, r.URL.Query().Get("deviceIds"))
+		if err != nil {
+			writeDevicesErr(w, ctx, err, "list warranties for devices")
 			return
 		}
 		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{"warranties": rows})

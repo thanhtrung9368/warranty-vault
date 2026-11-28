@@ -660,6 +660,16 @@ var messages = map[string]message{
 		vi: "Mỗi thiết bị tối đa %d gói bảo hành.",
 		en: "A device can have at most %d warranties.",
 	},
+	// Batch read `GET /api/v1/warranties?deviceIds=`. The parameter is required
+	// on purpose: an absent list must not silently become "the whole account".
+	"Thiếu tham số deviceIds": {
+		vi: "Thiếu tham số deviceIds",
+		en: "Missing deviceIds parameter",
+	},
+	"Chỉ được đọc bảo hành của tối đa %d thiết bị mỗi lần": {
+		vi: "Chỉ được đọc bảo hành của tối đa %d thiết bị mỗi lần",
+		en: "At most %d devices can be read per request",
+	},
 	// Contract terms (migration 0017). The negative-value sentence is shared by
 	// cap / deductible / claimsAllowed / claimsUsed because the field key already
 	// names the number that is wrong; the over-use sentence is its own rule.

@@ -62,11 +62,13 @@ function deviceWarrantyCounts(t: Translator, devices: number, warranties: number
 
 // Money rollups are computed in-RSC from per-user reads:
 //   - `GET /v1/devices` for the device rows,
-//   - `GET /v1/devices/{id}/warranties` for each device's packages (the list
-//     projection has no `cost`, and openapi exposes no bulk warranty read),
+//   - one `GET /v1/warranties?deviceIds=` for every device's packages (the list
+//     projection has no `cost`; the client batches the ids at 200 per call),
 //   - `GET /v1/stats` for the Go-normalized subscription spend.
-// Volumes are tiny (≤50 devices, ≤5 warranties each) so an in-memory rollup
-// beats adding aggregation endpoints to Go just for the stats page.
+// The warranty read used to be one `GET /v1/devices/{id}/warranties` per device,
+// which was a real N+1: the old "≤50 devices" bound is the FREE active ceiling,
+// while Premium allows 200 active / 2,000 total rows. The in-memory rollup is
+// still the right shape — only the number of round trips changed.
 //
 // Warranty packages are attributed to the month/year of their `startDate` and
 // to the category of the device they cover — that's when the money was spent.
@@ -138,18 +140,19 @@ export default async function StatsPage({
     );
   }
 
-  const warrantyResults = await Promise.all(
-    devices.map(async (d) => ({
-      deviceId: d.id,
-      res: await api.warranties.listForDevice(d.id),
-    })),
-  );
-  const warrantiesByDevice = new Map<string, Warranty[]>(
-    warrantyResults.map((r) => [r.deviceId, r.res.ok ? r.res.data : []]),
-  );
+  // One bulk read for every device's packages instead of one request per
+  // device. `complete` carries the per-device partial-failure signal the old
+  // fan-out produced: a failed batch loses its rows but the rest still render.
+  const warrantiesRes = await api.warranties.listForDevices(devices.map((d) => d.id));
+  const warrantiesByDevice = new Map<string, Warranty[]>();
+  for (const w of warrantiesRes.ok ? warrantiesRes.data.warranties : []) {
+    const rows = warrantiesByDevice.get(w.deviceId);
+    if (rows) rows.push(w);
+    else warrantiesByDevice.set(w.deviceId, [w]);
+  }
   // A partial warranty read would silently under-report the totals (the bug
   // this page used to have), so flag it instead of hiding it.
-  const warrantiesComplete = warrantyResults.every((r) => r.res.ok);
+  const warrantiesComplete = warrantiesRes.ok && warrantiesRes.data.complete;
 
   const entries = buildSpendEntries(devices, warrantiesByDevice);
   // The frozen contract has no per-warranty `costVnd`, so the local entries only
