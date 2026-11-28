@@ -38,8 +38,8 @@ public final class StatsStore: ObservableObject {
         public var assetValue: StatsRollup.AssetValue = .zero
         public var topDevices: [Device] = []
         public var years: [Int] = []
-        /// False when at least one per-device warranty read failed, so the
-        /// money totals below may be under-reported. Mirrors the web's amber
+        /// False when at least one warranty read failed, so the money totals
+        /// below may be under-reported. Mirrors the web's amber
         /// "Không tải được gói bảo hành của một vài thiết bị" banner.
         public var warrantiesComplete: Bool = true
 
@@ -110,9 +110,10 @@ public final class StatsStore: ObservableObject {
             let claims = try? await claimsTask
 
             // Warranty packages are not part of the device list projection
-            // (only `effectiveWarrantyEnd` is), and openapi has no bulk
-            // warranty read, so fetch them per device — same as the web stats
-            // page. Volumes are tiny (≤50 devices, ≤5 packages each).
+            // (only `effectiveWarrantyEnd` is), so they are read in bulk:
+            // `GET /api/v1/warranties?deviceIds=…`, one request per 200 device
+            // ids. Per-device reads assumed ≤50 devices, but a Premium account
+            // can hold 200 active / 2,000 total, so that fan-out is not safe.
             let (warrantiesByDevice, complete) = await loadWarranties(for: devices)
 
             var snap = Snapshot()
@@ -216,38 +217,37 @@ public final class StatsStore: ObservableObject {
         }
     }
 
-    /// Fetches each device's warranty packages concurrently.
-    /// - Returns: the packages keyed by device id, plus whether every read
-    ///   succeeded (a partial read under-reports the money totals).
+    /// Device ids per `GET /api/v1/warranties` call. The server accepts 500,
+    /// but 200 keeps each request small — a Premium account can hold 200 active
+    /// / 2,000 total devices, so this is still only 1–10 calls.
+    private static let warrantyChunkSize = 200
+
+    /// Fetches every device's warranty packages in bulk, chunked by
+    /// `warrantyChunkSize` ids.
+    /// - Returns: the packages keyed by device id, plus whether every chunk
+    ///   succeeded. A failed chunk marks the read incomplete and stops the
+    ///   remaining chunks, so a partial read under-reports the money totals
+    ///   (never over-reports them).
     private func loadWarranties(
         for devices: [Device]
     ) async -> (byDevice: [String: [Warranty]], complete: Bool) {
         guard !devices.isEmpty else { return ([:], true) }
 
-        let results = await withTaskGroup(
-            of: (String, [Warranty]?).self,
-            returning: [(String, [Warranty]?)].self
-        ) { group in
-            for device in devices {
-                group.addTask { [client] in
-                    let detail = try? await client.getDevice(id: device.id)
-                    return (device.id, detail?.warranties)
-                }
-            }
-            var out: [(String, [Warranty]?)] = []
-            for await result in group { out.append(result) }
-            return out
-        }
-
+        let ids = devices.map(\.id)
         var byDevice: [String: [Warranty]] = [:]
-        var complete = true
-        for (id, warranties) in results {
-            if let warranties {
-                byDevice[id] = warranties
-            } else {
-                complete = false
+        for start in stride(from: 0, to: ids.count, by: Self.warrantyChunkSize) {
+            let end = min(start + Self.warrantyChunkSize, ids.count)
+            do {
+                let warranties = try await client.warranties(
+                    deviceIds: Array(ids[start..<end])
+                )
+                for warranty in warranties {
+                    byDevice[warranty.deviceId, default: []].append(warranty)
+                }
+            } catch {
+                return (byDevice, false)
             }
         }
-        return (byDevice, complete)
+        return (byDevice, true)
     }
 }
