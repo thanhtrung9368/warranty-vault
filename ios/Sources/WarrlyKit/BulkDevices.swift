@@ -435,6 +435,11 @@ public enum DeviceQuota {
     public static let maxActiveDevices = 50
     /// Keep in sync with `services.MAX_DEVICES_TOTAL_PER_USER`.
     public static let maxTotalDevices = 500
+    /// Warrly Premium ceilings (`services.PremiumPlan`): 200 active / 2,000 rows.
+    /// The 409 card used to print the free-tier 50 for everyone, so a Premium
+    /// account above 50 active devices was told it had hit a ceiling it had not.
+    public static let maxActiveDevicesPremium = 200
+    public static let maxTotalDevicesPremium = 2_000
 
     /// Active rows (anything but `SOLD`), the ceiling the service counts for
     /// "how many devices do I have".
@@ -445,11 +450,17 @@ public enum DeviceQuota {
     }
 
     /// The remaining allowance, clamped at zero, plus the inputs it came from.
-    public static func capacity(in devices: [Device]) -> DeviceQuotaCapacity {
+    ///
+    /// `isPremium` selects the account's real ceiling; the plan is a server fact,
+    /// so pass `PremiumStore.isPremium` rather than assuming the free tier.
+    public static func capacity(in devices: [Device],
+                               isPremium: Bool = false) -> DeviceQuotaCapacity {
         let active = activeCount(in: devices)
         let total = devices.count
-        let activeRemaining = max(0, maxActiveDevices - active)
-        let totalRemaining = max(0, maxTotalDevices - total)
+        let maxActive = isPremium ? maxActiveDevicesPremium : maxActiveDevices
+        let maxTotal = isPremium ? maxTotalDevicesPremium : maxTotalDevices
+        let activeRemaining = max(0, maxActive - active)
+        let totalRemaining = max(0, maxTotal - total)
         return DeviceQuotaCapacity(
             active: active,
             total: total,

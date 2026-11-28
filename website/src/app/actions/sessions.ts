@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache';
 import { api } from '@/lib/api';
 import type { SessionSummary } from '@/lib/api/auth';
 import { destroyAuthCookie } from '@/lib/auth-cookie';
+import { clearLocaleCookie } from '@/lib/i18n/request';
 import { getI18n } from '@/lib/i18n/server';
 import { sessionRevokeOutcome, type SessionRevokeOutcome } from '@/lib/sessions';
 
@@ -51,6 +52,11 @@ export async function revokeMySession(id: string): Promise<RevokeSessionState> {
 
   if (outcome.kind === 'current') {
     await destroyAuthCookie();
+    // Signing out of this browser also drops the language choice, exactly like
+    // logoutUser and deleteAccount do: the locale cookie is per-browser, not per
+    // account, so leaving it behind hands the next person on this machine the
+    // previous account's UI language (lib/i18n/locale.ts documents that rule).
+    await clearLocaleCookie();
     revalidatePath('/', 'layout');
     return { ok: true, kind: outcome.kind, message: outcome.message };
   }

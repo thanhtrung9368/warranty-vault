@@ -48,6 +48,7 @@ struct BulkDeviceAddView: View {
     @ObservedObject var store: DevicesStore
 
     @EnvironmentObject private var catalog: CatalogStore
+    @EnvironmentObject private var premium: PremiumStore
     /// The one-time notification rationale, offered when a batch is the first
     /// thing the account ever created (see the alert below).
     @EnvironmentObject private var push: PushRegistrar
@@ -740,7 +741,7 @@ struct BulkDeviceAddView: View {
                 // between the last list read and this rejection.
                 await store.load()
                 if store.state == .loaded || !store.devices.isEmpty {
-                    limitQuota = DeviceQuota.capacity(in: store.devices)
+                    limitQuota = DeviceQuota.capacity(in: store.devices, isPremium: premium.isPremium)
                 }
             case let .rejected(message, fieldErrors):
                 topError = fieldErrors["devices"]?.first
