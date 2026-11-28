@@ -506,10 +506,10 @@ data class Device(
      *
      * Money inside the plan is in [currency], the same unit as [purchasePrice].
      *
-     * **Read-only on Android.** There is no editor here on purpose (§6.5: the
-     * Android editor was cut from wave 1); the detail card shows the plan and
-     * points at the web app to change it. The write path is
-     * `PUT /api/v1/devices/{id}/installment`, never the device PATCH.
+     * **Editable since the Android installment editor shipped.** The detail
+     * card opens `ui/screens/devices/InstallmentEditSheet.kt`, which writes
+     * through `PUT` / `DELETE /api/v1/devices/{id}/installment` — never the
+     * device PATCH, which replaces the whole device and does not carry a plan.
      */
     val installment: InstallmentPlan? = null,
     /**
@@ -755,6 +755,44 @@ data class InstallmentPlan(
     val completed: Boolean = false,
     /** Derived: a fee is unknown, so every total is a LOWER BOUND. */
     val hasUnknownFees: Boolean = false,
+)
+
+/**
+ * Body of `PUT /api/v1/devices/{id}/installment` (openapi `InstallmentInput`).
+ *
+ * Only the fields the USER declares. `notifiedDueAt` / `notifiedLeadDay` are
+ * server-side reminder stamps for a later wave and are not writable here.
+ *
+ * Amounts are in the DEVICE's currency, the same unit as `Device.purchasePrice`.
+ * [fileFee] / [monthlyFee] are optional and `null` means **"the user did not
+ * say"**, not zero — an unknown fee makes the derived total a lower bound
+ * (`InstallmentPlan.hasUnknownFees`). `ApiClient.json` has
+ * `explicitNulls = false`, so a null optional field is omitted from the body;
+ * the contract treats absent and explicit `null` alike for these fields.
+ *
+ * `months` is 1–60, `monthlyAmount` > 0, `paidCount` 0…`months`, the amounts are
+ * ≥ 0, `firstDueAt` is a required calendar day and `lender` is ≤ 100
+ * characters. The server is the authority and answers 400 `fieldErrors` when a
+ * rule is broken; the sheet mirrors the same rules for the fields it can check.
+ */
+@Serializable
+data class InstallmentInput(
+    /** Paid at signing, in the device's currency. `0` is a real answer. */
+    val downPayment: Int = 0,
+    /** Number of monthly payments, 1..60. */
+    val months: Int = 0,
+    /** Scheduled payment per month, > 0. */
+    val monthlyAmount: Int = 0,
+    /** Calendar day (`YYYY-MM-DD`) the FIRST payment is due — never an instant. */
+    val firstDueAt: String = "",
+    /** One-off fee; `null` = not recorded, NOT zero. */
+    val fileFee: Int? = null,
+    /** Per-payment fee; same `null` rule. */
+    val monthlyFee: Int? = null,
+    /** Payments the user says they made, 0..[months]. */
+    val paidCount: Int = 0,
+    /** Who financed it, free text ≤ 100 characters. `null` = not recorded. */
+    val lender: String? = null,
 )
 
 @Serializable

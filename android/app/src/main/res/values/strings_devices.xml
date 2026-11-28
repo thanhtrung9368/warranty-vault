@@ -156,8 +156,9 @@
     <string name="devdetail_sale_price">Sale price</string>
     <string name="devdetail_profit_loss">Profit/loss</string>
     <!-- Installment plan (FEATURE_RESEARCH_2026-11 §6.5, migration 0031).
-         Read-only on Android: the plan is edited on the web only. The wording
-         never says a payment is late — `paidCount` is self-reported. -->
+         Recorded and edited from the detail card's sheet, which writes through
+         PUT/DELETE /devices/{id}/installment. The wording never says a payment
+         is late — `paidCount` is self-reported. -->
     <string name="devdetail_installment">Installments</string>
     <string name="devdetail_installment_progress">Paid %1$d/%2$d payments</string>
     <string name="devdetail_installment_per_period">month</string>
@@ -167,7 +168,26 @@
     <string name="devdetail_installment_next_due">Next payment</string>
     <string name="devdetail_installment_lender">Lender</string>
     <string name="devdetail_installment_unknown_fees">The fees are not recorded, so the total is a lower bound.</string>
-    <string name="devdetail_installment_edit_on_web">Edit on the web</string>
+    <string name="devdetail_installment_add">Record a plan</string>
+    <string name="devdetail_installment_edit">Edit plan</string>
+    <string name="devdetail_installment_none">No installment plan is recorded. Record one so ownership cost, resale profit/loss and statistics count the money you actually pay.</string>
+    <string name="devdetail_installment_delete">Delete installment plan</string>
+    <string name="devdetail_installment_delete_title">Delete the installment plan?</string>
+    <string name="devdetail_installment_delete_body">This cannot be undone. The money figures go back to the purchase price at the locked rate.</string>
+    <string name="devdetail_installment_down_payment">Down payment (%1$s)</string>
+    <string name="devdetail_installment_months">Number of payments (months)</string>
+    <string name="devdetail_installment_monthly_amount">Payment per month (%1$s)</string>
+    <string name="devdetail_installment_first_due">First due day (YYYY-MM-DD)</string>
+    <string name="devdetail_installment_file_fee">File fee (%1$s)</string>
+    <string name="devdetail_installment_monthly_fee">Monthly fee (%1$s)</string>
+    <string name="devdetail_installment_paid_count">Paid (payments)</string>
+    <string name="devdetail_installment_fee_hint">A blank fee means “not recorded”, not 0. When a fee is missing, the total is only a lower bound.</string>
+    <string name="devdetail_installment_fee_placeholder">Not known — leave blank</string>
+    <string name="devdetail_installment_currency_note">Amounts are in the device currency (%1$s).</string>
+    <string name="devdetail_installment_months_invalid">Number of payments must be between 1 and 60.</string>
+    <string name="devdetail_installment_monthly_amount_invalid">Payment per month must be greater than 0.</string>
+    <string name="devdetail_installment_paid_count_invalid">Payments made must be between 0 and the number of payments.</string>
+    <string name="devdetail_installment_first_due_invalid">Enter the first due day as YYYY-MM-DD.</string>
     <string name="devdetail_reminder_turned_off">Reminder turned off</string>
     <string name="devdetail_starts">Starts</string>
     <string name="devdetail_ends">Ends</string>

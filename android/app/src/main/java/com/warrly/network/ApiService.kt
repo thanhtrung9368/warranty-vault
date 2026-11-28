@@ -185,6 +185,37 @@ interface ApiService {
     @DELETE("api/v1/devices/{id}")
     suspend fun deleteDevice(@Path("id") id: String): OkResponse
 
+    /**
+     * `PUT /api/v1/devices/{id}/installment` — save (or replace) the plan.
+     *
+     * **Idempotent**: the plan is keyed by device id, so a repeated identical
+     * call writes the same row. The answer is the full device read, so
+     * [Device.installment] and [Device.ownershipCostVnd] come back already
+     * recomputed — the caller does not re-derive a total (the server owns the
+     * month-clamp rule and the unknown-fee lower bound).
+     *
+     * This is the ONLY write path for the plan; it is deliberately not part of
+     * [updateDevice], whose PATCH replaces the whole device and would erase a
+     * plan it does not send. Validation failures arrive as 400 `fieldErrors`
+     * for [InstallmentInput] fields (`months`, `monthlyAmount`, `paidCount`,
+     * `firstDueAt`, …), already rendered in the request's language.
+     */
+    @PUT("api/v1/devices/{id}/installment")
+    suspend fun saveInstallment(
+        @Path("id") id: String,
+        @Body body: InstallmentInput,
+    ): DeviceResponse
+
+    /**
+     * `DELETE /api/v1/devices/{id}/installment` — remove the plan.
+     *
+     * **Idempotent**: a device with no plan still answers 200 (the requested end
+     * state holds). The answer is the device read, now back on the
+     * `purchasePrice` / `purchasePriceVnd` money basis.
+     */
+    @DELETE("api/v1/devices/{id}/installment")
+    suspend fun deleteInstallment(@Path("id") id: String): DeviceResponse
+
     // ---- Warranties ----
     @POST("api/v1/devices/{id}/warranties")
     suspend fun createWarranty(
