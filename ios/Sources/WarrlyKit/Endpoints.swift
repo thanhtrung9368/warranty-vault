@@ -125,9 +125,20 @@ extension APIClient {
 
     // MARK: - Backup
 
-    /// Downloads the full account backup as raw JSON bytes (v5 payload).
-    public func exportBackup() async throws -> Data {
-        try await rawDataRequest("GET", "/api/v1/backup/export")
+    /// Downloads the full account backup as raw bytes.
+    ///
+    /// `includeBlobs` (default `true`) asks for the **.zip** shape
+    /// (`includeBlobs=true`): the same v6 document plus every encrypted
+    /// attachment blob, so receipt images travel with the backup. Passing
+    /// `false` keeps the metadata-only v5 JSON. The server decides the shape
+    /// from the query flag alone, so the `Accept` header follows the flag to
+    /// describe what is actually coming back.
+    public func exportBackup(includeBlobs: Bool = true) async throws -> Data {
+        try await rawDataRequest(
+            "GET", "/api/v1/backup/export",
+            query: includeBlobs ? [.init(name: "includeBlobs", value: "true")] : [],
+            accept: includeBlobs ? "application/zip" : "application/json"
+        )
     }
 
     /// Imports a previously-exported backup file. `mode` is "merge" or "replace".

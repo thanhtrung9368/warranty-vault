@@ -288,7 +288,9 @@ struct InsurancePackSheet: View {
 /// deterministic "sharing finished" callback so it can be deleted. `ShareLink`
 /// provides none, and cleanup on `onDisappear` can remove the file while the
 /// receiving app is still copying it.
-private struct ActivityView: UIViewControllerRepresentable {
+///
+/// Shared with `SettingsView`, which hands the .zip backup to the same sheet.
+struct ActivityView: UIViewControllerRepresentable {
     let activityItems: [Any]
     let onComplete: () -> Void
 
