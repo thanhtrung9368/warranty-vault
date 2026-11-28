@@ -6,6 +6,8 @@ import { OfflineCacheCleaner } from '@/components/offline-cache-cleaner';
 import { AppBadge } from '@/components/app-badge';
 import { WarrlyLockup } from '@/components/brand';
 import { ConsentBanner, ConsentSettingsLink } from '@/components/consent/consent-banner';
+import { I18nProvider } from '@/lib/i18n/client';
+import { authCatalog } from '@/lib/i18n/messages/bundles';
 import { getI18n } from '@/lib/i18n/server';
 
 // Same reasoning as `(app)/layout.tsx`: a sign-in form is not a duplicate of
@@ -31,22 +33,23 @@ export default async function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { t } = await getI18n();
+  const { locale, t } = await getI18n();
   return (
-    <div className="auth-gradient flex min-h-screen flex-col">
-      {/* A signed-out browser must not keep the previous account's cached
-          device pages. Covers sign-out redirects and expired sessions. */}
-      <OfflineCacheCleaner />
-      {/* …and it must not keep yesterday's "2 deadlines due" icon badge either.
-          There is no reminders read on these pages, so the honest count is 0. */}
-      <AppBadge count={0} />
-      <header className="flex items-center justify-between gap-3 px-4 py-5 md:px-8">
-        <Link href="/" aria-label="Warrly" className="inline-flex">
-          <WarrlyLockup height={40} />
-        </Link>
-        <div className="flex items-center gap-2">
-          <LocaleSwitcher variant="compact" />
-          <ThemeToggle />
+    <I18nProvider locale={locale} catalog={authCatalog}>
+      <div className="auth-gradient flex min-h-screen flex-col">
+        {/* A signed-out browser must not keep the previous account's cached
+            device pages. Covers sign-out redirects and expired sessions. */}
+        <OfflineCacheCleaner />
+        {/* …and it must not keep yesterday's "2 deadlines due" icon badge either.
+            There is no reminders read on these pages, so the honest count is 0. */}
+        <AppBadge count={0} />
+        <header className="flex items-center justify-between gap-3 px-4 py-5 md:px-8">
+          <Link href="/" aria-label="Warrly" className="inline-flex">
+            <WarrlyLockup height={40} />
+          </Link>
+          <div className="flex items-center gap-2">
+            <LocaleSwitcher variant="compact" />
+            <ThemeToggle />
         </div>
       </header>
       <main className="flex flex-1 items-center justify-center px-4 pb-12">
@@ -67,6 +70,7 @@ export default async function AuthLayout({
         </nav>
       </footer>
       <ConsentBanner />
-    </div>
+      </div>
+    </I18nProvider>
   );
 }

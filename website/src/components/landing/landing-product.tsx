@@ -4,9 +4,9 @@ import { Bell, Paperclip, Plus, ShieldCheck } from 'lucide-react';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { WarrlyMark } from '@/components/brand';
 import { formatDay } from '@/lib/api-day';
-import { warrantyStateFromDays } from '@/lib/warranty-state';
+import { warrantyStateFromDaysWith } from '@/lib/warranty-state-core';
 import { useLocale, useT } from '@/lib/i18n/client';
-import { leadDaysLabel } from '@/lib/lead-days';
+import { leadDaysLabelWith } from '@/lib/lead-days-label';
 import { cn } from '@/lib/utils';
 
 /**
@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
  * arithmetic happens ONCE, on the server (`page.tsx` → `daysBetween`), and
  * arrives as a calendar day (`YYYY-MM-DD`) plus its day count. `formatDay` on
  * a bare day is a pure string slice (`api-day.ts`) and the count-to-label
- * mapping is `warrantyStateFromDays`; neither reads the clock or the timezone.
+ * mapping is `warrantyStateFromDaysWith`; neither reads the clock or the timezone.
  *
  * The whole thing is decorative (`aria-hidden`): the hero's H1 and subhead
  * carry the meaning, and the pinned stage repeats the same information in its
@@ -44,8 +44,8 @@ type LandingProductProps = {
 };
 
 function CountdownPill({ daysLeft }: { daysLeft: number }) {
-  const locale = useLocale();
-  const state = warrantyStateFromDays(daysLeft, locale);
+  const t = useT();
+  const state = warrantyStateFromDaysWith(t, daysLeft);
   return (
     <span className="wv-warranty-pill" data-status={state.tone}>
       <span className="dot" />
@@ -99,7 +99,7 @@ export function LandingProduct({ shot, className }: LandingProductProps) {
         <div className="min-w-0">
           <p className="wv-product-toast-title">{t('Máy giặt / Sấy sắp hết bảo hành.')}</p>
           <p className="wv-product-toast-meta">
-            {leadDaysLabel([30, 7], locale)}
+            {leadDaysLabelWith(t, [30, 7])}
           </p>
         </div>
       </div>

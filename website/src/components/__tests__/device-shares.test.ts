@@ -30,6 +30,7 @@ vi.mock('@/app/actions/shares', () => ({
 import { CreatedSharePanel, ShareRow } from '@/components/device-shares';
 import { Dialog } from '@/components/ui/dialog';
 import { I18nProvider } from '@/lib/i18n/client';
+import { allMessages } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
 import type { CreatedDeviceShare, DeviceShare } from '@/lib/api/shares';
 import { SHARE_ACK_LABEL, SHARE_CLOSE_BLOCKED_HINT, SHARE_ONE_TIME_WARNING } from '@/lib/share-links';
@@ -50,7 +51,7 @@ function renderVi(element: React.ReactElement): string {
   return renderToStaticMarkup(
     React.createElement(
       I18nProvider,
-      { locale: VI } as React.Attributes & { locale: Locale; children: React.ReactNode },
+      { locale: VI, catalog: allMessages() } as React.Attributes & { locale: Locale; catalog: ReturnType<typeof allMessages>; children: React.ReactNode },
       element,
     ),
   );

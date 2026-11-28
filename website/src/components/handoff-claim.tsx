@@ -8,10 +8,10 @@ import { Button } from '@/components/ui/button';
 import { claimHandoff } from '@/app/actions/handoff';
 import { useLocale, useT } from '@/lib/i18n/client';
 import {
-  handoffFailureBody,
-  handoffFailureTitle,
+  HANDOFF_FAILURE_BODIES,
+  HANDOFF_FAILURE_TITLES,
   type HandoffFailureReason,
-} from '@/lib/handoff';
+} from '@/lib/handoff-failure';
 import { withNext } from '@/lib/next-path';
 
 type ClaimResult = { deviceId: string; deviceName: string };
@@ -52,7 +52,7 @@ export function HandoffClaim({ code }: { code: string }) {
       toast.error(t('Không nhận được thiết bị. Thử lại sau.'));
       setFailure({
         reason: 'error',
-        message: handoffFailureBody('error', locale),
+        message: t(HANDOFF_FAILURE_BODIES.error),
       });
     } finally {
       setPending(false);
@@ -92,7 +92,7 @@ export function HandoffClaim({ code }: { code: string }) {
       <div className="space-y-3 rounded-2xl border-[1.5px] border-destructive/40 bg-destructive-soft p-5 text-destructive-ink">
         <p className="flex items-center gap-2 font-display text-lg font-bold">
           <AlertTriangle className="h-5 w-5" />
-          {handoffFailureTitle(failure.reason, locale)}
+          {t(HANDOFF_FAILURE_TITLES[failure.reason])}
         </p>
         <p className="text-sm leading-relaxed">{failure.message}</p>
         {failure.reason === 'auth' && (

@@ -23,22 +23,32 @@
 //      never sit on the click path. It is what makes the preference survive a
 //      reload and what the NEXT server render resolves from.
 //
-// ── Why "both catalogs" costs nothing ─────────────────────────────────────
+// ── What this module deliberately does NOT import ─────────────────────────
 //
-// A `Message` (see `types.ts`) already carries BOTH columns, `vi` and `en`, and
-// is keyed by the Vietnamese original. The merged map in `messages/index.ts` is
-// therefore the Vietnamese catalog AND the English catalog at once; the
-// directory `translate(locale, key)` picks the column. The provider is seeded
-// with the SSR locale so the first render cannot disagree with the server, and
-// switching is just a different column of data that is ALREADY in this bundle
-// (`client.tsx` → `catalog.ts` → `messages`). No second catalog is shipped, and
-// nothing is fetched on the click.
+// This file used to import `./catalog`, which imports the merged message map,
+// which imports every domain file. Because the root layout mounts a provider on
+// EVERY route, that made the ~80 KB (gzip) signed-in catalog part of the first
+// load of `/` and `/login` — settings, claims, handoff and device-form copy a
+// visitor can never see on those pages.
 //
-// That is also why the switch is cheap for the server: the click requests
-// nothing, so it costs nothing per click.
+// The provider therefore takes `catalog` as a prop; the layout that owns the
+// subtree resolves the right bundle on the server (`messages/bundles.ts` for
+// the public/auth surfaces, the full map for `(app)`) and passes it down. The
+// translation mechanics live in `./translate`, which imports only types and
+// locale primitives, so importing this file cannot pull the dictionary back in.
+//
+// A `Message` (see `types.ts`) still carries BOTH columns, `vi` and `en`, and
+// is keyed by the Vietnamese original, so one bundle is the Vietnamese catalog
+// AND the English catalog at once. Switching is a different column of data that
+// is already in the provider's prop — no second catalog, no fetch, no request.
+//
+// A nested provider MERGES its catalog over the one it inherited. That is what
+// lets the root carry `common` and a group layout carry only its extra domains,
+// instead of every layout having to repeat `common`.
 
 import * as React from 'react';
-import { translatorFor, type Translator } from './catalog';
+import { translatorForCatalog } from './translate';
+import type { Catalog, Translator } from './types';
 import {
   DEFAULT_LOCALE,
   LOCALE_COOKIE,
@@ -54,6 +64,30 @@ export type LocaleSwitch = (locale: Locale) => void;
 
 const LocaleContext = React.createContext<Locale>(DEFAULT_LOCALE);
 const LocaleSwitchContext = React.createContext<LocaleSwitch | null>(null);
+
+/**
+ * The messages this subtree may translate with.
+ *
+ * Empty by default: a component rendered outside a provider (an isolated test,
+ * a story) falls back to the Vietnamese key rather than throwing. Every route
+ * mounts a provider, so a real page never sees the empty default.
+ */
+const CatalogContext = React.createContext<Catalog>({});
+
+/**
+ * The catalog handed to this subtree, with every inherited entry under it.
+ *
+ * A group layout passes only what the group adds (the root already holds the
+ * shared vocabulary); a `common`-less bundle therefore still resolves the
+ * shell's strings through its parent.
+ */
+function useMergedCatalog(catalog: Catalog): Catalog {
+  const inherited = React.useContext(CatalogContext);
+  return React.useMemo(
+    () => ({ ...inherited, ...catalog }),
+    [inherited, catalog],
+  );
+}
 
 /**
  * Broadcast a locale change to every provider on the page.
@@ -72,11 +106,15 @@ function broadcastLocale(locale: Locale): void {
 
 export function I18nProvider({
   locale,
+  catalog,
   children,
 }: {
   locale: Locale;
+  /** The route bundle for this subtree (see `messages/bundles.ts`). */
+  catalog: Catalog;
   children: React.ReactNode;
 }) {
+  const messages = useMergedCatalog(catalog);
   // The read-only provider still has to FOLLOW an in-place switch. Without
   // this, a reader who switches to Vietnamese on the landing and then clicks
   // "Đăng ký" would land on a server-rendered Vietnamese page whose CLIENT
@@ -92,7 +130,11 @@ export function I18nProvider({
     window.addEventListener(LOCALE_CHANGE_EVENT, onChange);
     return () => window.removeEventListener(LOCALE_CHANGE_EVENT, onChange);
   }, []);
-  return <LocaleContext.Provider value={active}>{children}</LocaleContext.Provider>;
+  return (
+    <CatalogContext.Provider value={messages}>
+      <LocaleContext.Provider value={active}>{children}</LocaleContext.Provider>
+    </CatalogContext.Provider>
+  );
 }
 
 /**
@@ -145,11 +187,15 @@ function readLocaleCookie(): Locale | null {
  */
 export function InstantI18nProvider({
   locale: initialLocale,
+  catalog,
   children,
 }: {
   locale: Locale;
+  /** The landing/legal bundle resolved by the server component that owns it. */
+  catalog: Catalog;
   children: React.ReactNode;
 }) {
+  const messages = useMergedCatalog(catalog);
   const [locale, setLocale] = React.useState<Locale>(initialLocale);
 
   const switchLocale = React.useCallback<LocaleSwitch>((next) => {
@@ -207,9 +253,11 @@ export function InstantI18nProvider({
   }, []);
 
   return (
-    <LocaleSwitchContext.Provider value={switchLocale}>
-      <LocaleContext.Provider value={locale}>{children}</LocaleContext.Provider>
-    </LocaleSwitchContext.Provider>
+    <CatalogContext.Provider value={messages}>
+      <LocaleSwitchContext.Provider value={switchLocale}>
+        <LocaleContext.Provider value={locale}>{children}</LocaleContext.Provider>
+      </LocaleSwitchContext.Provider>
+    </CatalogContext.Provider>
   );
 }
 
@@ -224,10 +272,11 @@ export function useLocale(): Locale {
   return React.useContext(LocaleContext);
 }
 
-/** The bound translator for the active locale. */
+/** The bound translator for the active locale and this subtree's catalog. */
 export function useT(): Translator {
   const locale = useLocale();
-  return React.useMemo(() => translatorFor(locale), [locale]);
+  const catalog = React.useContext(CatalogContext);
+  return React.useMemo(() => translatorForCatalog(catalog, locale), [catalog, locale]);
 }
 
 /**

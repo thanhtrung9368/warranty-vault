@@ -18,6 +18,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { BrandWarrantyNote } from '@/components/brand-warranty-note';
 import { I18nProvider } from '@/lib/i18n/client';
+import { allMessages } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
 import type { BrandWarrantyAnswerSource } from '@/lib/brand-warranty';
 
@@ -27,7 +28,7 @@ function renderVi(device: BrandWarrantyAnswerSource): string {
   return renderToStaticMarkup(
     React.createElement(
       I18nProvider,
-      { locale: VI } as React.Attributes & { locale: Locale; children: React.ReactNode },
+      { locale: VI, catalog: allMessages() } as React.Attributes & { locale: Locale; catalog: ReturnType<typeof allMessages>; children: React.ReactNode },
       React.createElement(BrandWarrantyNote, { device }),
     ),
   );

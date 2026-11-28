@@ -23,6 +23,7 @@ import { describe, expect, it } from 'vitest';
 import { ImportResultPanel } from '@/components/import-result-panel';
 import { describeImportResult, type ImportSummary } from '@/lib/backup-media';
 import { I18nProvider } from '@/lib/i18n/client';
+import { allMessages } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
 
 const VI_WARNING =
@@ -52,7 +53,7 @@ function render(summary: ImportSummary | null, locale: Locale): string {
   return renderToStaticMarkup(
     React.createElement(
       I18nProvider,
-      { locale } as React.Attributes & { locale: Locale; children: React.ReactNode },
+      { locale, catalog: allMessages() } as React.Attributes & { locale: Locale; catalog: ReturnType<typeof allMessages>; children: React.ReactNode },
       React.createElement(ImportResultPanel, { summary }),
     ),
   );
