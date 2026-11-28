@@ -6,4 +6,10 @@
          document, not a decrypted receipt blob, and each feature keeping its own
          directory makes it obvious what the FileProvider can expose. -->
     <cache-path name="insurance_pack" path="insurance-pack/" />
+    <!-- Backup ZIP (backup/BackupShare.kt). `GET /api/v1/backup/export?
+         includeBlobs=true` streams the document plus every encrypted receipt
+         blob; the archive is written here and shared through this same
+         provider. Declared separately so the provider never gains a broader
+         cache root. -->
+    <cache-path name="backup" path="backup/" />
 </paths>

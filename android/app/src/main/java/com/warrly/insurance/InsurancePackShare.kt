@@ -1,15 +1,11 @@
 package com.warrly.insurance
 
-import android.content.ActivityNotFoundException
-import android.content.ClipData
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
-import android.util.Log
-import androidx.core.content.FileProvider
 import com.warrly.MainActivity
 import com.warrly.R
 import com.warrly.network.ApiService
+import com.warrly.share.shareOutgoingFile
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -109,44 +105,21 @@ private suspend fun downloadInsurancePack(
  * the user tap a button that does nothing.
  */
 private fun shareInsurancePack(context: Context, file: File) {
-    val authority = "${context.packageName}.fileprovider"
-    val uri = FileProvider.getUriForFile(context, authority, file)
-
-    val send = Intent(Intent.ACTION_SEND).apply {
-        type = INSURANCE_PACK_MIME
-        putExtra(Intent.EXTRA_STREAM, uri)
+    shareOutgoingFile(
+        context = context,
+        file = file,
+        mimeType = INSURANCE_PACK_MIME,
         // The subject is Vietnamese in BOTH app languages: like the PDF itself,
         // it is read by the insurer, who never chose a language in this app.
-        putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.insurance_pack_share_subject))
-        // Some apps only accept the URI from the clip data; the grant flag then
-        // travels with the chooser.
-        clipData = ClipData.newRawUri(file.name, uri)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-
-    val chooser = Intent.createChooser(
-        send,
-        context.getString(R.string.insurance_pack_chooser_title),
-    ).apply {
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        subject = context.getString(R.string.insurance_pack_share_subject),
+        chooserTitle = context.getString(R.string.insurance_pack_chooser_title),
+        noTargetMessage = context.getString(R.string.insurance_pack_error_no_target),
         // The manifest declares this app as an ACTION_SEND/application/pdf
         // target. Exclude it by component so the generated pack cannot loop back
         // into the receipt inbox. It is the only share target activity the app
         // declares, so naming it directly is exact and needs no
         // queryIntentActivities() (and no broader package visibility).
-        putExtra(
-            Intent.EXTRA_EXCLUDE_COMPONENTS,
-            arrayOf(ComponentName(context, MainActivity::class.java)),
-        )
-    }
-
-    try {
-        context.startActivity(chooser)
-    } catch (e: ActivityNotFoundException) {
-        Log.w("InsurancePack", "no app can receive a PDF", e)
-        throw IllegalStateException(
-            context.getString(R.string.insurance_pack_error_no_target),
-            e,
-        )
-    }
+        excludedComponents = arrayOf(ComponentName(context, MainActivity::class.java)),
+        logTag = "InsurancePack",
+    )
 }
