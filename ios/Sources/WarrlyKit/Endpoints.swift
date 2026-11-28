@@ -288,6 +288,28 @@ extension APIClient {
 
     // MARK: - Warranties
 
+    /// `GET /api/v1/warranties?deviceIds=id1,id2,…` — the warranty packages of
+    /// several devices in one read.
+    ///
+    /// The stats screen uses this instead of one `getDevice(id:)` per device.
+    /// The envelope is `{"warranties": [...]}` and every row carries the same
+    /// fields as the per-device response **plus its `deviceId`**, which
+    /// `Warranty` already models (openapi marks it required), so callers can
+    /// group the flat list by `deviceId` without a second lookup.
+    ///
+    /// Contract edges: at most **500** ids per call, a normal bearer, and an
+    /// empty/absent `deviceIds` is a `400` — send at least one id and chunk
+    /// longer lists (`StatsStore` chunks at 200). Ids are comma-joined in one
+    /// query value; `URLQueryItem` percent-encodes anything that needs it.
+    public func warranties(deviceIds: [String]) async throws -> [Warranty] {
+        struct Wrapper: Decodable { let warranties: [Warranty] }
+        let w: Wrapper = try await request(
+            "GET", "/api/v1/warranties",
+            query: [.init(name: "deviceIds", value: deviceIds.joined(separator: ","))]
+        )
+        return w.warranties
+    }
+
     /// Creates a warranty on a device.
     ///
     /// The whole contract-terms block rides in the same `WarrantyInput` body:
