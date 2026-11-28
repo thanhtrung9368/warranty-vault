@@ -36,9 +36,9 @@ enum AIOptInSurface {
     static let isVisible = true
 }
 
-/// Single-file wrapper for `.fileExporter`: the one export mechanism in the
-/// app. Used by the JSON backup ("Sao lưu (xuất JSON)") and by the device CSV
-/// export in Thêm ("Xuất dữ liệu CSV").
+/// Single-file wrapper for `.fileExporter`: the one save-sheet mechanism in the
+/// app. Used by the device CSV export in Thêm ("Xuất dữ liệu CSV"); the backup
+/// is now a .zip handed to the system share sheet instead (see `exportBackup`).
 struct ExportFileDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.json, .commaSeparatedText] }
     var data: Data
@@ -218,10 +218,17 @@ struct SettingsView: View {
 
     // Backup export / import.
     @State private var backupBusy = false
-    @State private var exportDoc: ExportFileDocument?
-    @State private var showExporter = false
+    /// One share-sheet presentation of the exported .zip. Identifiable so a
+    /// second export gets a fresh presentation instead of reusing the URL that
+    /// the previous completion handler has just deleted.
+    @State private var backupShare: BackupShare?
     @State private var showImporter = false
     @State private var backupMessage: String?
+
+    private struct BackupShare: Identifiable {
+        let id = UUID()
+        let url: URL
+    }
 
     // Insurance PDF pack (account-wide, always Vietnamese).
     @State private var showInsurancePack = false
@@ -295,7 +302,7 @@ struct SettingsView: View {
                 }
 
                 dataSection
-                WVSectionFooter(L.t("File backup chứa dữ liệu nhạy cảm (số seri, giá mua, trung tâm BH). Lưu ở nơi an toàn."))
+                WVSectionFooter(L.t("File backup .zip chứa cả ảnh hoá đơn — ảnh đã được máy chủ mã hoá. Khôi phục sang máy chủ khác cần đúng khoá chủ (FILE_MASTER_KEY) của máy chủ đã xuất file; thiếu hoặc sai khoá thì ảnh vẫn được khôi phục nhưng không mở được. File cũng chứa dữ liệu nhạy cảm (số seri, giá mua, trung tâm BH) — lưu ở nơi an toàn."))
 
                 // Privacy options. Deliberately conditional: when UMP does not
                 // require a privacy options form there must be nothing here at
@@ -358,13 +365,16 @@ struct SettingsView: View {
             isBusy: $backupBusy,
             message: $backupMessage
         )
-        .fileExporter(
-            isPresented: $showExporter,
-            document: exportDoc,
-            contentType: .json,
-            defaultFilename: "warrly-backup"
-        ) { result in
-            if case .failure = result { backupMessage = L.t("Không lưu được file backup.") }
+        // The .zip is a real file on disk: the extension is what carries the
+        // `public.zip-archive` type through AirDrop/Files, so a ZIP shared as
+        // "warrly-backup-2026-01-31.zip" arrives as a ZIP, not as an unknown
+        // blob. The activity view's completion handler is the signal that the
+        // receiving app is done with the file, and only then is it deleted.
+        .sheet(item: $backupShare) { share in
+            ActivityView(activityItems: [share.url]) {
+                try? FileManager.default.removeItem(at: share.url)
+                backupShare = nil
+            }
         }
         .alert(L.t("Sao lưu"), isPresented: Binding(
             get: { backupMessage != nil },
@@ -475,18 +485,51 @@ struct SettingsView: View {
 
     // MARK: - Backup actions
 
+    /// Downloads the blob-carrying backup (`GET /api/v1/backup/export?includeBlobs=true`)
+    /// and hands the .zip to the system share sheet. Nothing is written until
+    /// the whole archive has arrived, so a failed request leaves no partial
+    /// file behind; the row is re-enabled by `defer` on every path.
     private func exportBackup() {
         backupBusy = true
         Task {
             defer { backupBusy = false }
             do {
                 let data = try await client.exportBackup()
-                exportDoc = ExportFileDocument(data: data)
-                showExporter = true
+                do {
+                    let url = try writeBackupArchive(data)
+                    backupShare = BackupShare(url: url)
+                } catch {
+                    backupMessage = L.t("Không lưu được file backup.")
+                }
             } catch {
                 backupMessage = L.t("Không xuất được dữ liệu.")
             }
         }
+    }
+
+    /// Writes the server's .zip bytes to `warrly-backup-<yyyy-MM-dd>.zip` in the
+    /// temp directory. The name is the one the share sheet shows and the one
+    /// AirDrop keeps; the extension is the only thing that gives the recipient
+    /// the `public.zip-archive` type, so it must never be dropped.
+    ///
+    /// An explicit Gregorian calendar keeps the date a normal year on a device
+    /// whose region uses a non-Gregorian calendar (same rule as
+    /// `InsurancePackRules.filename`).
+    private func writeBackupArchive(
+        _ data: Data,
+        on date: Date = Date(),
+        timeZone: TimeZone = .current
+    ) throws -> URL {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let parts = calendar.dateComponents([.year, .month, .day], from: date)
+        let name = String(
+            format: "warrly-backup-%04d-%02d-%02d.zip",
+            parts.year ?? 0, parts.month ?? 0, parts.day ?? 0
+        )
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        try data.write(to: url, options: .atomic)
+        return url
     }
 
     // MARK: - AI section
@@ -765,8 +808,8 @@ struct SettingsView: View {
             WVRow(icon: "download",
                   iconColor: WVColor.blue,
                   tintedIcon: true,
-                  title: backupBusy ? L.t("Đang xử lý…") : L.t("Sao lưu (xuất JSON)"),
-                  subtitle: L.t("Tải toàn bộ dữ liệu về file JSON"),
+                  title: backupBusy ? L.t("Đang xử lý…") : L.t("Sao lưu (xuất ZIP)"),
+                  subtitle: L.t("Tải toàn bộ dữ liệu kèm ảnh hoá đơn về file ZIP"),
                   chevron: true) {
                 guard !backupBusy else { return }
                 exportBackup()

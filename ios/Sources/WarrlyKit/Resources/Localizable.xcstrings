@@ -5725,19 +5725,19 @@
         }
       }
     },
-    "File backup chứa dữ liệu nhạy cảm (số seri, giá mua, trung tâm BH). Lưu ở nơi an toàn.": {
+    "File backup .zip chứa cả ảnh hoá đơn — ảnh đã được máy chủ mã hoá. Khôi phục sang máy chủ khác cần đúng khoá chủ (FILE_MASTER_KEY) của máy chủ đã xuất file; thiếu hoặc sai khoá thì ảnh vẫn được khôi phục nhưng không mở được. File cũng chứa dữ liệu nhạy cảm (số seri, giá mua, trung tâm BH) — lưu ở nơi an toàn.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A backup file holds sensitive data (serial numbers, purchase prices, service centres). Keep it somewhere safe."
+            "value": "A .zip backup contains receipt images too — already encrypted by the server. Restoring onto another server needs the same master key (FILE_MASTER_KEY) that exported the file; if the key is missing or wrong, the images are restored but cannot be opened. The file also holds sensitive data (serial numbers, purchase prices, service centres) — keep it somewhere safe."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "File backup chứa dữ liệu nhạy cảm (số seri, giá mua, trung tâm BH). Lưu ở nơi an toàn."
+            "value": "File backup .zip chứa cả ảnh hoá đơn — ảnh đã được máy chủ mã hoá. Khôi phục sang máy chủ khác cần đúng khoá chủ (FILE_MASTER_KEY) của máy chủ đã xuất file; thiếu hoặc sai khoá thì ảnh vẫn được khôi phục nhưng không mở được. File cũng chứa dữ liệu nhạy cảm (số seri, giá mua, trung tâm BH) — lưu ở nơi an toàn."
           }
         }
       }
@@ -14543,19 +14543,19 @@
         }
       }
     },
-    "Sao lưu (xuất JSON)": {
+    "Sao lưu (xuất ZIP)": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Back up (export JSON)"
+            "value": "Back up (export ZIP)"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sao lưu (xuất JSON)"
+            "value": "Sao lưu (xuất ZIP)"
           }
         }
       }
@@ -23295,19 +23295,19 @@
         }
       }
     },
-    "Tải toàn bộ dữ liệu về file JSON": {
+    "Tải toàn bộ dữ liệu kèm ảnh hoá đơn về file ZIP": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Download all your data as a JSON file"
+            "value": "Download all your data, receipt images included, as a ZIP file"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tải toàn bộ dữ liệu về file JSON"
+            "value": "Tải toàn bộ dữ liệu kèm ảnh hoá đơn về file ZIP"
           }
         }
       }
